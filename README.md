@@ -4,7 +4,7 @@ Este é o seu app, criado pelo Virgílio com a rede de segurança já no lugar.
 
 ## O que já vem pronto
 
-- Login por e-mail e senha, pelo Supabase.
+- Entrada sem senha: o professor digita o e-mail e recebe um código de 6 números, pelo Supabase. O e-mail sai pela Resend com a cara do Quitô (modelo em `supabase/templates/codigo-de-entrada.html`).
 - Uma tabela de exemplo, `notes`, em que cada pessoa só vê o que é dela.
 - Dois bancos: um de ensaio, que o seu computador usa, e um de produção,
   que os seus usuários usam.
