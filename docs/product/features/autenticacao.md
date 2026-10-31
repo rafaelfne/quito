@@ -1,5 +1,5 @@
 # Autenticação
-<!-- virgilio:feature stage=open -->
+<!-- virgilio:feature id=autenticacao stage=building epic=4 -->
 
 ## O que é
 
@@ -32,3 +32,8 @@ O jeito de o professor entrar no Quitô sem senha: ele digita o e-mail e recebe 
 
 - Parte de quem começa a entrar e termina dentro do app, olhando iPhone e Android separados. A meta inicial é 90%.
 - Parte dos professores que pedem ajuda ao suporte por causa da entrada. A meta é menos de 5%.
+
+## Descobertas e Spikes
+<!-- virgilio:items -->
+- Descoberta: [Login no iPhone instalado](../findings/login-no-iphone.md)
+<!-- virgilio:items-end -->
