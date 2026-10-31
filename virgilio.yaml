@@ -1,0 +1,9 @@
+version: 1
+app:
+  name: quito
+  private: false
+tool: claude-code
+agent:
+  tools:
+    - claude-code
+  default: claude-code
