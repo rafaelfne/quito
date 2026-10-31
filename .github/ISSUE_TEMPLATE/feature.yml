@@ -1,0 +1,21 @@
+name: "Feature"
+description: "Uma entrega que vira um pedido de mudança (PR)"
+labels: ["feature"]
+body:
+  - type: markdown
+    attributes:
+      value: "Depois de criar, vincule esta feature como sub-issue do épico dela."
+  - type: textarea
+    id: what
+    attributes:
+      label: "O que muda"
+      description: "O que a pessoa que usa o app passa a ver ou conseguir fazer."
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: "Pronto quando"
+      description: "Como conferir que funciona."
+    validations:
+      required: true

@@ -1,0 +1,14 @@
+name: "Tarefa"
+description: "Um passo da feature, que vira um commit"
+labels: ["task"]
+body:
+  - type: markdown
+    attributes:
+      value: "Depois de criar, vincule esta tarefa como sub-issue da feature dela."
+  - type: textarea
+    id: what
+    attributes:
+      label: "O que fazer"
+      description: "Um passo pequeno, de horas, que cabe num commit."
+    validations:
+      required: true

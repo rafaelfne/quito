@@ -1,0 +1,26 @@
+name: "Épico"
+description: "Uma entrega maior, que junta várias features"
+title: "Épico: "
+labels: ["epic"]
+body:
+  - type: textarea
+    id: why
+    attributes:
+      label: "Por quê"
+      description: "O que melhora para quem usa o app quando isto estiver pronto."
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: "O que entra"
+      description: "As funcionalidades que fazem parte, uma por linha."
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: "Pronto quando"
+      description: "Como saber que acabou, do ponto de vista de quem usa o app."
+    validations:
+      required: true

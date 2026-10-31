@@ -1,0 +1,41 @@
+name: virgilio-migrations-prd
+
+on:
+  push:
+    branches: [main]
+    paths: [supabase/migrations/**]
+  workflow_dispatch:
+
+concurrency:
+  group: virgilio-migrations-prd
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    if: ${{ vars.VIRGILIO_LOCAL_DATABASE != 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      DB_URL: ${{ secrets.SUPABASE_DB_URL_PRD }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359
+        with:
+          version: 2.121.0
+      - name: install virgilio
+        run: |
+          set -euo pipefail
+          curl -fsSL -o virgilio.tar.gz https://github.com/Omnex-Labs/virgilio-releases/releases/download/v2026.1.0-beta.19/virgilio-linux-x64.tar.gz
+          echo "9e2d6d83e31035fc2a204179dfac7c49de135120e7331d0bca634b4b2e41a6f3  virgilio.tar.gz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf virgilio.tar.gz -C "$RUNNER_TEMP/bin" virgilio
+          rm virgilio.tar.gz
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: copy tables affected by destructive migrations
+        run: virgilio migrations backup
+      - name: dry run
+        run: supabase db push --db-url "$DB_URL" --dry-run
+      - name: apply migrations
+        run: supabase db push --db-url "$DB_URL"
