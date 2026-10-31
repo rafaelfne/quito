@@ -1,0 +1,8 @@
+#!/bin/sh
+PATH="$PATH:$HOME/.virgilio/bin"
+if [ -n "${LOCALAPPDATA:-}" ]; then PATH="$PATH:$LOCALAPPDATA/Virgilio/bin"; fi
+if ! command -v virgilio >/dev/null 2>&1; then
+  echo "virgilio: o Virgílio não está instalado neste computador, e é ele quem confere cada commit e cada envio. Instale com: curl -fsSL https://github.com/Omnex-Labs/virgilio-releases/releases/latest/download/install.sh | sh (no Windows, no PowerShell: irm https://github.com/Omnex-Labs/virgilio-releases/releases/latest/download/install.ps1 | iex). Nada foi feito." >&2
+  exit 1
+fi
+exec virgilio hook pre-push

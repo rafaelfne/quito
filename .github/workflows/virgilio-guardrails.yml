@@ -1,0 +1,121 @@
+name: virgilio-guardrails
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  push:
+    branches: [main]
+
+concurrency:
+  group: virgilio-guardrails-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  guardrails:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: install gitleaks and virgilio
+        run: |
+          set -euo pipefail
+          curl -fsSL -o gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tar.gz" | sha256sum -c -
+          curl -fsSL -o virgilio.tar.gz https://github.com/Omnex-Labs/virgilio-releases/releases/download/v2026.1.0-beta.19/virgilio-linux-x64.tar.gz
+          echo "9e2d6d83e31035fc2a204179dfac7c49de135120e7331d0bca634b4b2e41a6f3  virgilio.tar.gz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf virgilio.tar.gz -C "$RUNNER_TEMP/bin" virgilio
+          rm virgilio.tar.gz
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          tar -xzf gitleaks.tar.gz -C "$RUNNER_TEMP/bin" gitleaks
+          rm gitleaks.tar.gz
+      - name: check changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = pull_request ]; then
+            labels="$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH")"
+          else
+            labels="$(gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD/pulls" --jq '.[].labels[].name' || true)"
+          fi
+          approve=""
+          if grep -qxF 'virgilio: destrutiva aprovada' <<<"$labels"; then approve="$approve,destrutiva"; fi
+          if grep -qxF 'virgilio: incompatível aprovada' <<<"$labels"; then approve="$approve,incompativel"; fi
+          if grep -qxF 'virgilio: acesso aberto aprovado' <<<"$labels"; then approve="$approve,acesso"; fi
+          if [ -z "$BASE" ] || [ "$BASE" = 0000000000000000000000000000000000000000 ]; then BASE=4b825dc642cb6eb9a060e54bf8d69288fbee4904; fi
+          VIRGILIO_APPROVE="${approve#,}" virgilio guardrails "$BASE..$HEAD"
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install
+      - name: fill env from repository variables
+        env:
+          REPO_VARS: ${{ toJSON(vars) }}
+        run: |
+          set -euo pipefail
+          [ -f .env.example ] || exit 0
+          for k in $(grep -oE '^[A-Z_][A-Z0-9_]*' .env.example); do
+            v="$(jq -r --arg k "$k" '.[$k] // empty' <<<"$REPO_VARS")"
+            if [ -z "$v" ]; then
+              case "$k" in *URL*) v=http://localhost:54321 ;; *) v=build-placeholder ;; esac
+            fi
+            echo "$k=$v" >> "$GITHUB_ENV"
+          done
+      - run: npm run build
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install
+      - name: install virgilio
+        run: |
+          set -euo pipefail
+          curl -fsSL -o virgilio.tar.gz https://github.com/Omnex-Labs/virgilio-releases/releases/download/v2026.1.0-beta.19/virgilio-linux-x64.tar.gz
+          echo "9e2d6d83e31035fc2a204179dfac7c49de135120e7331d0bca634b4b2e41a6f3  virgilio.tar.gz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf virgilio.tar.gz -C "$RUNNER_TEMP/bin" virgilio
+          rm virgilio.tar.gz
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: fill env from repository variables
+        env:
+          REPO_VARS: ${{ toJSON(vars) }}
+        run: |
+          set -euo pipefail
+          [ -f .env.example ] || exit 0
+          for k in $(grep -oE '^[A-Z_][A-Z0-9_]*' .env.example); do
+            v="$(jq -r --arg k "$k" '.[$k] // empty' <<<"$REPO_VARS")"
+            if [ -z "$v" ]; then
+              case "$k" in *URL*) v=http://localhost:54321 ;; *) v=build-placeholder ;; esac
+            fi
+            echo "$k=$v" >> "$GITHUB_ENV"
+          done
+      - name: check tests
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BASE" ] || [ "$BASE" = 0000000000000000000000000000000000000000 ]; then BASE=4b825dc642cb6eb9a060e54bf8d69288fbee4904; fi
+          virgilio tests check "$BASE..$HEAD"

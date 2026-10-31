@@ -7,3 +7,32 @@ agent:
   tools:
     - claude-code
   default: claude-code
+github:
+  repo: rafaelfne/quito
+  private: false
+  production_branch: main
+  protection: enforced
+supabase:
+  database: local
+  local_reason: account_full
+  staging:
+    kind: local
+    runtime: docker
+  migrations: supabase/migrations
+work:
+  branching: feature
+ai_rules:
+  files:
+    - AGENTS.md
+    - CLAUDE.md
+    - .claude/settings.json
+    - .mcp.json
+  enforcement: hook
+tests:
+  runner: vitest
+  floor: 0
+  diff_min: 80
+guardrails:
+  hooks: .githooks
+  virgilio_version: 2026.1.0-beta.19
+  required_checks: true

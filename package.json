@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "prepare": "node -e \"try{const c=require('child_process');c.execSync('git rev-parse --git-dir',{stdio:'ignore'});c.execSync('git config core.hooksPath .githooks')}catch{}\""
   },
   "dependencies": {
     "@supabase/supabase-js": "2.118.0",
