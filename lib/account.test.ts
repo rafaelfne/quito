@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { accountMessages, loadAccount, signInMethodFrom, type AccountAuth } from "./account";
+import { accountMessages, deleteAccount, loadAccount, signInMethodFrom, type AccountAuth, type AccountDeletionClient } from "./account";
 import { requestTimeoutMs } from "./sign-in";
 
 type Scenario = {
@@ -78,5 +78,43 @@ describe("loadAccount", () => {
     const pending = loadAccount(authWith({ session: "hangs" }));
     await vi.advanceTimersByTimeAsync(requestTimeoutMs);
     await expect(pending).resolves.toEqual(failed);
+  });
+});
+
+describe("deleteAccount", () => {
+  function clientWith(rpc: () => unknown, signOut: () => unknown = () => Promise.resolve({ error: null })) {
+    const spies = { rpc: vi.fn(rpc), signOut: vi.fn(signOut) };
+    return { spies, client: { rpc: spies.rpc, auth: { signOut: spies.signOut } } as unknown as AccountDeletionClient };
+  }
+
+  const deleted = () => Promise.resolve({ error: null });
+
+  test("apaga a conta e depois sai deste aparelho", async () => {
+    const { client, spies } = clientWith(deleted);
+    await expect(deleteAccount(client)).resolves.toEqual({ ok: true });
+    expect(spies.rpc).toHaveBeenCalledWith("delete_own_account");
+    expect(spies.signOut).toHaveBeenCalledWith({ scope: "local" });
+  });
+
+  test.each([
+    ["o banco recusa", () => Promise.resolve({ error: new Error("recusou") })],
+    ["a internet cai", () => Promise.reject(new Error("offline"))],
+  ])("quando %s, avisa e continua conectado", async (_name, rpc) => {
+    const { client, spies } = clientWith(rpc);
+    await expect(deleteAccount(client)).resolves.toEqual({ ok: false, message: accountMessages.deleteFailed });
+    expect(spies.signOut).not.toHaveBeenCalled();
+  });
+
+  test("para de esperar quando nada responde", async () => {
+    vi.useFakeTimers();
+    const { client } = clientWith(() => new Promise(() => {}));
+    const pending = deleteAccount(client);
+    await vi.advanceTimersByTimeAsync(requestTimeoutMs);
+    await expect(pending).resolves.toEqual({ ok: false, message: accountMessages.deleteFailed });
+  });
+
+  test("conta apagada que não conseguiu sair avisa o que falta, sem dizer que nada mudou", async () => {
+    const { client } = clientWith(deleted, () => Promise.resolve({ error: new Error("offline") }));
+    await expect(deleteAccount(client)).resolves.toEqual({ ok: false, message: accountMessages.deletedButStillSignedIn });
   });
 });

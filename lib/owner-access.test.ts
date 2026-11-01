@@ -25,6 +25,17 @@ describe("cada professor só vê os próprios dados", () => {
     }
   });
 
+  test.each(tables)("a tabela %s é apagada junto com a conta do professor", (table) => {
+    const definition = migrations.match(new RegExp(`create table public\\."?${table}"?\\s*\\([\\s\\S]*?\\n\\);`, "i"))?.[0];
+    expect(definition).toMatch(/"owner_id"[^,]*references auth\.users \(id\) on delete cascade/i);
+  });
+
+  test("apagar a conta só alcança quem pediu e só quem entrou pode pedir", () => {
+    expect(migrations).toMatch(/delete from auth\.users where id = \(select auth\.uid\(\)\);/i);
+    expect(migrations).toMatch(/revoke execute on function public\.delete_own_account\(\) from public, anon;/i);
+    expect(migrations).toMatch(/grant execute on function public\.delete_own_account\(\) to authenticated;/i);
+  });
+
   test("nenhuma regra libera tudo", () => {
     expect(migrations).not.toMatch(/(using|with check)\s*\(\s*true\s*\)/i);
     expect(migrations).not.toMatch(/disable row level security/i);

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DeleteAccount } from "@/app/(app)/account/delete-account";
 import { SignOutButton } from "@/app/(app)/sign-out-button";
 import { signInMethodLabels, type AccountResult } from "@/lib/account";
 import { afterSignInPath } from "@/lib/session";
@@ -59,6 +60,7 @@ export function AccountView({
           {signOutMessage}
         </p>
       ) : null}
+      {account?.ok ? <DeleteAccount email={account.email} /> : null}
     </main>
   );
 }

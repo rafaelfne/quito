@@ -46,6 +46,12 @@ describe("tela de conta", () => {
     expect(render(null)).not.toContain('role="alert"');
   });
 
+  test("só oferece apagar quando sabe de quem é a conta", () => {
+    expect(render({ ok: true, email: "ana@escola.com", method: "google" })).toContain("Apagar conta");
+    expect(render(null)).not.toContain("Apagar conta");
+    expect(render({ ok: false, message: "Falhou aqui." })).not.toContain("Apagar conta");
+  });
+
   test("tem caminho de volta para as notas", () => {
     expect(render(null)).toContain('href="/notes"');
   });

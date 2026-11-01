@@ -1,9 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { requestTimeoutMs, withTimeout } from "@/lib/sign-in";
+import { signOutThisDevice, type SessionAuth } from "@/lib/session";
+import { requestTimeoutMs, withTimeout, type SignInResult } from "@/lib/sign-in";
 
 type Auth = SupabaseClient["auth"];
 
 export type AccountAuth = Pick<Auth, "getSession"> & { mfa: Pick<Auth["mfa"], "getAuthenticatorAssuranceLevel"> };
+
+export type AccountDeletionClient = Pick<SupabaseClient, "rpc"> & { auth: Pick<SessionAuth, "signOut"> };
 
 export type SignInMethod = "email-code" | "google";
 
@@ -20,6 +23,8 @@ export const signInMethodLabels: Record<SignInMethod, string> = {
 
 export const accountMessages = {
   loadFailed: "Não deu para mostrar os dados da conta agora. Confira a internet e tente de novo.",
+  deleteFailed: "Não deu para confirmar que a conta foi apagada. Confira a internet e tente de novo.",
+  deletedButStillSignedIn: "Sua conta foi apagada, mas falta sair deste aparelho. Confira a internet e toque em Sair deste aparelho.",
 };
 
 const methodBySignInRecord = new Map<string, SignInMethod>([
@@ -51,4 +56,16 @@ export async function loadAccount(auth: AccountAuth): Promise<AccountResult> {
   } catch {
     return failed;
   }
+}
+
+export async function deleteAccount(client: AccountDeletionClient): Promise<SignInResult> {
+  const failed: SignInResult = { ok: false, message: accountMessages.deleteFailed };
+  try {
+    const { error } = await withTimeout(Promise.resolve(client.rpc("delete_own_account")), requestTimeoutMs);
+    if (error) return failed;
+  } catch {
+    return failed;
+  }
+  const signedOut = await signOutThisDevice(client.auth);
+  return signedOut.ok ? signedOut : { ok: false, message: accountMessages.deletedButStillSignedIn };
 }
