@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { destinationFrom, googleCallbackPath, withDestination } from "@/lib/session";
 import { requestTimeoutMs, thrownMessage, withTimeout, type SignInResult } from "@/lib/sign-in";
 
 export type GoogleAuth = Pick<SupabaseClient["auth"], "signInWithOAuth" | "getSession">;
@@ -9,10 +10,6 @@ export type GoogleBrowser = {
 };
 
 export type ReturnLocation = { search: string; hash: string };
-
-export const googleCallbackPath = "/auth/callback";
-
-export const afterSignInPath = "/notes";
 
 export const googleMessages = {
   unavailable: "Entrar com Google ainda não está ligado. Por enquanto, entre com o código por e-mail.",
@@ -30,8 +27,8 @@ export const realBrowser: GoogleBrowser = {
   go: (url) => window.location.assign(url),
 };
 
-export function googleReturnUrl(origin: string): string {
-  return `${origin}${googleCallbackPath}`;
+export function googleReturnUrl(origin: string, destination: string): string {
+  return `${origin}${withDestination(googleCallbackPath, destination)}`;
 }
 
 export async function startGoogleSignIn(auth: GoogleAuth, redirectTo: string, browser: GoogleBrowser): Promise<SignInResult> {
@@ -71,6 +68,6 @@ export async function finishGoogleSignIn(auth: GoogleAuth, location: ReturnLocat
 export async function handleGoogleReturn(auth: GoogleAuth, location: ReturnLocation, replace: (path: string) => void): Promise<string | null> {
   const result = await finishGoogleSignIn(auth, location);
   if (!result.ok) return result.message;
-  replace(afterSignInPath);
+  replace(destinationFrom(location.search));
   return null;
 }

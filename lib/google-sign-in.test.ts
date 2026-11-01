@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
-  afterSignInPath,
   finishGoogleSignIn,
   googleMessages,
   googleReturnUrl,
@@ -10,6 +9,7 @@ import {
   startGoogleSignIn,
   type GoogleAuth,
 } from "./google-sign-in";
+import { afterSignInPath } from "./session";
 import { requestTimeoutMs, signInMessages } from "./sign-in";
 
 const googleUrl = "http://127.0.0.1:54621/auth/v1/authorize?provider=google";
@@ -37,7 +37,11 @@ afterEach(() => {
 
 describe("googleReturnUrl", () => {
   test("volta para a tela que termina a entrada", () => {
-    expect(googleReturnUrl("https://quito.app")).toBe("https://quito.app/auth/callback");
+    expect(googleReturnUrl("https://quito.app", afterSignInPath)).toBe("https://quito.app/auth/callback");
+  });
+
+  test("leva junto para onde o professor ia", () => {
+    expect(googleReturnUrl("https://quito.app", "/alunos/42")).toBe("https://quito.app/auth/callback?next=%2Falunos%2F42");
   });
 });
 
@@ -147,6 +151,13 @@ describe("handleGoogleReturn", () => {
     const replace = vi.fn();
     await expect(handleGoogleReturn(auth, { search: "", hash: "" }, replace)).resolves.toBeNull();
     expect(replace).toHaveBeenCalledWith(afterSignInPath);
+  });
+
+  test("volta para onde o professor ia", async () => {
+    const { auth } = fakeAuth({ session: true });
+    const replace = vi.fn();
+    await handleGoogleReturn(auth, { search: "?next=%2Falunos%2F42", hash: "#access_token=t" }, replace);
+    expect(replace).toHaveBeenCalledWith("/alunos/42");
   });
 
   test("devolve a mensagem e fica na tela quando não entrou", async () => {
