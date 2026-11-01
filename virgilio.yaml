@@ -30,7 +30,7 @@ ai_rules:
   enforcement: hook
 tests:
   runner: vitest
-  floor: 92.3
+  floor: 92.6
   diff_min: 80
 guardrails:
   hooks: .githooks
