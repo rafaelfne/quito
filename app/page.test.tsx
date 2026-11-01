@@ -17,6 +17,12 @@ const flow = vi.hoisted(() => ({
 
 vi.mock("@/lib/sign-in", async (original) => ({ ...(await original<typeof import("@/lib/sign-in")>()), ...flow }));
 
+const google = vi.hoisted(() => ({ startGoogleSignIn: vi.fn() }));
+
+vi.mock("@/lib/google-sign-in", async (original) => ({ ...(await original<typeof import("@/lib/google-sign-in")>()), ...google }));
+
+vi.stubGlobal("window", { location: { origin: "https://quito.app" } });
+
 const { default: Home } = await import("./page");
 const { initialSignIn } = await import("@/lib/sign-in");
 
@@ -44,6 +50,7 @@ beforeEach(() => {
   flow.submitEmail.mockReset().mockResolvedValue(initialSignIn);
   flow.submitCode.mockReset().mockResolvedValue(initialSignIn);
   flow.resendCode.mockReset().mockResolvedValue(initialSignIn);
+  google.startGoogleSignIn.mockReset().mockResolvedValue({ ok: true });
 });
 
 describe("tela de entrada", () => {
@@ -75,5 +82,22 @@ describe("tela de entrada", () => {
     props!.onSubmitCode();
     await settle();
     expect(push).toHaveBeenCalledWith("/notes");
+  });
+
+  test("o botão do Google leva para o Google e volta para a tela de retorno", async () => {
+    const { realBrowser } = await import("@/lib/google-sign-in");
+    const { props } = renderCapturing();
+    props!.onGoogle();
+    await settle();
+    expect(google.startGoogleSignIn).toHaveBeenCalledWith(auth, "https://quito.app/auth/callback", realBrowser);
+  });
+
+  test("quando o Google não dá certo, continua na tela de entrada", async () => {
+    google.startGoogleSignIn.mockResolvedValue({ ok: false, message: "Entrar com Google ainda não está ligado." });
+    const { props } = renderCapturing();
+    props!.onGoogle();
+    await settle();
+    expect(google.startGoogleSignIn).toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
   });
 });

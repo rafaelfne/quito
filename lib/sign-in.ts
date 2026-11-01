@@ -22,7 +22,7 @@ export const requestTimeoutMs = 15_000;
 
 class SignInTimeout extends Error {}
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new SignInTimeout()), ms);
@@ -30,7 +30,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-function thrownMessage(error: unknown): string {
+export function thrownMessage(error: unknown): string {
   return error instanceof SignInTimeout ? signInMessages.timedOut : signInMessages.unexpected;
 }
 

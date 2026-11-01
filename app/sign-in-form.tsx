@@ -9,10 +9,12 @@ export type SignInFormProps = {
   onSubmitCode: () => void;
   onResend: () => void;
   onEditEmail: () => void;
+  onGoogle: () => void;
 };
 
 const inputClass = "rounded border px-3 py-2";
 const primaryButtonClass = "rounded bg-foreground px-3 py-2 text-background disabled:opacity-50";
+const secondaryButtonClass = "rounded border px-3 py-2 disabled:opacity-50";
 const linkButtonClass = "text-sm underline disabled:opacity-50";
 
 export function SignInForm(props: SignInFormProps) {
@@ -51,6 +53,10 @@ export function SignInForm(props: SignInFormProps) {
           </label>
           <button className={primaryButtonClass} type="submit" disabled={busy}>
             {busy ? "Enviando..." : "Receber código"}
+          </button>
+          <p className="text-center text-sm opacity-70">ou</p>
+          <button className={secondaryButtonClass} type="button" disabled={busy} onClick={props.onGoogle}>
+            Entrar com Google
           </button>
         </>
       ) : (

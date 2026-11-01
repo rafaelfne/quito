@@ -16,6 +16,7 @@ function props(state: SignInState, busy = false): SignInFormProps {
     onSubmitCode: vi.fn(),
     onResend: vi.fn(),
     onEditEmail: vi.fn(),
+    onGoogle: vi.fn(),
   };
 }
 
@@ -78,6 +79,27 @@ describe("SignInForm no passo do e-mail", () => {
     const html = renderToStaticMarkup(<SignInForm {...props(initialSignIn, true)} />);
     expect(html).toContain("Enviando...");
     expect(html).toContain("disabled");
+  });
+
+  test("oferece entrar com Google com um toque", () => {
+    const formProps = props(initialSignIn);
+    const google = byType(tree(formProps), "button")[1];
+    expect(google.props.children).toBe("Entrar com Google");
+    expect(google.props.type).toBe("button");
+    expect(google.props.disabled).toBe(false);
+    (google.props.onClick as () => void)();
+    expect(formProps.onGoogle).toHaveBeenCalled();
+    expect(formProps.onSubmitEmail).not.toHaveBeenCalled();
+  });
+
+  test("trava o botão do Google enquanto espera", () => {
+    const google = byType(tree(props(initialSignIn, true)), "button")[1];
+    expect(google.props.disabled).toBe(true);
+  });
+
+  test("não mostra o Google no passo do código", () => {
+    const html = renderToStaticMarkup(<SignInForm {...props(codeStep)} />);
+    expect(html).not.toContain("Entrar com Google");
   });
 
   test("mostra a mensagem de erro", () => {
