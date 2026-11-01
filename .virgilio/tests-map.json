@@ -1,0 +1,89 @@
+{
+  "parts": [
+    {
+      "id": "entrada",
+      "name": "Entrada no app",
+      "description": "Onde o professor entra sem senha, com código por e-mail ou Google, e fica conectado até sair",
+      "paths": [
+        "app/page.tsx",
+        "app/opening-screen.tsx",
+        "app/sign-in-form.tsx",
+        "app/sign-in-screen.tsx",
+        "app/auth/callback",
+        "app/(app)/layout.tsx",
+        "app/(app)/session-gate.tsx",
+        "app/(app)/session-gate-view.tsx",
+        "app/(app)/sign-out-button.tsx",
+        "lib/sign-in.ts",
+        "lib/google-sign-in.ts",
+        "lib/session.ts"
+      ],
+      "sensitive": "access"
+    },
+    {
+      "id": "conta",
+      "name": "Conta",
+      "description": "Onde o professor vê os dados da conta, sai do aparelho e apaga a conta com todos os dados",
+      "paths": [
+        "app/(app)/account",
+        "lib/account.ts"
+      ],
+      "sensitive": "personal"
+    },
+    {
+      "id": "notas",
+      "name": "Notas",
+      "description": "Onde o professor escreve e lê as próprias notas",
+      "paths": [
+        "app/(app)/notes",
+        "lib/notes.ts"
+      ],
+      "sensitive": "personal"
+    },
+    {
+      "id": "conexao-banco",
+      "name": "Conexão com o banco",
+      "description": "Como o app fala com o banco onde ficam os dados de cada professor",
+      "paths": [
+        "lib/supabase.ts",
+        "lib/supabase-server.ts"
+      ],
+      "sensitive": "access"
+    },
+    {
+      "id": "base",
+      "name": "Base das telas",
+      "description": "A moldura e o visual comuns a todas as telas do app",
+      "paths": [
+        "app/layout.tsx",
+        "app/globals.css"
+      ],
+      "sensitive": null
+    }
+  ],
+  "files": {
+    "app/page.tsx": "Primeira tela: confere se o professor já está conectado",
+    "app/opening-screen.tsx": "Aviso de que o app está abrindo",
+    "app/sign-in-screen.tsx": "Tela de entrar",
+    "app/sign-in-form.tsx": "Formulário do código por e-mail",
+    "app/auth/callback/page.tsx": "Volta do login com Google",
+    "app/auth/callback/google-return-view.tsx": "O que o professor vê ao voltar do Google",
+    "app/(app)/layout.tsx": "Moldura das telas de quem está conectado",
+    "app/(app)/session-gate.tsx": "Barra quem não está conectado",
+    "app/(app)/session-gate-view.tsx": "O que aparece enquanto a conexão é conferida",
+    "app/(app)/sign-out-button.tsx": "Botão de sair do aparelho",
+    "app/(app)/account/page.tsx": "Tela da conta",
+    "app/(app)/account/account-view.tsx": "Dados da conta na tela",
+    "app/(app)/account/delete-account.tsx": "Pedido para apagar a conta",
+    "app/(app)/account/delete-account-view.tsx": "Confirmação de apagar a conta",
+    "app/(app)/notes/page.tsx": "Tela de notas",
+    "app/layout.tsx": "Moldura de todas as telas",
+    "lib/sign-in.ts": "Regras de pedir e conferir o código de entrada",
+    "lib/google-sign-in.ts": "Regras de entrar com Google",
+    "lib/session.ts": "Regras de continuar conectado e de sair",
+    "lib/account.ts": "Regras de mostrar e apagar a conta",
+    "lib/notes.ts": "Regras do texto de uma nota",
+    "lib/supabase.ts": "Conexão com o banco usada nas telas",
+    "lib/supabase-server.ts": "Conexão com o banco usada no servidor"
+  }
+}
