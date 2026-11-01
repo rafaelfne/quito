@@ -11,10 +11,10 @@ vi.mock("@/lib/supabase", () => ({ supabase: { from, auth: {} } }));
 const { default: NotesPage } = await import("./page");
 
 describe("página de notas", () => {
-  test("abre com as notas do professor e o botão de sair", () => {
+  test("abre com as notas do professor e o caminho para a conta", () => {
     const html = renderToStaticMarkup(<NotesPage />);
     expect(html).toContain("Minhas notas");
-    expect(html).toContain("Sair");
+    expect(html).toContain('href="/account"');
     expect(from).toHaveBeenCalledWith("notes");
     expect(order).toHaveBeenCalledWith("created_at", { ascending: false });
   });

@@ -21,7 +21,7 @@ describe("SignOutButton", () => {
   test("sai só deste aparelho", async () => {
     auth.signOut.mockResolvedValue({ error: null });
     const onError = vi.fn();
-    expect(click(onError).props.children).toBe("Sair");
+    expect(click(onError).props.children).toBe("Sair deste aparelho");
     await settle();
     expect(auth.signOut).toHaveBeenCalledWith({ scope: "local" });
     expect(onError).not.toHaveBeenCalled();
