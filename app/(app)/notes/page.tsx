@@ -29,13 +29,16 @@ export default function NotesPage() {
   async function add(event: React.FormEvent) {
     event.preventDefault();
     const text = cleanNote(body);
-    setMessage(noteWarning(body));
-    if (!text) return;
+    if (!text) {
+      setMessage(noteWarning(body));
+      return;
+    }
     const { error } = await supabase.from("notes").insert({ body: text });
     if (error) {
       setMessage(error.message);
       return;
     }
+    setMessage(null);
     setBody("");
     show(await fetchNotes());
   }
