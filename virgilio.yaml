@@ -34,5 +34,5 @@ tests:
   diff_min: 80
 guardrails:
   hooks: .githooks
-  virgilio_version: 2026.1.0-beta.19
+  virgilio_version: 2026.1.0-beta.24
   required_checks: true
