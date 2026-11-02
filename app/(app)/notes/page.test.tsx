@@ -230,6 +230,31 @@ describe("ao guardar uma nota", () => {
     expect(order).toHaveBeenCalledTimes(1);
   });
 
+  test("depois de uma falha, o aviso some quando a nota seguinte é guardada", async () => {
+    order.mockResolvedValueOnce({ data: [older], error: null });
+    await open();
+    insert.mockResolvedValueOnce({ error: { message: "Não foi possível guardar" } });
+    type("Nota nova");
+    await submit();
+    order.mockResolvedValueOnce({ data: [newer, older], error: null });
+    const { html, input } = await submit();
+    expect(insert).toHaveBeenCalledTimes(2);
+    expect(html).not.toContain('role="status"');
+    expect(html).not.toContain("Não foi possível guardar");
+    expect(input.props.value).toBe("");
+    expect(html).toContain("Nota nova");
+  });
+
+  test("quando a busca falha ao abrir, o aviso some quando uma nota é guardada", async () => {
+    order.mockResolvedValueOnce({ data: null, error: { message: "Sem conexão" } });
+    await open();
+    order.mockResolvedValueOnce({ data: [newer], error: null });
+    type("Nota nova");
+    const { html } = await submit();
+    expect(html).not.toContain("Sem conexão");
+    expect(html).toContain("Nota nova");
+  });
+
   test("quando grava mas a lista não atualiza, avisa e mantém as notas que já estavam na tela", async () => {
     order.mockResolvedValueOnce({ data: [older], error: null });
     await open();
