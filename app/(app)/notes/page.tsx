@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { accountPath } from "@/lib/account";
-import { cleanNote } from "@/lib/notes";
+import { cleanNote, noteWarning } from "@/lib/notes";
 import { supabase } from "@/lib/supabase";
 
 type Note = { id: string; body: string; created_at: string };
@@ -29,6 +29,7 @@ export default function NotesPage() {
   async function add(event: React.FormEvent) {
     event.preventDefault();
     const text = cleanNote(body);
+    setMessage(noteWarning(body));
     if (!text) return;
     const { error } = await supabase.from("notes").insert({ body: text });
     if (error) {
