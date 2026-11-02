@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SignInForm } from "@/app/sign-in-form";
 import { googleReturnUrl, realBrowser, startGoogleSignIn } from "@/lib/google-sign-in";
-import { cleanCode, editEmail, initialSignIn, resendCode, submitCode, submitEmail, type SignInAuth, type SignInState } from "@/lib/sign-in";
+import { cleanCode, editEmail, initialSignIn, normalizeEmail, resendCode, submitCode, submitEmail, type SignInAuth, type SignInState } from "@/lib/sign-in";
 import { destinationFrom } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { testInboxUrl } from "@/lib/test-inbox";
+import { askTestMail, testInboxUrl, waitForNewTestCode } from "@/lib/test-inbox";
 
 type SignInAction = (auth: SignInAuth, state: SignInState) => Promise<SignInState>;
 
@@ -15,6 +15,9 @@ export function SignInScreen() {
   const router = useRouter();
   const [state, setState] = useState<SignInState>(initialSignIn);
   const [busy, setBusy] = useState(false);
+  const [testCode, setTestCode] = useState<string | null>(null);
+  const codeRequest = useRef(0);
+  const inboxUrl = testInboxUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
 
   async function run(action: SignInAction) {
     setBusy(true);
@@ -22,6 +25,25 @@ export function SignInScreen() {
     setBusy(false);
     setState(next);
     if (next.signedIn) router.replace(destinationFrom(window.location.search));
+    return next;
+  }
+
+  async function sendCode(action: SignInAction) {
+    codeRequest.current += 1;
+    const request = codeRequest.current;
+    setTestCode(null);
+    const email = normalizeEmail(state.email);
+    const previous = inboxUrl && email ? await askTestMail(email) : null;
+    const next = await run(action);
+    if (!inboxUrl || !email || next.step !== "code" || next.message) return;
+    const code = await waitForNewTestCode(email, previous?.id ?? null);
+    if (request === codeRequest.current) setTestCode(code);
+  }
+
+  function changeEmail() {
+    codeRequest.current += 1;
+    setTestCode(null);
+    setState(editEmail);
   }
 
   async function signInWithGoogle() {
@@ -38,13 +60,14 @@ export function SignInScreen() {
       <SignInForm
         state={state}
         busy={busy}
-        testInboxUrl={testInboxUrl(process.env.NEXT_PUBLIC_SUPABASE_URL)}
+        testInboxUrl={inboxUrl}
+        testCode={testCode}
         onEmailChange={(email) => setState((current) => ({ ...current, email }))}
         onCodeChange={(code) => setState((current) => ({ ...current, code: cleanCode(code) }))}
-        onSubmitEmail={() => void run(submitEmail)}
+        onSubmitEmail={() => void sendCode(submitEmail)}
         onSubmitCode={() => void run(submitCode)}
-        onResend={() => void run(resendCode)}
-        onEditEmail={() => setState(editEmail)}
+        onResend={() => void sendCode(resendCode)}
+        onEditEmail={changeEmail}
         onGoogle={() => void signInWithGoogle()}
       />
     </main>

@@ -6,11 +6,12 @@ import { SignInForm, type SignInFormProps } from "./sign-in-form";
 
 type AnyProps = Record<string, unknown> & { children?: ReactNode };
 
-function props(state: SignInState, busy = false, testInboxUrl: string | null = null): SignInFormProps {
+function props(state: SignInState, busy = false, testInboxUrl: string | null = null, testCode: string | null = null): SignInFormProps {
   return {
     state,
     busy,
     testInboxUrl,
+    testCode,
     onEmailChange: vi.fn(),
     onCodeChange: vi.fn(),
     onSubmitEmail: vi.fn(),
@@ -171,6 +172,18 @@ describe("SignInForm e a caixa de e-mails de teste", () => {
     expect(html).toContain(`href="${inbox}"`);
     expect(html).toContain('target="_blank"');
     expect(html).not.toContain("Enviamos um código");
+  });
+
+  test("no ensaio, com o código encontrado, mostra o código no lugar do link", () => {
+    const html = renderToStaticMarkup(<SignInForm {...props(codeStep, false, inbox, "123456")} />);
+    expect(html).toContain("O seu código é");
+    expect(html).toContain("123456");
+    expect(html).not.toContain("<a ");
+  });
+
+  test("fora do ensaio, nunca mostra o código", () => {
+    const html = renderToStaticMarkup(<SignInForm {...props(codeStep, false, null, "123456")} />);
+    expect(html).not.toContain("123456");
   });
 
   test("no ensaio, o link aparece mesmo sem aviso", () => {

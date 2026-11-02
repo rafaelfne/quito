@@ -4,6 +4,7 @@ export type SignInFormProps = {
   state: SignInState;
   busy: boolean;
   testInboxUrl: string | null;
+  testCode: string | null;
   onEmailChange: (email: string) => void;
   onCodeChange: (code: string) => void;
   onSubmitEmail: () => void;
@@ -19,7 +20,7 @@ const secondaryButtonClass = "rounded border px-3 py-2 disabled:opacity-50";
 const linkButtonClass = "text-sm underline disabled:opacity-50";
 
 export function SignInForm(props: SignInFormProps) {
-  const { state, busy, testInboxUrl } = props;
+  const { state, busy, testInboxUrl, testCode } = props;
   const isEmailStep = state.step === "email";
 
   return (
@@ -64,10 +65,19 @@ export function SignInForm(props: SignInFormProps) {
         <>
           {testInboxUrl ? (
             <p className="text-sm">
-              Este é o ensaio: o e-mail não vai para a sua caixa de entrada de verdade. O código fica na caixa de e-mails de teste.{" "}
-              <a className="underline" href={testInboxUrl} target="_blank" rel="noreferrer">
-                Abrir os e-mails de teste
-              </a>
+              Este é o ensaio: o e-mail não vai para a sua caixa de entrada de verdade.{" "}
+              {testCode ? (
+                <>
+                  O seu código é <strong className="text-base tracking-widest">{testCode}</strong>.
+                </>
+              ) : (
+                <>
+                  O código fica na caixa de e-mails de teste.{" "}
+                  <a className="underline" href={testInboxUrl} target="_blank" rel="noreferrer">
+                    Abrir os e-mails de teste
+                  </a>
+                </>
+              )}
             </p>
           ) : state.notice ? (
             <p className="text-sm">{state.notice}</p>
