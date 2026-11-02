@@ -7,6 +7,7 @@ import { googleReturnUrl, realBrowser, startGoogleSignIn } from "@/lib/google-si
 import { cleanCode, editEmail, initialSignIn, resendCode, submitCode, submitEmail, type SignInAuth, type SignInState } from "@/lib/sign-in";
 import { destinationFrom } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
+import { testInboxUrl } from "@/lib/test-inbox";
 
 type SignInAction = (auth: SignInAuth, state: SignInState) => Promise<SignInState>;
 
@@ -37,6 +38,7 @@ export function SignInScreen() {
       <SignInForm
         state={state}
         busy={busy}
+        testInboxUrl={testInboxUrl(process.env.NEXT_PUBLIC_SUPABASE_URL)}
         onEmailChange={(email) => setState((current) => ({ ...current, email }))}
         onCodeChange={(code) => setState((current) => ({ ...current, code: cleanCode(code) }))}
         onSubmitEmail={() => void run(submitEmail)}

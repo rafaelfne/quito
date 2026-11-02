@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { SignInFormProps } from "./sign-in-form";
 
 const replace = vi.fn();
@@ -56,7 +56,22 @@ beforeEach(() => {
   google.startGoogleSignIn.mockReset().mockResolvedValue({ ok: true });
 });
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe("tela de entrada", () => {
+  test("ligada ao banco de ensaio, passa o link da caixa de e-mails de teste", () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "http://127.0.0.1:54621");
+    expect(renderCapturing().props!.testInboxUrl).toBe("http://127.0.0.1:54624");
+  });
+
+  test("ligada a outro Supabase, não passa link nenhum", () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://abcdefgh.supabase.co");
+    expect(renderCapturing().props!.testInboxUrl).toBeNull();
+  });
+
+
   test("abre no passo do e-mail, sem senha", () => {
     const html = renderToStaticMarkup(<SignInScreen />);
     expect(html).toContain("Entrar no Quitô");
