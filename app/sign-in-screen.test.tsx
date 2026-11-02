@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { SignInFormProps } from "./sign-in-form";
 
 const replace = vi.fn();
@@ -13,6 +13,7 @@ const flow = vi.hoisted(() => ({
   submitEmail: vi.fn(),
   submitCode: vi.fn(),
   resendCode: vi.fn(),
+  normalizeEmail: vi.fn(),
 }));
 
 vi.mock("@/lib/sign-in", async (original) => ({ ...(await original<typeof import("@/lib/sign-in")>()), ...flow }));
@@ -20,6 +21,10 @@ vi.mock("@/lib/sign-in", async (original) => ({ ...(await original<typeof import
 const google = vi.hoisted(() => ({ startGoogleSignIn: vi.fn() }));
 
 vi.mock("@/lib/google-sign-in", async (original) => ({ ...(await original<typeof import("@/lib/google-sign-in")>()), ...google }));
+
+const inbox = vi.hoisted(() => ({ askTestMail: vi.fn(), waitForNewTestCode: vi.fn() }));
+
+vi.mock("@/lib/test-inbox", async (original) => ({ ...(await original<typeof import("@/lib/test-inbox")>()), ...inbox }));
 
 const location = { origin: "https://quito.app", search: "" };
 
@@ -53,10 +58,82 @@ beforeEach(() => {
   flow.submitEmail.mockReset().mockResolvedValue(initialSignIn);
   flow.submitCode.mockReset().mockResolvedValue(initialSignIn);
   flow.resendCode.mockReset().mockResolvedValue(initialSignIn);
+  flow.normalizeEmail.mockReset().mockReturnValue(null);
   google.startGoogleSignIn.mockReset().mockResolvedValue({ ok: true });
+  inbox.askTestMail.mockReset().mockResolvedValue(null);
+  inbox.waitForNewTestCode.mockReset().mockResolvedValue(null);
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe("tela de entrada", () => {
+  test("ligada ao banco de ensaio, passa o link da caixa de e-mails de teste", () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "http://127.0.0.1:54621");
+    expect(renderCapturing().props!.testInboxUrl).toBe("http://127.0.0.1:54624");
+  });
+
+  test("ligada a outro Supabase, não passa link nenhum", () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://abcdefgh.supabase.co");
+    expect(renderCapturing().props!.testInboxUrl).toBeNull();
+  });
+
+
+  describe("procurar o código no ensaio", () => {
+    const sent = { ...initialSignIn, step: "code" as const, email: "ana@exemplo.com" };
+
+    function typedEmailScreen() {
+      vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "http://127.0.0.1:54621");
+      flow.normalizeEmail.mockReturnValue("ana@exemplo.com");
+    }
+
+    test("depois de pedir, espera um e-mail mais novo que o anterior", async () => {
+      flow.submitEmail.mockResolvedValue(sent);
+      inbox.askTestMail.mockResolvedValue({ id: "velho", code: "654321" });
+      typedEmailScreen();
+      const { props } = renderCapturing();
+      props!.onSubmitEmail();
+      await settle();
+      await settle();
+      expect(inbox.askTestMail).toHaveBeenCalledWith("ana@exemplo.com");
+      expect(inbox.waitForNewTestCode).toHaveBeenCalledWith("ana@exemplo.com", "velho");
+    });
+
+    test("sem e-mail anterior, espera o primeiro", async () => {
+      flow.resendCode.mockResolvedValue(sent);
+      typedEmailScreen();
+      const { props } = renderCapturing();
+      props!.onResend();
+      await settle();
+      await settle();
+      expect(inbox.waitForNewTestCode).toHaveBeenCalledWith("ana@exemplo.com", null);
+    });
+
+    test("se o pedido falhar, não procura código", async () => {
+      flow.submitEmail.mockResolvedValue({ ...sent, message: "Espere um minutinho" });
+      typedEmailScreen();
+      const { props } = renderCapturing();
+      props!.onSubmitEmail();
+      await settle();
+      await settle();
+      expect(inbox.waitForNewTestCode).not.toHaveBeenCalled();
+    });
+
+    test("fora do ensaio, não pergunta nada à caixa de teste", async () => {
+      vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://abcdefgh.supabase.co");
+      flow.submitEmail.mockResolvedValue(sent);
+      flow.normalizeEmail.mockReturnValue("ana@exemplo.com");
+      const { props } = renderCapturing();
+      props!.onSubmitEmail();
+      await settle();
+      await settle();
+      expect(flow.submitEmail).toHaveBeenCalled();
+      expect(inbox.askTestMail).not.toHaveBeenCalled();
+      expect(inbox.waitForNewTestCode).not.toHaveBeenCalled();
+    });
+  });
+
   test("abre no passo do e-mail, sem senha", () => {
     const html = renderToStaticMarkup(<SignInScreen />);
     expect(html).toContain("Entrar no Quitô");

@@ -6,10 +6,12 @@ import { SignInForm, type SignInFormProps } from "./sign-in-form";
 
 type AnyProps = Record<string, unknown> & { children?: ReactNode };
 
-function props(state: SignInState, busy = false): SignInFormProps {
+function props(state: SignInState, busy = false, testInboxUrl: string | null = null, testCode: string | null = null): SignInFormProps {
   return {
     state,
     busy,
+    testInboxUrl,
+    testCode,
     onEmailChange: vi.fn(),
     onCodeChange: vi.fn(),
     onSubmitEmail: vi.fn(),
@@ -158,5 +160,46 @@ describe("SignInForm no passo do código", () => {
   test("sem aviso, não mostra parágrafo vazio", () => {
     const html = renderToStaticMarkup(<SignInForm {...props({ ...codeStep, notice: null })} />);
     expect(html).not.toContain("Enviamos um código");
+  });
+});
+
+describe("SignInForm e a caixa de e-mails de teste", () => {
+  const inbox = "http://127.0.0.1:54624";
+
+  test("no ensaio, troca o aviso de spam pelo link da caixa de teste", () => {
+    const html = renderToStaticMarkup(<SignInForm {...props(codeStep, false, inbox)} />);
+    expect(html).toContain("não vai para a sua caixa de entrada de verdade");
+    expect(html).toContain(`href="${inbox}"`);
+    expect(html).toContain('target="_blank"');
+    expect(html).not.toContain("Enviamos um código");
+  });
+
+  test("no ensaio, com o código encontrado, mostra o código no lugar do link", () => {
+    const html = renderToStaticMarkup(<SignInForm {...props(codeStep, false, inbox, "123456")} />);
+    expect(html).toContain("O seu código é");
+    expect(html).toContain("123456");
+    expect(html).not.toContain("<a ");
+  });
+
+  test("fora do ensaio, nunca mostra o código", () => {
+    const html = renderToStaticMarkup(<SignInForm {...props(codeStep, false, null, "123456")} />);
+    expect(html).not.toContain("123456");
+  });
+
+  test("no ensaio, o link aparece mesmo sem aviso", () => {
+    const html = renderToStaticMarkup(<SignInForm {...props({ ...codeStep, notice: null }, false, inbox)} />);
+    expect(html).toContain(`href="${inbox}"`);
+  });
+
+  test("fora do ensaio, não mostra o aviso nem o link", () => {
+    const html = renderToStaticMarkup(<SignInForm {...props(codeStep)} />);
+    expect(html).toContain("Enviamos um código");
+    expect(html).not.toContain("e-mails de teste");
+    expect(html).not.toContain("<a ");
+  });
+
+  test("no passo do e-mail, ainda não mostra o link", () => {
+    const html = renderToStaticMarkup(<SignInForm {...props(initialSignIn, false, inbox)} />);
+    expect(html).not.toContain("e-mails de teste");
   });
 });
