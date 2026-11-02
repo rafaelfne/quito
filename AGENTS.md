@@ -12,6 +12,7 @@ Responda sempre em português do Brasil, em linguagem simples, sem jargão. Mens
 - Nunca rode virgilio connections nem virgilio deploy, e nunca leia o cofre de senhas do computador (Keychain, Credential Manager, Secret Service). As conexões guardadas ali são do dono: só ele conecta, desconecta e publica, pelo app ou pelo terminal dele.
 - Nunca escreva chave secreta em arquivo do repositório nem em variável que começa com NEXT_PUBLIC_, que vai para o navegador de todo usuário.
 - Nunca invente valor de variável de ambiente nem escreva no .env.local. Quando o código precisar de variável nova, acrescente o nome ao .env.example com o valor vazio e um comentário de uma linha logo acima dizendo de onde vem (segredo gerado, Supabase, chave de um serviço, valor comum). O Virgílio pede os valores ao dono na revisão da sessão.
+- Nunca adote sozinho um serviço externo que o app ainda não usa e que pede conta, chave ou cartão (envio de e-mail, pagamento, IA, SMS). Antes de escrever o código, pare e pergunte ao dono, em palavras simples: o que o serviço faz nesta tarefa, se tem plano grátis e o limite dele, e o caminho sem o serviço quando existe (o e-mail do próprio Supabase, por exemplo). Sem o sim do dono, siga pelo caminho sem o serviço ou pare a tarefa.
 - Na sessão aberta pelo Virgílio, nunca suba o servidor de desenvolvimento (npm run dev, next dev) nem instale ou remova dependência (npm install, npm uninstall e os equivalentes do pnpm, yarn e bun). O Virgílio mostra o app ao dono na prévia e instala as dependências: para uma dependência nova, acrescente a linha no package.json com a versão e siga.
 - Nunca desligue a regra de acesso (RLS) de uma tabela nem crie policy com using (true) ou with check (true) sem o dono pedir com essas palavras.
 - Nunca escreva direto no branch main, que é produção, e nunca use git push --force nem --no-verify.
@@ -29,6 +30,12 @@ Responda sempre em português do Brasil, em linguagem simples, sem jargão. Mens
 ## Verificações
 
 - Antes de cada commit e de cada envio, o Virgílio confere senhas e chaves, migrações que apagam dados, regras de acesso e se o app compila. Quando barrar, leia a mensagem, faça o que ela diz e tente de novo.
+
+## Infra da sessão
+
+- O que é de infra (o banco, os E-mails de teste, a prévia e as variáveis) é do Virgílio. Na sessão aberta por ele, a pasta da sessão tem o environment.json, que diz como cada coisa está; leia esse arquivo antes de testar e confie nele, sem descobrir a infra na mão.
+- Quando precisar de algo da infra, peça ao Virgílio pelo virgilio agent request <tipo>: database_start liga o banco deste computador, database_restart reinicia o banco para ler a configuração nova, mail_inbox abre a aba E-mails de teste e preview_restart reinicia a prévia. A resposta diz se ficou feito, se espera o dono ou por que não deu.
+- Nunca peça ao dono para ligar, reiniciar ou conferir a infra, e nunca contorne a infra parada no código do app (tempo limite, mensagem de erro inventada, dado falso). Ao falar dessas coisas com o dono, use o nome do campo name do environment.json, nunca um endereço como http://127.0.0.1.
 
 ## Produto
 
