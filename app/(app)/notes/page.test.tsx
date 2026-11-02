@@ -1,6 +1,7 @@
 import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { noteLimit, noteTooLongMessage } from "@/lib/notes";
 
 type NoteRow = { id: string; body: string; created_at: string };
 type DatabaseError = { message: string };
@@ -112,7 +113,7 @@ beforeEach(() => {
 
 describe("página de notas", () => {
   test("abre com as notas do professor e o caminho para a conta", () => {
-    const html = renderToStaticMarkup(<NotesPage />);
+    const { html } = render();
     expect(html).toContain("Minhas notas");
     expect(html).toContain('href="/account"');
     expect(from).toHaveBeenCalledWith("notes");
@@ -176,22 +177,44 @@ describe("ao guardar uma nota", () => {
     expect(html.indexOf("Nota nova")).toBeLessThan(html.indexOf("Nota antiga"));
   });
 
-  test("nota só com espaços não vai para o banco", async () => {
+  test("nota no limite é gravada, sem aviso, e o campo fica vazio", async () => {
+    const fits = "a".repeat(noteLimit);
+    await open();
+    type(fits);
+    const { html, input } = await submit();
+    expect(insert).toHaveBeenCalledWith({ body: fits });
+    expect(html).not.toContain(noteTooLongMessage);
+    expect(input.props.value).toBe("");
+  });
+
+  test("nota só com espaços não vai para o banco nem mostra aviso", async () => {
     await open();
     type("   ");
-    const { preventDefault } = await submit();
+    const { preventDefault, html } = await submit();
     expect(preventDefault).toHaveBeenCalled();
     expect(insert).not.toHaveBeenCalled();
     expect(order).toHaveBeenCalledTimes(1);
+    expect(html).not.toContain(noteTooLongMessage);
   });
 
-  test("nota acima do limite não vai para o banco e o texto continua no campo", async () => {
-    const tooLong = "a".repeat(2001);
+  test("nota acima do limite mostra o aviso, não vai para o banco e o texto continua no campo", async () => {
+    const tooLong = "a".repeat(noteLimit + 1);
     await open();
     type(tooLong);
-    const { input } = await submit();
+    const { html, input } = await submit();
+    expect(html).toContain(noteTooLongMessage);
     expect(insert).not.toHaveBeenCalled();
     expect(input.props.value).toBe(tooLong);
+  });
+
+  test("depois de encurtar a nota, o aviso some ao guardar", async () => {
+    await open();
+    type("a".repeat(noteLimit + 1));
+    await submit();
+    type("nota curta");
+    const { html } = await submit();
+    expect(insert).toHaveBeenCalledWith({ body: "nota curta" });
+    expect(html).not.toContain(noteTooLongMessage);
   });
 
   test("quando a gravação falha, mostra o aviso e não perde o texto digitado", async () => {
