@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { accountPath } from "@/lib/account";
+import { closingPath } from "@/lib/closing";
 import { lessonsPath } from "@/lib/lessons";
 import { studentsPath } from "@/lib/students";
 import { fiveWeekOptions, fiveWeekPolicies, makeupOptions, makeupPolicies, teacherRulesMessages, type TeacherRulesField, type TeacherRulesState } from "@/lib/teacher-rules";
@@ -157,14 +158,17 @@ function LoadFailure({ onRetry }: { onRetry: () => void }) {
 export function TeacherRulesView({ state, busy, onChange, onSubmit, onRetry }: TeacherRulesViewProps) {
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-4 sm:p-8">
-      <header className="flex items-center justify-between gap-4">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold">Regras</h1>
-        <nav className="flex gap-4">
+        <nav className="flex flex-wrap gap-4">
           <Link className="text-sm underline" href={studentsPath}>
             Alunos
           </Link>
           <Link className="text-sm underline" href={lessonsPath}>
             Aulas
+          </Link>
+          <Link className="text-sm underline" href={closingPath}>
+            Fechamento
           </Link>
           <Link className="text-sm underline" href={accountPath}>
             Conta

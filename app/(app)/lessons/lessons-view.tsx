@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { accountPath } from "@/lib/account";
+import { closingPath } from "@/lib/closing";
 import {
   chargeLabel,
   describeDay,
@@ -202,9 +203,12 @@ export function LessonsView({ state, today, onMark, onChangeMonth, onRetry, onCh
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-4 sm:p-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold">Aulas</h1>
-        <nav className="flex gap-4">
+        <nav className="flex flex-wrap gap-4">
           <Link className="text-sm underline" href={studentsPath}>
             Alunos
+          </Link>
+          <Link className="text-sm underline" href={closingPath}>
+            Fechamento
           </Link>
           <Link className="text-sm underline" href={teacherRulesPath}>
             Regras

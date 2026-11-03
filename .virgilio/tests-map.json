@@ -74,6 +74,16 @@
       "sensitive": "personal"
     },
     {
+      "id": "fechamento",
+      "name": "Fechamento do mês",
+      "description": "Onde o professor vê quanto cada responsável deve no mês, com a conta aberta de cada aluno: aulas, faltas, reposições, pacotes, créditos e descontos",
+      "paths": [
+        "app/(app)/closing",
+        "lib/closing.ts"
+      ],
+      "sensitive": "personal"
+    },
+    {
       "id": "conexao-banco",
       "name": "Conexão com o banco",
       "description": "Como o app fala com o banco onde ficam os dados de cada professor",
@@ -116,6 +126,8 @@
     "app/(app)/rules/rules-view.tsx": "Formulário das regras do professor na tela",
     "app/(app)/lessons/page.tsx": "Tela de marcar as aulas do mês",
     "app/(app)/lessons/lessons-view.tsx": "Aulas do mês e botões de marcar na tela",
+    "app/(app)/closing/page.tsx": "Tela de fechamento do mês",
+    "app/(app)/closing/closing-view.tsx": "Conta aberta de cada responsável na tela",
     "app/layout.tsx": "Moldura de todas as telas",
     "lib/sign-in.ts": "Regras de pedir e conferir o código de entrada",
     "lib/google-sign-in.ts": "Regras de entrar com Google",
@@ -128,6 +140,7 @@
     "lib/teacher-rules.ts": "Regras da antecedência da falta, do prazo de reposição e do mês com 5 semanas",
     "lib/lessons.ts": "Regras de marcar a aula e de quais aulas são cobradas",
     "lib/makeups.ts": "Regras do crédito de reposição: quando nasce, quando vence e quando é usado",
+    "lib/closing.ts": "Regras do fechamento: quanto cada aluno e cada responsável deve no mês",
     "lib/supabase.ts": "Conexão com o banco usada nas telas",
     "lib/supabase-server.ts": "Conexão com o banco usada no servidor"
   }
