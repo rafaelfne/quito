@@ -1,5 +1,5 @@
 # Autenticação
-<!-- virgilio:feature id=autenticacao stage=building epic=4 -->
+<!-- virgilio:feature id=autenticacao stage=live epic=4 since=2026-11-03 -->
 
 ## O que é
 
