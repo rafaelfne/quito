@@ -7,7 +7,6 @@ No dia do vencimento, o Quitô entrega ao professor uma mensagem gentil para o r
 
 ## O que entra
 
-- Pergunta de partida no cadastro: quantos dias, em média, os pais costumam atrasar hoje. A resposta é guardada para comparar com o atraso medido pelo Quitô.
 - Dados de recebimento do professor: chave Pix, nome que aparece para o responsável e um dia de vencimento padrão, que o professor pode trocar para um responsável específico.
 - Mensagem configurável: o professor escolhe o tom entre modelos gentis já prontos e ajusta a saudação e a assinatura. O valor, a conta aberta (aulas, faltas, reposições) e a chave Pix entram sozinhos, a partir do fechamento do mês.
 - Prévia: o professor vê a mensagem de cada responsável antes do primeiro envio.
