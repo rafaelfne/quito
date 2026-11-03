@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import type { CalendarMonth } from "@/lib/schedule";
 import { studentMessages, type Student, type StudentField, type StudentsState } from "@/lib/students";
 
 type SelectResult = { data: Student[] | null; error: { message: string } | null };
 type ViewProps = {
   state: StudentsState;
+  month: CalendarMonth;
   busy: boolean;
   onChange: (field: StudentField, value: string) => void;
   onSubmit: () => void;
@@ -61,7 +63,7 @@ vi.mock("@/lib/supabase", () => ({ supabase: { from, auth: {} } }));
 
 const { default: StudentsPage } = await import("./page");
 
-const pedro: Student = { id: "1", name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null };
+const pedro: Student = { id: "1", name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
 
 function settle() {
   return new Promise((resolve) => setTimeout(resolve, 0));
@@ -93,6 +95,15 @@ describe("página de alunos", () => {
     expect(from).toHaveBeenCalledWith("students");
   });
 
+  test("mostra as aulas previstas do mês em que o aparelho está", async () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date(2026, 10, 15, 12) });
+    try {
+      expect(view().month).toEqual({ year: 2026, month: 11 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   test("busca os alunos uma vez só, mesmo quando a tela é desenhada de novo", async () => {
     await open();
     view();
@@ -118,12 +129,14 @@ describe("página de alunos", () => {
     view().onChange("guardianPhone", "(11) 98765-4321");
     view().onChange("billingKind", "monthly");
     view().onChange("billingAmount", "300,00");
+    view().onChange("lessonWeekday", "1");
+    view().onChange("lessonTime", "15:00");
     select.mockResolvedValueOnce({ data: [pedro], error: null });
     view().onSubmit();
     expect(view().busy).toBe(true);
     await settle();
     const done = view();
-    expect(insert).toHaveBeenCalledWith({ name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null });
+    expect(insert).toHaveBeenCalledWith({ name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00" });
     expect(done.busy).toBe(false);
     expect(done.state.students).toEqual([pedro]);
     expect(done.state.notice).toContain("Pedro Lima");

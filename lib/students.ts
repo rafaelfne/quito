@@ -1,16 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { billingDraftFrom, emptyBillingDraft, validateBilling, type BillingDraft, type BillingRow, type SavedBilling } from "@/lib/billing";
+import { emptyScheduleDraft, scheduleDraftFrom, validateSchedule, type SavedSchedule, type ScheduleDraft, type ScheduleRow } from "@/lib/schedule";
 import { requestTimeoutMs, withTimeout } from "@/lib/sign-in";
 
 export type StudentsClient = Pick<SupabaseClient, "from">;
 
 type StudentContact = { name: string; guardian_name: string; guardian_phone: string };
 
-export type StudentRow = StudentContact & BillingRow;
+export type StudentRow = StudentContact & BillingRow & ScheduleRow;
 
-export type Student = StudentContact & SavedBilling & { id: string };
+export type Student = StudentContact & SavedBilling & SavedSchedule & { id: string };
 
-export type StudentDraft = BillingDraft & { name: string; guardianName: string; guardianPhone: string };
+export type StudentDraft = BillingDraft & ScheduleDraft & { name: string; guardianName: string; guardianPhone: string };
 
 export type StudentField = keyof StudentDraft;
 
@@ -48,13 +49,13 @@ export const studentMessages = {
 
 const table = "students";
 
-const columns = "id, name, guardian_name, guardian_phone, billing_kind, billing_amount_cents, package_lessons";
+const columns = "id, name, guardian_name, guardian_phone, billing_kind, billing_amount_cents, package_lessons, lesson_weekday, lesson_time";
 
 const nationalPhonePattern = /^[1-9]{2}(9\d{8}|[2-9]\d{7})$/;
 
 const countryCodePattern = /^55\d{10,11}$/;
 
-const emptyDraft: StudentDraft = { name: "", guardianName: "", guardianPhone: "", ...emptyBillingDraft };
+const emptyDraft: StudentDraft = { name: "", guardianName: "", guardianPhone: "", ...emptyBillingDraft, ...emptyScheduleDraft };
 
 export const initialStudents: StudentsState = {
   students: [],
@@ -90,14 +91,15 @@ export function validateStudent(draft: StudentDraft): StudentValidation {
   const guardianName = cleanName(draft.guardianName);
   const phone = normalizePhone(draft.guardianPhone);
   const billing = validateBilling(draft);
-  const errors: StudentErrors = billing.ok ? {} : { ...billing.errors };
+  const schedule = validateSchedule(draft);
+  const errors: StudentErrors = { ...(billing.ok ? {} : billing.errors), ...(schedule.ok ? {} : schedule.errors) };
   const nameProblem = nameError(name, studentMessages.nameMissing, studentMessages.nameTooLong);
   const guardianProblem = nameError(guardianName, studentMessages.guardianMissing, studentMessages.guardianTooLong);
   if (nameProblem) errors.name = nameProblem;
   if (guardianProblem) errors.guardianName = guardianProblem;
   if (!phone) errors.guardianPhone = studentMessages.phoneInvalid;
-  if (!phone || !billing.ok || Object.keys(errors).length > 0) return { ok: false, errors };
-  return { ok: true, row: { name, guardian_name: guardianName, guardian_phone: phone, ...billing.row } };
+  if (!phone || !billing.ok || !schedule.ok || Object.keys(errors).length > 0) return { ok: false, errors };
+  return { ok: true, row: { name, guardian_name: guardianName, guardian_phone: phone, ...billing.row, ...schedule.row } };
 }
 
 export function sortStudents(students: Student[]): Student[] {
@@ -137,7 +139,7 @@ export function changeDraft(state: StudentsState, field: StudentField, value: st
 }
 
 export function startEditing(state: StudentsState, student: Student): StudentsState {
-  const draft = { name: student.name, guardianName: student.guardian_name, guardianPhone: formatPhone(student.guardian_phone), ...billingDraftFrom(student) };
+  const draft = { name: student.name, guardianName: student.guardian_name, guardianPhone: formatPhone(student.guardian_phone), ...billingDraftFrom(student), ...scheduleDraftFrom(student) };
   return { ...state, editing: { id: student.id, draft }, errors: {}, message: null, notice: null };
 }
 

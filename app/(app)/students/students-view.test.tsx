@@ -2,13 +2,15 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from "rea
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import { billingMessages, packageRolloverHint } from "@/lib/billing";
+import { scheduleMessages } from "@/lib/schedule";
 import { changeDraft, initialStudents, startEditing, studentMessages, type Student, type StudentsState } from "@/lib/students";
 import { StudentsView } from "./students-view";
 
 type AnyProps = Record<string, unknown> & { children?: ReactNode };
 
-const pedro: Student = { id: "1", name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "package", billing_amount_cents: 30000, package_lessons: 4 };
-const bia: Student = { id: "2", name: "Bia Reis", guardian_name: "Rosa Reis", guardian_phone: "2134567890", billing_kind: null, billing_amount_cents: null, package_lessons: null };
+const pedro: Student = { id: "1", name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "package", billing_amount_cents: 30000, package_lessons: 4, lesson_weekday: 1, lesson_time: "15:00:00" };
+const bia: Student = { id: "2", name: "Bia Reis", guardian_name: "Rosa Reis", guardian_phone: "2134567890", billing_kind: null, billing_amount_cents: null, package_lessons: null, lesson_weekday: null, lesson_time: null };
+const november2026 = { year: 2026, month: 11 };
 const ready: StudentsState = { ...initialStudents, listStatus: "ready", students: [bia, pedro] };
 
 function handlers() {
@@ -16,7 +18,7 @@ function handlers() {
 }
 
 function render(state: StudentsState, busy = false) {
-  return renderToStaticMarkup(<StudentsView state={state} busy={busy} {...handlers()} />);
+  return renderToStaticMarkup(<StudentsView state={state} month={november2026} busy={busy} {...handlers()} />);
 }
 
 function expand(node: ReactNode): ReactElement<AnyProps>[] {
@@ -35,12 +37,13 @@ function expand(node: ReactNode): ReactElement<AnyProps>[] {
 
 function controls(state: StudentsState) {
   const props = handlers();
-  const all = expand(StudentsView({ state, busy: false, ...props }));
+  const all = expand(StudentsView({ state, month: november2026, busy: false, ...props }));
   const buttonNamed = (label: string) => all.find((element) => element.type === "button" && Children.toArray(element.props.children).join("") === label)!;
   return {
     props,
     buttonNamed,
     inputs: all.filter((element) => element.type === "input"),
+    select: all.find((element) => element.type === "select")!,
     form: all.find((element) => element.type === "form")!,
   };
 }
@@ -196,6 +199,51 @@ describe("forma de cobrança na tela de alunos", () => {
     const radio = inputs.find((input) => input.props.value === "per_class")!;
     (radio.props.onChange as () => void)();
     expect(props.onChange).toHaveBeenCalledWith("billingKind", "per_class");
+  });
+});
+
+describe("horário fixo na tela de alunos", () => {
+  test("pede o dia e o horário, sem nenhum dia escolhido de partida", () => {
+    const html = render(ready);
+    expect(html).toContain("Dia da aula, toda semana");
+    expect(html).toContain("Horário da aula");
+    expect(html).toContain('type="time"');
+    expect(html).toContain("Segunda-feira");
+    expect(html).toContain("Domingo");
+    expect(html).toContain('<option value="" selected="">Escolha o dia</option>');
+  });
+
+  test("mostra o horário e as aulas previstas do mês, com as 5 aulas quando é o caso", () => {
+    const html = render(ready);
+    expect(html).toContain("Toda segunda, 15:00");
+    expect(html).toContain("Em novembro: 5 aulas previstas, nos dias 2, 9, 16, 23 e 30");
+  });
+
+  test("aluno sem horário tem aviso e nenhuma aula prevista", () => {
+    const html = render({ ...ready, students: [bia] });
+    expect(html).toContain("Horário ainda não definido");
+    expect(html).not.toContain("aulas previstas");
+  });
+
+  test("ao corrigir, abre com o dia e o horário guardados", () => {
+    const html = render(startEditing(ready, pedro));
+    expect(html).toContain('<option value="1" selected="">Segunda-feira</option>');
+    expect(html).toContain('value="15:00"');
+  });
+
+  test("aponta o erro no dia e no horário", () => {
+    const html = render({ ...ready, errors: { lessonWeekday: scheduleMessages.weekdayMissing, lessonTime: scheduleMessages.timeInvalid } });
+    expect(html).toContain(scheduleMessages.weekdayMissing);
+    expect(html).toContain('aria-describedby="student-lesson-weekday-error"');
+    expect(html).toContain('id="student-lesson-weekday-error"');
+    expect(html).toContain(scheduleMessages.timeInvalid);
+    expect(html).toContain('id="student-lesson-time-error"');
+  });
+
+  test("escolher o dia avisa qual foi escolhido", () => {
+    const { select, props } = controls(ready);
+    (select.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: "3" } });
+    expect(props.onChange).toHaveBeenCalledWith("lessonWeekday", "3");
   });
 });
 

@@ -43,11 +43,12 @@
     {
       "id": "alunos",
       "name": "Alunos",
-      "description": "Onde o professor cadastra e corrige os alunos, com o responsável, o WhatsApp dele e a forma de cobrança",
+      "description": "Onde o professor cadastra e corrige os alunos, com o responsável, o WhatsApp dele, a forma de cobrança e o horário fixo, e vê as aulas previstas do mês",
       "paths": [
         "app/(app)/students",
         "lib/students.ts",
-        "lib/billing.ts"
+        "lib/billing.ts",
+        "lib/schedule.ts"
       ],
       "sensitive": "personal"
     },
@@ -98,6 +99,7 @@
     "lib/notes.ts": "Regras do texto de uma nota",
     "lib/students.ts": "Regras do cadastro de aluno e do telefone do responsável",
     "lib/billing.ts": "Regras da forma de cobrança e do valor em reais",
+    "lib/schedule.ts": "Regras do horário fixo semanal e das aulas previstas do mês",
     "lib/supabase.ts": "Conexão com o banco usada nas telas",
     "lib/supabase-server.ts": "Conexão com o banco usada no servidor"
   }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { StudentsView } from "@/app/(app)/students/students-view";
 import { applyLoad, cancelEditing, changeDraft, initialStudents, loadStudents, startEditing, startReloading, submitStudent, type Student, type StudentField } from "@/lib/students";
+import { calendarMonthOf } from "@/lib/schedule";
 import { supabase } from "@/lib/supabase";
 
 export default function StudentsPage() {
@@ -31,6 +32,7 @@ export default function StudentsPage() {
   return (
     <StudentsView
       state={state}
+      month={calendarMonthOf(new Date())}
       busy={busy}
       onChange={(field: StudentField, value: string) => setState((current) => changeDraft(current, field, value))}
       onSubmit={submit}

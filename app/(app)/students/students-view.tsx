@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { accountPath } from "@/lib/account";
 import { billingKinds, billingOptions, describeBilling, isBillingKind, packageRolloverHint } from "@/lib/billing";
+import { describePlannedLessons, describeSchedule, weekdayOptions, type CalendarMonth } from "@/lib/schedule";
 import { afterSignInPath } from "@/lib/session";
 import { currentDraft, formatPhone, studentMessages, type Student, type StudentField, type StudentsState } from "@/lib/students";
 
-const inputClass = "rounded border px-3 py-3 text-base";
+const inputClass = "min-h-11 rounded border bg-background px-3 py-3 text-base text-foreground";
 const primaryButtonClass = "min-h-11 flex-1 rounded bg-foreground px-3 py-2 text-background disabled:opacity-50";
 const secondaryButtonClass = "min-h-11 rounded border px-3 py-2 disabled:opacity-50";
 
@@ -15,6 +16,7 @@ type FormHandlers = {
 
 type StudentsViewProps = FormHandlers & {
   state: StudentsState;
+  month: CalendarMonth;
   busy: boolean;
   onEdit: (student: Student) => void;
   onCancelEdit: () => void;
@@ -25,7 +27,7 @@ type TextFieldConfig = {
   field: StudentField;
   id: string;
   label: string;
-  type?: "text" | "tel";
+  type?: "text" | "tel" | "time";
   inputMode?: "text" | "tel" | "decimal" | "numeric";
   autoCapitalize?: "off" | "words";
   hint?: string;
@@ -38,6 +40,8 @@ const contactFields: TextFieldConfig[] = [
 ];
 
 const packageLessonsField: TextFieldConfig = { field: "packageLessons", id: "student-package-lessons", label: "Quantas aulas tem o pacote", inputMode: "numeric", hint: packageRolloverHint };
+
+const lessonTimeField: TextFieldConfig = { field: "lessonTime", id: "student-lesson-time", label: "Horário da aula", type: "time" };
 
 function amountField(label: string): TextFieldConfig {
   return { field: "billingAmount", id: "student-billing-amount", label, inputMode: "decimal" };
@@ -95,6 +99,37 @@ function BillingFields({ state, onChange }: { state: StudentsState; onChange: Fo
   );
 }
 
+function ScheduleFields({ state, onChange }: { state: StudentsState; onChange: FormHandlers["onChange"] }) {
+  const error = state.errors.lessonWeekday;
+  return (
+    <>
+      <label className="flex flex-col gap-1 text-sm">
+        Dia da aula, toda semana
+        <select
+          className={inputClass}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? "student-lesson-weekday-error" : undefined}
+          value={currentDraft(state).lessonWeekday}
+          onChange={(event) => onChange("lessonWeekday", event.target.value)}
+        >
+          <option value="">Escolha o dia</option>
+          {weekdayOptions.map(({ value, label }) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        {error ? (
+          <span id="student-lesson-weekday-error" role="alert">
+            {error}
+          </span>
+        ) : null}
+      </label>
+      <TextField config={lessonTimeField} state={state} onChange={onChange} />
+    </>
+  );
+}
+
 function StudentForm({ state, busy, submitLabel, onChange, onSubmit, onCancel }: FormHandlers & { state: StudentsState; busy: boolean; submitLabel: string; onCancel?: () => void }) {
   return (
     <form
@@ -108,6 +143,7 @@ function StudentForm({ state, busy, submitLabel, onChange, onSubmit, onCancel }:
         {contactFields.map((config) => (
           <TextField key={config.field} config={config} state={state} onChange={onChange} />
         ))}
+        <ScheduleFields state={state} onChange={onChange} />
         <BillingFields state={state} onChange={onChange} />
         {state.message ? (
           <p className="text-sm" role="alert">
@@ -129,7 +165,8 @@ function StudentForm({ state, busy, submitLabel, onChange, onSubmit, onCancel }:
   );
 }
 
-function StudentCard({ student, canEdit, onEdit }: { student: Student; canEdit: boolean; onEdit: (student: Student) => void }) {
+function StudentCard({ student, month, canEdit, onEdit }: { student: Student; month: CalendarMonth; canEdit: boolean; onEdit: (student: Student) => void }) {
+  const planned = describePlannedLessons(student, month);
   return (
     <div className="flex items-start justify-between gap-3">
       <dl className="flex min-w-0 flex-col gap-1">
@@ -141,6 +178,14 @@ function StudentCard({ student, canEdit, onEdit }: { student: Student; canEdit: 
         <dd className="text-sm">{formatPhone(student.guardian_phone)}</dd>
         <dt className="sr-only">Forma de cobrança</dt>
         <dd className="text-sm">{describeBilling(student)}</dd>
+        <dt className="sr-only">Horário fixo</dt>
+        <dd className="text-sm">{describeSchedule(student)}</dd>
+        {planned ? (
+          <>
+            <dt className="sr-only">Aulas previstas no mês</dt>
+            <dd className="text-sm">{planned}</dd>
+          </>
+        ) : null}
       </dl>
       {canEdit ? (
         <button className={secondaryButtonClass} type="button" aria-label={`Editar ${student.name}`} onClick={() => onEdit(student)}>
@@ -151,7 +196,7 @@ function StudentCard({ student, canEdit, onEdit }: { student: Student; canEdit: 
   );
 }
 
-function StudentList({ state, busy, onChange, onSubmit, onEdit, onCancelEdit }: StudentsViewProps) {
+function StudentList({ state, month, busy, onChange, onSubmit, onEdit, onCancelEdit }: StudentsViewProps) {
   const { students, listStatus, editing } = state;
   if (listStatus === "loading" && students.length === 0) return <p className="text-sm">Carregando...</p>;
   if (listStatus === "ready" && students.length === 0) return <p className="text-sm">Nenhum aluno por aqui ainda. Cadastre o primeiro no formulário acima.</p>;
@@ -162,7 +207,7 @@ function StudentList({ state, busy, onChange, onSubmit, onEdit, onCancelEdit }: 
           {editing?.id === student.id ? (
             <StudentForm state={state} busy={busy} submitLabel="Guardar" onChange={onChange} onSubmit={onSubmit} onCancel={onCancelEdit} />
           ) : (
-            <StudentCard student={student} canEdit={!editing && listStatus !== "loading"} onEdit={onEdit} />
+            <StudentCard student={student} month={month} canEdit={!editing && listStatus !== "loading"} onEdit={onEdit} />
           )}
         </li>
       ))}
