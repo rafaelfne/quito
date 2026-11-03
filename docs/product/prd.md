@@ -21,7 +21,7 @@ Dias de atraso em média, do vencimento até o professor marcar a cobrança como
 Cada funcionalidade tem um arquivo próprio em docs/product/features, com a etapa numa marca logo abaixo do nome. A lista abaixo o Virgílio mantém em dia; crie a primeira pela tela Produto.
 
 <!-- virgilio:features -->
-- [Controle de aulas](features/controle-de-aulas.md) · em aberto: o caderno mínimo de alunos e aulas que calcula quanto cada responsável deve no mês
+- [Controle de aulas](features/controle-de-aulas.md) · em construção: o caderno mínimo de alunos e aulas que calcula quanto cada responsável deve no mês
 - [Cobrança](features/cobranca.md) · em aberto: o lembrete gentil no dia certo, com o valor do mês e a chave Pix do professor
 - [App no celular e notificações](features/app-no-celular.md) · em aberto: o Quitô instalável no celular, com a notificação do dia de cobrar e um guia para ativar
 - [Autenticação](features/autenticacao.md) · em construção: entrar sem senha, com código por e-mail ou Google, e ficar conectado até sair
