@@ -1,0 +1,166 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { requestTimeoutMs, withTimeout } from "@/lib/sign-in";
+
+export type StudentsClient = Pick<SupabaseClient, "from">;
+
+export type StudentRow = { name: string; guardian_name: string; guardian_phone: string };
+
+export type Student = StudentRow & { id: string };
+
+export type StudentDraft = { name: string; guardianName: string; guardianPhone: string };
+
+export type StudentField = keyof StudentDraft;
+
+export type StudentErrors = Partial<Record<StudentField, string>>;
+
+export type StudentValidation = { ok: true; row: StudentRow } | { ok: false; errors: StudentErrors };
+
+export type StudentsLoad = { ok: true; students: Student[] } | { ok: false };
+
+export type StudentsListStatus = "loading" | "ready" | "failed";
+
+export type StudentsState = {
+  students: Student[];
+  listStatus: StudentsListStatus;
+  newDraft: StudentDraft;
+  editing: { id: string; draft: StudentDraft } | null;
+  errors: StudentErrors;
+  message: string | null;
+  notice: string | null;
+};
+
+export const studentsPath = "/students";
+
+export const studentNameLimit = 120;
+
+export const studentMessages = {
+  nameMissing: "Escreva o nome do aluno.",
+  nameTooLong: `O nome do aluno passou do limite de ${studentNameLimit} caracteres. Encurte o texto e toque em Guardar de novo.`,
+  guardianMissing: "Escreva o nome do responsável.",
+  guardianTooLong: `O nome do responsável passou do limite de ${studentNameLimit} caracteres. Encurte o texto e toque em Guardar de novo.`,
+  phoneInvalid: "Confira o telefone: ele precisa ter o DDD e o número, como (11) 98765-4321.",
+  loadFailed: "Não deu para atualizar a lista de alunos agora. Confira a internet e tente de novo.",
+  saveFailed: "Não deu para guardar o cadastro agora. Confira a internet e toque em Guardar de novo.",
+};
+
+const table = "students";
+
+const columns = "id, name, guardian_name, guardian_phone";
+
+const nationalPhonePattern = /^[1-9]{2}(9\d{8}|[2-9]\d{7})$/;
+
+const countryCodePattern = /^55\d{10,11}$/;
+
+const emptyDraft: StudentDraft = { name: "", guardianName: "", guardianPhone: "" };
+
+export const initialStudents: StudentsState = {
+  students: [],
+  listStatus: "loading",
+  newDraft: emptyDraft,
+  editing: null,
+  errors: {},
+  message: null,
+  notice: null,
+};
+
+export function normalizePhone(raw: string): string | null {
+  const digits = raw.replace(/\D/g, "").replace(/^0+/, "");
+  const national = countryCodePattern.test(digits) ? digits.slice(2) : digits;
+  return nationalPhonePattern.test(national) ? national : null;
+}
+
+export function formatPhone(phone: string): string {
+  return phone.replace(/^(\d{2})(\d{4,5})(\d{4})$/, "($1) $2-$3");
+}
+
+function cleanName(raw: string): string {
+  return raw.trim().replace(/\s+/g, " ");
+}
+
+function nameError(name: string, missing: string, tooLong: string): string | undefined {
+  if (!name) return missing;
+  return name.length > studentNameLimit ? tooLong : undefined;
+}
+
+export function validateStudent(draft: StudentDraft): StudentValidation {
+  const name = cleanName(draft.name);
+  const guardianName = cleanName(draft.guardianName);
+  const phone = normalizePhone(draft.guardianPhone);
+  const errors: StudentErrors = {};
+  const nameProblem = nameError(name, studentMessages.nameMissing, studentMessages.nameTooLong);
+  const guardianProblem = nameError(guardianName, studentMessages.guardianMissing, studentMessages.guardianTooLong);
+  if (nameProblem) errors.name = nameProblem;
+  if (guardianProblem) errors.guardianName = guardianProblem;
+  if (!phone) errors.guardianPhone = studentMessages.phoneInvalid;
+  if (!phone || Object.keys(errors).length > 0) return { ok: false, errors };
+  return { ok: true, row: { name, guardian_name: guardianName, guardian_phone: phone } };
+}
+
+export function sortStudents(students: Student[]): Student[] {
+  return [...students].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+}
+
+export async function loadStudents(client: StudentsClient): Promise<StudentsLoad> {
+  try {
+    const { data, error } = await withTimeout(Promise.resolve(client.from(table).select(columns)), requestTimeoutMs);
+    if (error) return { ok: false };
+    return { ok: true, students: sortStudents((data ?? []) as Student[]) };
+  } catch {
+    return { ok: false };
+  }
+}
+
+export async function saveStudent(client: StudentsClient, row: StudentRow, id: string | null): Promise<boolean> {
+  try {
+    if (id === null) {
+      const { error } = await withTimeout(Promise.resolve(client.from(table).insert(row)), requestTimeoutMs);
+      return !error;
+    }
+    const { data, error } = await withTimeout(Promise.resolve(client.from(table).update(row).eq("id", id).select("id")), requestTimeoutMs);
+    return !error && (data ?? []).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+export function currentDraft(state: StudentsState): StudentDraft {
+  return state.editing?.draft ?? state.newDraft;
+}
+
+export function changeDraft(state: StudentsState, field: StudentField, value: string): StudentsState {
+  const draft = { ...currentDraft(state), [field]: value };
+  return state.editing ? { ...state, editing: { ...state.editing, draft } } : { ...state, newDraft: draft };
+}
+
+export function startEditing(state: StudentsState, student: Student): StudentsState {
+  const draft = { name: student.name, guardianName: student.guardian_name, guardianPhone: formatPhone(student.guardian_phone) };
+  return { ...state, editing: { id: student.id, draft }, errors: {}, message: null, notice: null };
+}
+
+export function cancelEditing(state: StudentsState): StudentsState {
+  return { ...state, editing: null, errors: {}, message: null, notice: null };
+}
+
+export function startReloading(state: StudentsState): StudentsState {
+  return { ...state, listStatus: "loading" };
+}
+
+export function applyLoad(state: StudentsState, result: StudentsLoad): StudentsState {
+  return result.ok ? { ...state, students: result.students, listStatus: "ready" } : { ...state, listStatus: "failed" };
+}
+
+export async function submitStudent(client: StudentsClient, state: StudentsState): Promise<StudentsState> {
+  const validation = validateStudent(currentDraft(state));
+  if (!validation.ok) return { ...state, errors: validation.errors, message: null, notice: null };
+  const saved = await saveStudent(client, validation.row, state.editing?.id ?? null);
+  if (!saved) return { ...state, errors: {}, message: studentMessages.saveFailed, notice: null };
+  const next: StudentsState = {
+    ...state,
+    newDraft: state.editing ? state.newDraft : emptyDraft,
+    editing: null,
+    errors: {},
+    message: null,
+    notice: `Cadastro de ${validation.row.name} guardado.`,
+  };
+  return applyLoad(next, await loadStudents(client));
+}

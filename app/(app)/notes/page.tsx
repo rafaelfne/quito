@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { accountPath } from "@/lib/account";
 import { cleanNote, noteWarning } from "@/lib/notes";
+import { studentsPath } from "@/lib/students";
 import { supabase } from "@/lib/supabase";
 
 type Note = { id: string; body: string; created_at: string };
@@ -47,9 +48,14 @@ export default function NotesPage() {
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-8">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Minhas notas</h1>
-        <Link className="text-sm underline" href={accountPath}>
-          Conta
-        </Link>
+        <nav className="flex gap-4">
+          <Link className="text-sm underline" href={studentsPath}>
+            Alunos
+          </Link>
+          <Link className="text-sm underline" href={accountPath}>
+            Conta
+          </Link>
+        </nav>
       </header>
       <form className="flex gap-2" onSubmit={(event) => void add(event)}>
         <input className="flex-1 rounded border px-3 py-2" required value={body} placeholder="Escreva uma nota" onChange={(e) => setBody(e.target.value)} />
