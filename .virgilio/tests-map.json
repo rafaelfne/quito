@@ -53,6 +53,16 @@
       "sensitive": "personal"
     },
     {
+      "id": "regras",
+      "name": "Regras do professor",
+      "description": "Onde o professor define, para todos os alunos, a antecedência da falta avisada, o prazo da reposição e o preço do mês com 5 semanas",
+      "paths": [
+        "app/(app)/rules",
+        "lib/teacher-rules.ts"
+      ],
+      "sensitive": "personal"
+    },
+    {
       "id": "conexao-banco",
       "name": "Conexão com o banco",
       "description": "Como o app fala com o banco onde ficam os dados de cada professor",
@@ -91,6 +101,8 @@
     "app/(app)/notes/page.tsx": "Tela de notas",
     "app/(app)/students/page.tsx": "Tela de alunos",
     "app/(app)/students/students-view.tsx": "Formulário e lista de alunos na tela",
+    "app/(app)/rules/page.tsx": "Tela de regras do professor",
+    "app/(app)/rules/rules-view.tsx": "Formulário das regras do professor na tela",
     "app/layout.tsx": "Moldura de todas as telas",
     "lib/sign-in.ts": "Regras de pedir e conferir o código de entrada",
     "lib/google-sign-in.ts": "Regras de entrar com Google",
@@ -100,6 +112,7 @@
     "lib/students.ts": "Regras do cadastro de aluno e do telefone do responsável",
     "lib/billing.ts": "Regras da forma de cobrança e do valor em reais",
     "lib/schedule.ts": "Regras do horário fixo semanal e das aulas previstas do mês",
+    "lib/teacher-rules.ts": "Regras da antecedência da falta, do prazo de reposição e do mês com 5 semanas",
     "lib/supabase.ts": "Conexão com o banco usada nas telas",
     "lib/supabase-server.ts": "Conexão com o banco usada no servidor"
   }

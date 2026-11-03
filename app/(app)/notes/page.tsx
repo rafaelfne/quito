@@ -6,6 +6,7 @@ import { accountPath } from "@/lib/account";
 import { cleanNote, noteWarning } from "@/lib/notes";
 import { studentsPath } from "@/lib/students";
 import { supabase } from "@/lib/supabase";
+import { teacherRulesPath } from "@/lib/teacher-rules";
 
 type Note = { id: string; body: string; created_at: string };
 
@@ -51,6 +52,9 @@ export default function NotesPage() {
         <nav className="flex gap-4">
           <Link className="text-sm underline" href={studentsPath}>
             Alunos
+          </Link>
+          <Link className="text-sm underline" href={teacherRulesPath}>
+            Regras
           </Link>
           <Link className="text-sm underline" href={accountPath}>
             Conta

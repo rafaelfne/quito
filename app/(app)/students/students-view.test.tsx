@@ -72,9 +72,10 @@ describe("tela de alunos", () => {
     expect(html.indexOf("Bia Reis")).toBeLessThan(html.indexOf("Pedro Lima"));
   });
 
-  test("tem os caminhos para as notas e a conta", () => {
+  test("tem os caminhos para as notas, as regras e a conta", () => {
     const html = render(ready);
     expect(html).toContain('href="/notes"');
+    expect(html).toContain('href="/rules"');
     expect(html).toContain('href="/account"');
   });
 

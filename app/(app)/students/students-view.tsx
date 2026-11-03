@@ -4,6 +4,7 @@ import { billingKinds, billingOptions, describeBilling, isBillingKind, packageRo
 import { describePlannedLessons, describeSchedule, weekdayOptions, type CalendarMonth } from "@/lib/schedule";
 import { afterSignInPath } from "@/lib/session";
 import { currentDraft, formatPhone, studentMessages, type Student, type StudentField, type StudentsState } from "@/lib/students";
+import { teacherRulesPath } from "@/lib/teacher-rules";
 
 const inputClass = "min-h-11 rounded border bg-background px-3 py-3 text-base text-foreground";
 const primaryButtonClass = "min-h-11 flex-1 rounded bg-foreground px-3 py-2 text-background disabled:opacity-50";
@@ -225,6 +226,9 @@ export function StudentsView(props: StudentsViewProps) {
         <nav className="flex gap-4">
           <Link className="text-sm underline" href={afterSignInPath}>
             Notas
+          </Link>
+          <Link className="text-sm underline" href={teacherRulesPath}>
+            Regras
           </Link>
           <Link className="text-sm underline" href={accountPath}>
             Conta

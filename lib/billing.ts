@@ -65,14 +65,14 @@ export function parseAmount(raw: string): number | null {
   return whole * 100 + fraction;
 }
 
-function parseLessons(raw: string): number | null {
+export function parseWholeNumber(raw: string, limit: number): number | null {
   const text = raw.trim();
   if (!/^\d+$/.test(text)) return null;
-  const lessons = Number(text);
-  return lessons >= 1 && lessons <= packageLessonsLimit ? lessons : null;
+  const value = Number(text);
+  return value >= 1 && value <= limit ? value : null;
 }
 
-function amountError(cents: number | null): string | undefined {
+export function amountError(cents: number | null): string | undefined {
   if (!cents) return billingMessages.amountInvalid;
   return cents > billingAmountLimitCents ? billingMessages.amountTooHigh : undefined;
 }
@@ -81,7 +81,7 @@ export function validateBilling(draft: BillingDraft): BillingValidation {
   const kind = draft.billingKind;
   if (!isBillingKind(kind)) return { ok: false, errors: { billingKind: billingMessages.kindMissing } };
   const cents = parseAmount(draft.billingAmount);
-  const lessons = kind === "package" ? parseLessons(draft.packageLessons) : null;
+  const lessons = kind === "package" ? parseWholeNumber(draft.packageLessons, packageLessonsLimit) : null;
   const errors: BillingErrors = {};
   const amountProblem = amountError(cents);
   if (amountProblem) errors.billingAmount = amountProblem;

@@ -16,6 +16,7 @@ describe("cada professor só vê os próprios dados", () => {
   test("as migrações criam tabelas", () => {
     expect(tables).toContain("notes");
     expect(tables).toContain("students");
+    expect(tables).toContain("teacher_rules");
   });
 
   test.each(tables)("a tabela %s nasce com a regra de acesso ligada e só para o dono", (table) => {
