@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { accountPath } from "@/lib/account";
+import { lessonsPath } from "@/lib/lessons";
 import { studentsPath } from "@/lib/students";
 import { fiveWeekOptions, fiveWeekPolicies, makeupOptions, makeupPolicies, teacherRulesMessages, type TeacherRulesField, type TeacherRulesState } from "@/lib/teacher-rules";
 
@@ -152,6 +153,9 @@ export function TeacherRulesView({ state, busy, onChange, onSubmit, onRetry }: T
         <nav className="flex gap-4">
           <Link className="text-sm underline" href={studentsPath}>
             Alunos
+          </Link>
+          <Link className="text-sm underline" href={lessonsPath}>
+            Aulas
           </Link>
           <Link className="text-sm underline" href={accountPath}>
             Conta

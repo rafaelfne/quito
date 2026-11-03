@@ -63,6 +63,16 @@
       "sensitive": "personal"
     },
     {
+      "id": "aulas",
+      "name": "Aulas",
+      "description": "Onde o professor marca cada aula prevista do mês como dada, falta avisada, falta sem aviso ou falta do professor, e vê quais são cobradas",
+      "paths": [
+        "app/(app)/lessons",
+        "lib/lessons.ts"
+      ],
+      "sensitive": "personal"
+    },
+    {
       "id": "conexao-banco",
       "name": "Conexão com o banco",
       "description": "Como o app fala com o banco onde ficam os dados de cada professor",
@@ -103,6 +113,8 @@
     "app/(app)/students/students-view.tsx": "Formulário e lista de alunos na tela",
     "app/(app)/rules/page.tsx": "Tela de regras do professor",
     "app/(app)/rules/rules-view.tsx": "Formulário das regras do professor na tela",
+    "app/(app)/lessons/page.tsx": "Tela de marcar as aulas do mês",
+    "app/(app)/lessons/lessons-view.tsx": "Aulas do mês e botões de marcar na tela",
     "app/layout.tsx": "Moldura de todas as telas",
     "lib/sign-in.ts": "Regras de pedir e conferir o código de entrada",
     "lib/google-sign-in.ts": "Regras de entrar com Google",
@@ -113,6 +125,7 @@
     "lib/billing.ts": "Regras da forma de cobrança e do valor em reais",
     "lib/schedule.ts": "Regras do horário fixo semanal e das aulas previstas do mês",
     "lib/teacher-rules.ts": "Regras da antecedência da falta, do prazo de reposição e do mês com 5 semanas",
+    "lib/lessons.ts": "Regras de marcar a aula e de quais aulas são cobradas",
     "lib/supabase.ts": "Conexão com o banco usada nas telas",
     "lib/supabase-server.ts": "Conexão com o banco usada no servidor"
   }

@@ -70,6 +70,7 @@ describe("tela de regras", () => {
   test("tem os caminhos para os alunos e a conta", () => {
     const html = render(ready);
     expect(html).toContain('href="/students"');
+    expect(html).toContain('href="/lessons"');
     expect(html).toContain('href="/account"');
   });
 

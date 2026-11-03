@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { accountPath } from "@/lib/account";
+import { lessonsPath } from "@/lib/lessons";
 import { cleanNote, noteWarning } from "@/lib/notes";
 import { studentsPath } from "@/lib/students";
 import { supabase } from "@/lib/supabase";
@@ -47,11 +48,14 @@ export default function NotesPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-8">
-      <header className="flex items-center justify-between">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold">Minhas notas</h1>
         <nav className="flex gap-4">
           <Link className="text-sm underline" href={studentsPath}>
             Alunos
+          </Link>
+          <Link className="text-sm underline" href={lessonsPath}>
+            Aulas
           </Link>
           <Link className="text-sm underline" href={teacherRulesPath}>
             Regras

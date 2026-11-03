@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { accountPath } from "@/lib/account";
+import { lessonsPath } from "@/lib/lessons";
 import { billingKinds, billingOptions, describeBilling, isBillingKind, packageRolloverHint } from "@/lib/billing";
 import { describePlannedLessons, describeSchedule, weekdayOptions, type CalendarMonth } from "@/lib/schedule";
 import { afterSignInPath } from "@/lib/session";
@@ -221,11 +222,14 @@ export function StudentsView(props: StudentsViewProps) {
   const loading = state.listStatus === "loading";
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-4 sm:p-8">
-      <header className="flex items-center justify-between gap-4">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold">Alunos</h1>
         <nav className="flex gap-4">
           <Link className="text-sm underline" href={afterSignInPath}>
             Notas
+          </Link>
+          <Link className="text-sm underline" href={lessonsPath}>
+            Aulas
           </Link>
           <Link className="text-sm underline" href={teacherRulesPath}>
             Regras

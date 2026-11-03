@@ -116,6 +116,7 @@ describe("página de notas", () => {
     const { html } = render();
     expect(html).toContain("Minhas notas");
     expect(html).toContain('href="/students"');
+    expect(html).toContain('href="/lessons"');
     expect(html).toContain('href="/rules"');
     expect(html).toContain('href="/account"');
     expect(from).toHaveBeenCalledWith("notes");
