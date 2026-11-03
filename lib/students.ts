@@ -1,13 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { billingDraftFrom, emptyBillingDraft, validateBilling, type BillingDraft, type BillingRow, type SavedBilling } from "@/lib/billing";
 import { requestTimeoutMs, withTimeout } from "@/lib/sign-in";
 
 export type StudentsClient = Pick<SupabaseClient, "from">;
 
-export type StudentRow = { name: string; guardian_name: string; guardian_phone: string };
+type StudentContact = { name: string; guardian_name: string; guardian_phone: string };
 
-export type Student = StudentRow & { id: string };
+export type StudentRow = StudentContact & BillingRow;
 
-export type StudentDraft = { name: string; guardianName: string; guardianPhone: string };
+export type Student = StudentContact & SavedBilling & { id: string };
+
+export type StudentDraft = BillingDraft & { name: string; guardianName: string; guardianPhone: string };
 
 export type StudentField = keyof StudentDraft;
 
@@ -45,13 +48,13 @@ export const studentMessages = {
 
 const table = "students";
 
-const columns = "id, name, guardian_name, guardian_phone";
+const columns = "id, name, guardian_name, guardian_phone, billing_kind, billing_amount_cents, package_lessons";
 
 const nationalPhonePattern = /^[1-9]{2}(9\d{8}|[2-9]\d{7})$/;
 
 const countryCodePattern = /^55\d{10,11}$/;
 
-const emptyDraft: StudentDraft = { name: "", guardianName: "", guardianPhone: "" };
+const emptyDraft: StudentDraft = { name: "", guardianName: "", guardianPhone: "", ...emptyBillingDraft };
 
 export const initialStudents: StudentsState = {
   students: [],
@@ -86,14 +89,15 @@ export function validateStudent(draft: StudentDraft): StudentValidation {
   const name = cleanName(draft.name);
   const guardianName = cleanName(draft.guardianName);
   const phone = normalizePhone(draft.guardianPhone);
-  const errors: StudentErrors = {};
+  const billing = validateBilling(draft);
+  const errors: StudentErrors = billing.ok ? {} : { ...billing.errors };
   const nameProblem = nameError(name, studentMessages.nameMissing, studentMessages.nameTooLong);
   const guardianProblem = nameError(guardianName, studentMessages.guardianMissing, studentMessages.guardianTooLong);
   if (nameProblem) errors.name = nameProblem;
   if (guardianProblem) errors.guardianName = guardianProblem;
   if (!phone) errors.guardianPhone = studentMessages.phoneInvalid;
-  if (!phone || Object.keys(errors).length > 0) return { ok: false, errors };
-  return { ok: true, row: { name, guardian_name: guardianName, guardian_phone: phone } };
+  if (!phone || !billing.ok || Object.keys(errors).length > 0) return { ok: false, errors };
+  return { ok: true, row: { name, guardian_name: guardianName, guardian_phone: phone, ...billing.row } };
 }
 
 export function sortStudents(students: Student[]): Student[] {
@@ -133,7 +137,7 @@ export function changeDraft(state: StudentsState, field: StudentField, value: st
 }
 
 export function startEditing(state: StudentsState, student: Student): StudentsState {
-  const draft = { name: student.name, guardianName: student.guardian_name, guardianPhone: formatPhone(student.guardian_phone) };
+  const draft = { name: student.name, guardianName: student.guardian_name, guardianPhone: formatPhone(student.guardian_phone), ...billingDraftFrom(student) };
   return { ...state, editing: { id: student.id, draft }, errors: {}, message: null, notice: null };
 }
 

@@ -1,13 +1,14 @@
 import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
-import { initialStudents, startEditing, studentMessages, type Student, type StudentsState } from "@/lib/students";
+import { billingMessages, packageRolloverHint } from "@/lib/billing";
+import { changeDraft, initialStudents, startEditing, studentMessages, type Student, type StudentsState } from "@/lib/students";
 import { StudentsView } from "./students-view";
 
 type AnyProps = Record<string, unknown> & { children?: ReactNode };
 
-const pedro: Student = { id: "1", name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321" };
-const bia: Student = { id: "2", name: "Bia Reis", guardian_name: "Rosa Reis", guardian_phone: "2134567890" };
+const pedro: Student = { id: "1", name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "package", billing_amount_cents: 30000, package_lessons: 4 };
+const bia: Student = { id: "2", name: "Bia Reis", guardian_name: "Rosa Reis", guardian_phone: "2134567890", billing_kind: null, billing_amount_cents: null, package_lessons: null };
 const ready: StudentsState = { ...initialStudents, listStatus: "ready", students: [bia, pedro] };
 
 function handlers() {
@@ -130,6 +131,71 @@ describe("tela de alunos", () => {
     expect(html).toContain("Cancelar");
     expect(html).toContain("Bia Reis");
     expect(html).not.toContain("Editar");
+  });
+});
+
+describe("forma de cobrança na tela de alunos", () => {
+  function choosing(kind: string) {
+    return changeDraft(ready, "billingKind", kind);
+  }
+
+  test("oferece as três formas, sem nenhuma escolhida e sem pedir valor antes da escolha", () => {
+    const html = render(ready);
+    expect(html).toContain("Como este aluno paga");
+    expect(html).toContain("Mensalidade fixa");
+    expect(html).toContain("Valor por aula");
+    expect(html).toContain("Pacote de aulas");
+    expect(html).not.toContain("checked");
+    expect(html).not.toContain("em reais");
+  });
+
+  test.each([
+    ["monthly", "Valor da mensalidade, em reais"],
+    ["per_class", "Valor de cada aula, em reais"],
+  ])("com %s, pede só o valor", (kind, label) => {
+    const html = render(choosing(kind));
+    expect(html).toContain(label);
+    expect(html).toContain('inputMode="decimal"');
+    expect(html).not.toContain("Quantas aulas tem o pacote");
+    expect(html).toContain("checked");
+  });
+
+  test("no pacote, pede as aulas e o valor e avisa que as aulas não vencem", () => {
+    const html = render(choosing("package"));
+    expect(html).toContain("Quantas aulas tem o pacote");
+    expect(html).toContain('inputMode="numeric"');
+    expect(html).toContain("Valor do pacote inteiro, em reais");
+    expect(html).toContain(packageRolloverHint);
+  });
+
+  test("mostra na lista como cada aluno paga, e quem ainda não tem forma definida", () => {
+    const html = render(ready);
+    expect(html).toContain("Pacote de 4 aulas por R$ 300,00");
+    expect(html).toContain("Forma de cobrança ainda não definida");
+  });
+
+  test("ao corrigir, abre com a forma e os valores guardados", () => {
+    const html = render(startEditing(ready, pedro));
+    expect(html).toContain('value="300,00"');
+    expect(html).toContain('value="4"');
+    expect(html).toContain("checked");
+  });
+
+  test("aponta o erro de cada parte da cobrança", () => {
+    const missing = render({ ...ready, errors: { billingKind: billingMessages.kindMissing } });
+    expect(missing).toContain(billingMessages.kindMissing);
+    expect(missing).toContain('aria-describedby="student-billing-kind-error"');
+
+    const invalid = render({ ...choosing("package"), errors: { billingAmount: billingMessages.amountInvalid, packageLessons: billingMessages.lessonsInvalid } });
+    expect(invalid).toContain('id="student-billing-amount-error"');
+    expect(invalid).toContain('id="student-package-lessons-error"');
+  });
+
+  test("escolher a forma avisa qual foi escolhida", () => {
+    const { inputs, props } = controls(ready);
+    const radio = inputs.find((input) => input.props.value === "per_class")!;
+    (radio.props.onChange as () => void)();
+    expect(props.onChange).toHaveBeenCalledWith("billingKind", "per_class");
   });
 });
 

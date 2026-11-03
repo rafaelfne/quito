@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
+import { billingMessages } from "./billing";
 import {
   applyLoad,
   cancelEditing,
@@ -24,10 +25,12 @@ import {
 type Failure = { message: string } | null;
 type SelectResult = { data: unknown[] | null; error: Failure };
 
-const pedro: Student = { id: "1", name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321" };
-const alvaro: Student = { id: "2", name: "Álvaro Reis", guardian_name: "Bia Reis", guardian_phone: "2134567890" };
-const validDraft = { name: "  Pedro   Lima ", guardianName: " Ana  Lima", guardianPhone: "(11) 98765-4321" };
-const validRow = { name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321" };
+const noBilling = { billing_kind: null, billing_amount_cents: null, package_lessons: null };
+const emptyDraft = { name: "", guardianName: "", guardianPhone: "", billingKind: "", billingAmount: "", packageLessons: "" };
+const pedro: Student = { id: "1", name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "package", billing_amount_cents: 30000, package_lessons: 4 };
+const alvaro: Student = { id: "2", name: "Álvaro Reis", guardian_name: "Bia Reis", guardian_phone: "2134567890", ...noBilling };
+const validDraft = { name: "  Pedro   Lima ", guardianName: " Ana  Lima", guardianPhone: "(11) 98765-4321", billingKind: "package", billingAmount: "300,00", packageLessons: "4" };
+const validRow = { name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "package" as const, billing_amount_cents: 30000, package_lessons: 4 };
 
 function fakeClient(overrides: { select?: () => Promise<SelectResult>; insert?: () => Promise<{ error: Failure }>; updated?: () => Promise<SelectResult> } = {}) {
   const select = vi.fn(overrides.select ?? (async () => ({ data: [] as unknown[], error: null as Failure })));
@@ -75,11 +78,15 @@ describe("validateStudent", () => {
     expect(validateStudent(validDraft)).toEqual({ ok: true, row: validRow });
   });
 
-  test("com tudo vazio, aponta os três campos", () => {
-    expect(validateStudent({ name: " ", guardianName: "", guardianPhone: "" })).toEqual({
+  test("com tudo vazio, aponta os três campos e pede a forma de cobrança", () => {
+    expect(validateStudent({ ...emptyDraft, name: " " })).toEqual({
       ok: false,
-      errors: { name: studentMessages.nameMissing, guardianName: studentMessages.guardianMissing, guardianPhone: studentMessages.phoneInvalid },
+      errors: { name: studentMessages.nameMissing, guardianName: studentMessages.guardianMissing, guardianPhone: studentMessages.phoneInvalid, billingKind: billingMessages.kindMissing },
     });
+  });
+
+  test("com o cadastro certo e a cobrança errada, não aprova", () => {
+    expect(validateStudent({ ...validDraft, billingAmount: "" })).toEqual({ ok: false, errors: { billingAmount: billingMessages.amountInvalid } });
   });
 
   test("aceita nome no limite e recusa o que passa dele", () => {
@@ -110,7 +117,7 @@ describe("loadStudents", () => {
     const { client, from, select } = fakeClient({ select: async () => ({ data: [pedro, alvaro], error: null }) });
     expect(await loadStudents(client)).toEqual({ ok: true, students: [alvaro, pedro] });
     expect(from).toHaveBeenCalledWith("students");
-    expect(select).toHaveBeenCalledWith("id, name, guardian_name, guardian_phone");
+    expect(select).toHaveBeenCalledWith("id, name, guardian_name, guardian_phone, billing_kind, billing_amount_cents, package_lessons");
   });
 
   test("sem resposta, a lista vem vazia", async () => {
@@ -166,10 +173,14 @@ describe("rascunho do formulário", () => {
     expect(currentDraft(state).name).toBe("Pedro");
   });
 
+  test("corrigir um aluno antigo abre a forma de cobrança em branco", () => {
+    expect(currentDraft(startEditing(initialStudents, alvaro))).toMatchObject({ billingKind: "", billingAmount: "", packageLessons: "" });
+  });
+
   test("corrigir um aluno mostra os dados dele e guarda o que estava sendo digitado no novo", () => {
     const typing = changeDraft(initialStudents, "name", "Maria");
     const editing = startEditing({ ...typing, notice: "antes", message: "antes", errors: { name: "antes" } }, pedro);
-    expect(currentDraft(editing)).toEqual({ name: "Pedro Lima", guardianName: "Ana Lima", guardianPhone: "(11) 98765-4321" });
+    expect(currentDraft(editing)).toEqual({ name: "Pedro Lima", guardianName: "Ana Lima", guardianPhone: "(11) 98765-4321", billingKind: "package", billingAmount: "300,00", packageLessons: "4" });
     expect(editing).toMatchObject({ notice: null, message: null, errors: {} });
 
     const changed = changeDraft(editing, "name", "Pedro Souza");
@@ -210,19 +221,19 @@ describe("submitStudent", () => {
     const { client, insert } = fakeClient({ select: async () => ({ data: [pedro], error: null }) });
     const state = await submitStudent(client, withDraft());
     expect(insert).toHaveBeenCalledWith(validRow);
-    expect(state.newDraft).toEqual({ name: "", guardianName: "", guardianPhone: "" });
+    expect(state.newDraft).toEqual(emptyDraft);
     expect(state).toMatchObject({ students: [pedro], listStatus: "ready", notice: "Cadastro de Pedro Lima guardado.", errors: {}, message: null });
   });
 
   test("corrige o aluno, fecha a edição e devolve o que estava sendo digitado no novo", async () => {
     const { client, update, eq, insert } = fakeClient({ select: async () => ({ data: [pedro], error: null }) });
-    const typing = changeDraft(withDraft({ name: "Maria", guardianName: "", guardianPhone: "" }), "guardianName", "Rosa");
+    const typing = changeDraft(withDraft({ ...emptyDraft, name: "Maria" }), "guardianName", "Rosa");
     const state = await submitStudent(client, startEditing(typing, pedro));
     expect(update).toHaveBeenCalledWith(validRow);
     expect(eq).toHaveBeenCalledWith("id", "1");
     expect(insert).not.toHaveBeenCalled();
     expect(state.editing).toBeNull();
-    expect(state.newDraft).toEqual({ name: "Maria", guardianName: "Rosa", guardianPhone: "" });
+    expect(state.newDraft).toEqual({ ...emptyDraft, name: "Maria", guardianName: "Rosa" });
   });
 
   test("quando não consegue guardar, avisa e não perde o que foi digitado", async () => {

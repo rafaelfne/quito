@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { accountPath } from "@/lib/account";
+import { billingKinds, billingOptions, describeBilling, isBillingKind, packageRolloverHint } from "@/lib/billing";
 import { afterSignInPath } from "@/lib/session";
 import { currentDraft, formatPhone, studentMessages, type Student, type StudentField, type StudentsState } from "@/lib/students";
 
@@ -20,14 +21,81 @@ type StudentsViewProps = FormHandlers & {
   onRetry: () => void;
 };
 
-const fields: { field: StudentField; id: string; label: string; type: "text" | "tel"; hint?: string }[] = [
-  { field: "name", id: "student-name", label: "Nome do aluno", type: "text" },
-  { field: "guardianName", id: "student-guardian-name", label: "Nome do responsável", type: "text" },
-  { field: "guardianPhone", id: "student-guardian-phone", label: "WhatsApp do responsável", type: "tel", hint: "Com DDD. É para este número que a cobrança vai sair." },
+type TextFieldConfig = {
+  field: StudentField;
+  id: string;
+  label: string;
+  type?: "text" | "tel";
+  inputMode?: "text" | "tel" | "decimal" | "numeric";
+  autoCapitalize?: "off" | "words";
+  hint?: string;
+};
+
+const contactFields: TextFieldConfig[] = [
+  { field: "name", id: "student-name", label: "Nome do aluno", autoCapitalize: "words" },
+  { field: "guardianName", id: "student-guardian-name", label: "Nome do responsável", autoCapitalize: "words" },
+  { field: "guardianPhone", id: "student-guardian-phone", label: "WhatsApp do responsável", type: "tel", inputMode: "tel", hint: "Com DDD. É para este número que a cobrança vai sair." },
 ];
 
+const packageLessonsField: TextFieldConfig = { field: "packageLessons", id: "student-package-lessons", label: "Quantas aulas tem o pacote", inputMode: "numeric", hint: packageRolloverHint };
+
+function amountField(label: string): TextFieldConfig {
+  return { field: "billingAmount", id: "student-billing-amount", label, inputMode: "decimal" };
+}
+
+function TextField({ config, state, onChange }: { config: TextFieldConfig; state: StudentsState; onChange: FormHandlers["onChange"] }) {
+  const { field, id, label, type = "text", inputMode = "text", autoCapitalize = "off", hint } = config;
+  const error = state.errors[field];
+  return (
+    <label className="flex flex-col gap-1 text-sm">
+      {label}
+      {hint ? <span className="opacity-70">{hint}</span> : null}
+      <input
+        className={inputClass}
+        type={type}
+        inputMode={inputMode}
+        autoComplete="off"
+        autoCapitalize={autoCapitalize}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
+        value={currentDraft(state)[field]}
+        onChange={(event) => onChange(field, event.target.value)}
+      />
+      {error ? (
+        <span id={`${id}-error`} role="alert">
+          {error}
+        </span>
+      ) : null}
+    </label>
+  );
+}
+
+function BillingFields({ state, onChange }: { state: StudentsState; onChange: FormHandlers["onChange"] }) {
+  const selected = currentDraft(state).billingKind;
+  const error = state.errors.billingKind;
+  return (
+    <>
+      <fieldset className="flex flex-col gap-2 text-sm" aria-describedby={error ? "student-billing-kind-error" : undefined}>
+        <legend className="mb-1">Como este aluno paga</legend>
+        {billingKinds.map((kind) => (
+          <label key={kind} className="flex min-h-11 items-center gap-2 rounded border px-3 text-base">
+            <input type="radio" name="billing-kind" value={kind} checked={selected === kind} onChange={() => onChange("billingKind", kind)} />
+            {billingOptions[kind].label}
+          </label>
+        ))}
+        {error ? (
+          <span id="student-billing-kind-error" role="alert">
+            {error}
+          </span>
+        ) : null}
+      </fieldset>
+      {selected === "package" ? <TextField config={packageLessonsField} state={state} onChange={onChange} /> : null}
+      {isBillingKind(selected) ? <TextField config={amountField(billingOptions[selected].amountLabel)} state={state} onChange={onChange} /> : null}
+    </>
+  );
+}
+
 function StudentForm({ state, busy, submitLabel, onChange, onSubmit, onCancel }: FormHandlers & { state: StudentsState; busy: boolean; submitLabel: string; onCancel?: () => void }) {
-  const draft = currentDraft(state);
   return (
     <form
       noValidate
@@ -37,31 +105,10 @@ function StudentForm({ state, busy, submitLabel, onChange, onSubmit, onCancel }:
       }}
     >
       <fieldset className="flex flex-col gap-4" disabled={busy}>
-        {fields.map(({ field, id, label, type, hint }) => {
-          const error = state.errors[field];
-          return (
-            <label key={field} className="flex flex-col gap-1 text-sm">
-              {label}
-              {hint ? <span className="opacity-70">{hint}</span> : null}
-              <input
-                className={inputClass}
-                type={type}
-                inputMode={type === "tel" ? "tel" : "text"}
-                autoComplete="off"
-                autoCapitalize={type === "tel" ? "off" : "words"}
-                aria-invalid={error ? true : undefined}
-                aria-describedby={error ? `${id}-error` : undefined}
-                value={draft[field]}
-                onChange={(event) => onChange(field, event.target.value)}
-              />
-              {error ? (
-                <span id={`${id}-error`} role="alert">
-                  {error}
-                </span>
-              ) : null}
-            </label>
-          );
-        })}
+        {contactFields.map((config) => (
+          <TextField key={config.field} config={config} state={state} onChange={onChange} />
+        ))}
+        <BillingFields state={state} onChange={onChange} />
         {state.message ? (
           <p className="text-sm" role="alert">
             {state.message}
@@ -92,6 +139,8 @@ function StudentCard({ student, canEdit, onEdit }: { student: Student; canEdit: 
         <dd className="text-sm break-words">{student.guardian_name}</dd>
         <dt className="sr-only">WhatsApp do responsável</dt>
         <dd className="text-sm">{formatPhone(student.guardian_phone)}</dd>
+        <dt className="sr-only">Forma de cobrança</dt>
+        <dd className="text-sm">{describeBilling(student)}</dd>
       </dl>
       {canEdit ? (
         <button className={secondaryButtonClass} type="button" aria-label={`Editar ${student.name}`} onClick={() => onEdit(student)}>
