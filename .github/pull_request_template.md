@@ -9,5 +9,5 @@ Closes #
 
 ## Como conferir
 
-O passo a passo para ver a mudança funcionando no ensaio.
+O passo a passo para ver a mudança funcionando na prévia.
 <!-- virgilio:end -->
