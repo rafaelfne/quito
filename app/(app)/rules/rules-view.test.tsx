@@ -60,6 +60,7 @@ describe("tela de regras", () => {
     expect(html).not.toContain('<fieldset class="flex flex-col gap-4" disabled');
     expect(html).toContain("todos os seus alunos");
     expect(html).toContain("horas de antecedência");
+    expect(html).toContain("Desconto para alunos com o mesmo responsável");
     expect(html).toContain('value="24"');
     expect(html).toContain("A reposição tem prazo?");
     expect(html).toContain("o mês com 5 semanas");
@@ -82,6 +83,12 @@ describe("tela de regras", () => {
   test("o valor da aula avulsa só é pedido quando o mês com 5 semanas soma", () => {
     expect(render(ready)).not.toContain("Valor da aula avulsa");
     expect(render(withDraft({ fiveWeekPolicy: "add_lesson" }))).toContain("Valor da aula avulsa");
+  });
+
+  test("aponta erro no desconto percentual", () => {
+    const html = render({ ...ready, errors: { siblingDiscountPercent: "Confira o desconto" } });
+    expect(html).toContain('id="rules-sibling-discount-percent-error"');
+    expect(html).toContain("Confira o desconto");
   });
 
   test("aponta o erro no campo certo", () => {

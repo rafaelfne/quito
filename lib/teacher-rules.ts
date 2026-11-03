@@ -17,6 +17,7 @@ export type TeacherRulesRow = {
   makeup_deadline_days: number | null;
   five_week_policy: FiveWeekPolicy;
   five_week_extra_cents: number | null;
+  sibling_discount_percent: number;
 };
 
 export type TeacherRulesDraft = {
@@ -25,6 +26,7 @@ export type TeacherRulesDraft = {
   makeupDays: string;
   fiveWeekPolicy: string;
   fiveWeekExtra: string;
+  siblingDiscountPercent: string;
 };
 
 export type TeacherRulesField = keyof TeacherRulesDraft;
@@ -49,11 +51,14 @@ export const noticeHoursLimit = 168;
 
 export const makeupDaysLimit = 365;
 
+export const siblingDiscountLimit = 100;
+
 export const defaultTeacherRules: TeacherRulesRow = {
   notice_hours: 24,
   makeup_deadline_days: null,
   five_week_policy: "same_price",
   five_week_extra_cents: null,
+  sibling_discount_percent: 0,
 };
 
 export const makeupOptions: Record<MakeupPolicy, string> = {
@@ -72,11 +77,12 @@ export const teacherRulesMessages = {
   loadFailed: "Não deu para abrir as suas regras agora. Confira a internet e tente de novo.",
   saveFailed: "Não deu para guardar as regras agora. Confira a internet e toque em Guardar de novo.",
   saved: "Regras guardadas.",
+  siblingDiscountInvalid: `Escreva um desconto de 0 a ${siblingDiscountLimit}%.`,
 };
 
 const table = "teacher_rules";
 
-const columns = "notice_hours, makeup_deadline_days, five_week_policy, five_week_extra_cents";
+const columns = "notice_hours, makeup_deadline_days, five_week_policy, five_week_extra_cents, sibling_discount_percent";
 
 export function teacherRulesDraftFrom(rules: TeacherRulesRow): TeacherRulesDraft {
   const { makeup_deadline_days: days, five_week_extra_cents: extra } = rules;
@@ -86,6 +92,7 @@ export function teacherRulesDraftFrom(rules: TeacherRulesRow): TeacherRulesDraft
     makeupDays: days === null ? "" : String(days),
     fiveWeekPolicy: rules.five_week_policy,
     fiveWeekExtra: extra === null ? "" : formatAmount(extra),
+    siblingDiscountPercent: String(rules.sibling_discount_percent),
   };
 }
 
@@ -102,11 +109,13 @@ export function validateTeacherRules(draft: TeacherRulesDraft): TeacherRulesVali
   const makeupDays = draft.makeupPolicy === "deadline" ? parseWholeNumber(draft.makeupDays, makeupDaysLimit) : null;
   const addsLesson = draft.fiveWeekPolicy === "add_lesson";
   const extraCents = addsLesson ? parseAmount(draft.fiveWeekExtra) : null;
+  const siblingDiscountPercent = draft.siblingDiscountPercent.trim() === "0" ? 0 : parseWholeNumber(draft.siblingDiscountPercent, siblingDiscountLimit);
   const errors: TeacherRulesErrors = {};
   const extraProblem = addsLesson ? amountError(extraCents) : undefined;
   if (noticeHours === null) errors.noticeHours = teacherRulesMessages.noticeInvalid;
   if (draft.makeupPolicy === "deadline" && makeupDays === null) errors.makeupDays = teacherRulesMessages.makeupDaysInvalid;
   if (extraProblem) errors.fiveWeekExtra = extraProblem;
+  if (siblingDiscountPercent === null) errors.siblingDiscountPercent = teacherRulesMessages.siblingDiscountInvalid;
   if (noticeHours === null || Object.keys(errors).length > 0) return { ok: false, errors };
   return {
     ok: true,
@@ -115,6 +124,7 @@ export function validateTeacherRules(draft: TeacherRulesDraft): TeacherRulesVali
       makeup_deadline_days: makeupDays,
       five_week_policy: addsLesson ? "add_lesson" : "same_price",
       five_week_extra_cents: extraCents,
+      sibling_discount_percent: siblingDiscountPercent ?? 0,
     },
   };
 }

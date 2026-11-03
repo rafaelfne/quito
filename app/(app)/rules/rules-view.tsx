@@ -51,6 +51,14 @@ const makeupDaysField: TextFieldConfig = {
   hint: "Contado a partir do dia da falta. Passou do prazo, o crédito vence.",
 };
 
+const siblingDiscountField: TextFieldConfig = {
+  field: "siblingDiscountPercent",
+  id: "rules-sibling-discount-percent",
+  label: "Desconto para alunos com o mesmo responsável, em porcentagem",
+  inputMode: "numeric",
+  hint: "O percentual será descontado da cobrança de cada aluno. Use 0 para não dar desconto.",
+};
+
 const fiveWeekExtraField: TextFieldConfig = {
   field: "fiveWeekExtra",
   id: "rules-five-week-extra",
@@ -115,6 +123,7 @@ function TeacherRulesForm({ state, busy, onChange, onSubmit }: FormHandlers & { 
     >
       <fieldset className="flex flex-col gap-4" disabled={busy || state.status === "loading"}>
         <TextField config={noticeField} state={state} onChange={onChange} />
+        <TextField config={siblingDiscountField} state={state} onChange={onChange} />
         <Choice config={makeupChoice} state={state} onChange={onChange} />
         {state.draft.makeupPolicy === "deadline" ? <TextField config={makeupDaysField} state={state} onChange={onChange} /> : null}
         <Choice config={fiveWeekChoice} state={state} onChange={onChange} />

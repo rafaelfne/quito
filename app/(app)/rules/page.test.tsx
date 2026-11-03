@@ -60,7 +60,7 @@ vi.mock("@/lib/supabase", () => ({ supabase: { from, auth: {} } }));
 
 const { default: TeacherRulesPage } = await import("./page");
 
-const saved: TeacherRulesRow = { notice_hours: 48, makeup_deadline_days: 30, five_week_policy: "add_lesson", five_week_extra_cents: 8000 };
+const saved: TeacherRulesRow = { notice_hours: 48, makeup_deadline_days: 30, five_week_policy: "add_lesson", five_week_extra_cents: 8000, sibling_discount_percent: 12 };
 
 function settle() {
   return new Promise((resolve) => setTimeout(resolve, 0));
@@ -88,7 +88,7 @@ describe("página de regras", () => {
     maybeSingle.mockResolvedValueOnce({ data: saved, error: null });
     expect(view().state.status).toBe("loading");
     await settle();
-    expect(view().state).toMatchObject({ status: "ready", draft: { noticeHours: "48", makeupDays: "30", fiveWeekExtra: "80,00" } });
+    expect(view().state).toMatchObject({ status: "ready", draft: { noticeHours: "48", makeupDays: "30", fiveWeekExtra: "80,00", siblingDiscountPercent: "12" } });
     expect(from).toHaveBeenCalledWith("teacher_rules");
   });
 
@@ -120,7 +120,7 @@ describe("página de regras", () => {
     expect(view().busy).toBe(true);
     await settle();
     const done = view();
-    expect(upsert).toHaveBeenCalledWith({ notice_hours: 12, makeup_deadline_days: 60, five_week_policy: "same_price", five_week_extra_cents: null }, { onConflict: "owner_id" });
+    expect(upsert).toHaveBeenCalledWith({ notice_hours: 12, makeup_deadline_days: 60, five_week_policy: "same_price", five_week_extra_cents: null, sibling_discount_percent: 0 }, { onConflict: "owner_id" });
     expect(done.busy).toBe(false);
     expect(done.state.notice).toBe(teacherRulesMessages.saved);
   });

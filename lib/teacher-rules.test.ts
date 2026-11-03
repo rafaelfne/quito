@@ -1,4 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { billingMessages } from "./billing";
 import {
   applyTeacherRulesLoad,
@@ -22,9 +24,9 @@ import {
 type Failure = { message: string } | null;
 type LoadResult = { data: TeacherRulesRow | null; error: Failure };
 
-const strictRules: TeacherRulesRow = { notice_hours: 48, makeup_deadline_days: 30, five_week_policy: "add_lesson", five_week_extra_cents: 8000 };
-const strictDraft = { noticeHours: "48", makeupPolicy: "deadline", makeupDays: "30", fiveWeekPolicy: "add_lesson", fiveWeekExtra: "80,00" };
-const defaultDraft = { noticeHours: "24", makeupPolicy: "none", makeupDays: "", fiveWeekPolicy: "same_price", fiveWeekExtra: "" };
+const strictRules: TeacherRulesRow = { notice_hours: 48, makeup_deadline_days: 30, five_week_policy: "add_lesson", five_week_extra_cents: 8000, sibling_discount_percent: 10 };
+const strictDraft = { noticeHours: "48", makeupPolicy: "deadline", makeupDays: "30", fiveWeekPolicy: "add_lesson", fiveWeekExtra: "80,00", siblingDiscountPercent: "10" };
+const defaultDraft = { noticeHours: "24", makeupPolicy: "none", makeupDays: "", fiveWeekPolicy: "same_price", fiveWeekExtra: "", siblingDiscountPercent: "0" };
 
 function fakeClient(overrides: { load?: () => Promise<LoadResult>; upsert?: () => Promise<{ error: Failure }> } = {}) {
   const maybeSingle = vi.fn(overrides.load ?? (async () => ({ data: null, error: null } as LoadResult)));
@@ -40,9 +42,18 @@ function ready(draft = strictDraft): TeacherRulesState {
 
 describe("regras de partida", () => {
   test("a falta conta como avisada com 24 horas, a reposição não tem prazo e o mês com 5 semanas custa igual", () => {
-    expect(defaultTeacherRules).toEqual({ notice_hours: 24, makeup_deadline_days: null, five_week_policy: "same_price", five_week_extra_cents: null });
+    expect(defaultTeacherRules).toEqual({ notice_hours: 24, makeup_deadline_days: null, five_week_policy: "same_price", five_week_extra_cents: null, sibling_discount_percent: 0 });
     expect(initialTeacherRules.draft).toEqual(defaultDraft);
     expect(initialTeacherRules.status).toBe("loading");
+  });
+});
+
+describe("regra de desconto no banco", () => {
+  const migration = readFileSync(join(process.cwd(), "supabase/migrations/20261103070000_sibling_discount.sql"), "utf8");
+
+  test("guarda percentual de zero a cem por professor", () => {
+    expect(migration).toContain('"sibling_discount_percent" integer not null default 0');
+    expect(migration).toContain('"sibling_discount_percent" between 0 and 100');
   });
 });
 
@@ -59,7 +70,7 @@ describe("validateTeacherRules", () => {
   });
 
   test("ignora o prazo e o valor que ficaram escritos quando a opção foi desligada", () => {
-    const result = validateTeacherRules({ noticeHours: " 12 ", makeupPolicy: "none", makeupDays: "abc", fiveWeekPolicy: "same_price", fiveWeekExtra: "abc" });
+    const result = validateTeacherRules({ ...defaultDraft, noticeHours: " 12 ", makeupDays: "abc", fiveWeekExtra: "abc" });
     expect(result).toEqual({ ok: true, row: { ...defaultTeacherRules, notice_hours: 12 } });
   });
 
@@ -70,6 +81,15 @@ describe("validateTeacherRules", () => {
   test("aceita os limites de antecedência e de prazo", () => {
     expect(validateTeacherRules({ ...strictDraft, noticeHours: "1", makeupDays: "1" }).ok).toBe(true);
     expect(validateTeacherRules({ ...strictDraft, noticeHours: String(noticeHoursLimit), makeupDays: String(makeupDaysLimit) }).ok).toBe(true);
+  });
+
+  test.each([[""], ["-1"], ["1,5"], ["101"]])("recusa desconto de %s por cento", (siblingDiscountPercent) => {
+    expect(validateTeacherRules({ ...defaultDraft, siblingDiscountPercent })).toEqual({ ok: false, errors: { siblingDiscountPercent: teacherRulesMessages.siblingDiscountInvalid } });
+  });
+
+  test("aceita desconto de zero ou cem por cento", () => {
+    expect(validateTeacherRules({ ...defaultDraft, siblingDiscountPercent: "0" }).ok).toBe(true);
+    expect(validateTeacherRules({ ...defaultDraft, siblingDiscountPercent: "100" }).ok).toBe(true);
   });
 
   test.each([[""], ["0"], [String(makeupDaysLimit + 1)]])("com prazo ligado, recusa %s dias", (makeupDays) => {

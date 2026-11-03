@@ -141,6 +141,11 @@ describe("describeBilling", () => {
   ] as const)("descreve %j", (billing, text) => {
     expect(describeBilling(billing)).toBe(text);
   });
+
+  test("aplica o percentual e arredonda para centavos", () => {
+    expect(describeBilling({ billing_kind: "monthly", billing_amount_cents: 30001, package_lessons: null }, 10)).toBe("Mensalidade de R$ 270,01 com 10% de desconto");
+    expect(describeBilling({ billing_kind: "per_class", billing_amount_cents: 8000, package_lessons: null }, 25)).toBe("R$ 60,00 com 25% de desconto por aula");
+  });
 });
 
 describe("regra do banco", () => {

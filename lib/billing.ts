@@ -98,10 +98,16 @@ export function billingDraftFrom(billing: SavedBilling): BillingDraft {
   };
 }
 
-export function describeBilling(billing: SavedBilling): string {
+export function discountAmount(cents: number, percent: number): number {
+  return cents - Math.round((cents * percent) / 100);
+}
+
+export function describeBilling(billing: SavedBilling, siblingDiscountPercent = 0): string {
   const { billing_kind: kind, billing_amount_cents: cents, package_lessons: lessons } = billing;
   if (kind === null || cents === null) return "Forma de cobrança ainda não definida";
-  if (kind === "monthly") return `Mensalidade de ${formatCurrency(cents)}`;
-  if (kind === "per_class") return `${formatCurrency(cents)} por aula`;
-  return `Pacote de ${lessons} ${lessons === 1 ? "aula" : "aulas"} por ${formatCurrency(cents)}`;
+  const discountedCents = discountAmount(cents, siblingDiscountPercent);
+  const amount = siblingDiscountPercent > 0 ? `${formatCurrency(discountedCents)} com ${siblingDiscountPercent}% de desconto` : formatCurrency(cents);
+  if (kind === "monthly") return `Mensalidade de ${amount}`;
+  if (kind === "per_class") return `${amount} por aula`;
+  return `Pacote de ${lessons} ${lessons === 1 ? "aula" : "aulas"} por ${amount}`;
 }

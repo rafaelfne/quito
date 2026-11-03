@@ -4,7 +4,7 @@ import { lessonsPath } from "@/lib/lessons";
 import { billingKinds, billingOptions, describeBilling, isBillingKind, packageRolloverHint } from "@/lib/billing";
 import { describePlannedLessons, describeSchedule, weekdayOptions, type CalendarMonth } from "@/lib/schedule";
 import { afterSignInPath } from "@/lib/session";
-import { currentDraft, formatPhone, studentMessages, type Student, type StudentField, type StudentsState } from "@/lib/students";
+import { currentDraft, formatPhone, groupStudentsByGuardian, studentMessages, type Student, type StudentField, type StudentsState } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
 
 const inputClass = "min-h-11 rounded border bg-background px-3 py-3 text-base text-foreground";
@@ -20,6 +20,7 @@ type StudentsViewProps = FormHandlers & {
   state: StudentsState;
   month: CalendarMonth;
   busy: boolean;
+  discountPercent?: number;
   onEdit: (student: Student) => void;
   onCancelEdit: () => void;
   onRetry: () => void;
@@ -167,7 +168,7 @@ function StudentForm({ state, busy, submitLabel, onChange, onSubmit, onCancel }:
   );
 }
 
-function StudentCard({ student, month, canEdit, onEdit }: { student: Student; month: CalendarMonth; canEdit: boolean; onEdit: (student: Student) => void }) {
+function StudentCard({ student, month, canEdit, onEdit, discountPercent }: { student: Student; month: CalendarMonth; canEdit: boolean; onEdit: (student: Student) => void; discountPercent: number }) {
   const planned = describePlannedLessons(student, month);
   return (
     <div className="flex items-start justify-between gap-3">
@@ -179,7 +180,7 @@ function StudentCard({ student, month, canEdit, onEdit }: { student: Student; mo
         <dt className="sr-only">WhatsApp do responsável</dt>
         <dd className="text-sm">{formatPhone(student.guardian_phone)}</dd>
         <dt className="sr-only">Forma de cobrança</dt>
-        <dd className="text-sm">{describeBilling(student)}</dd>
+        <dd className="text-sm">{describeBilling(student, discountPercent)}</dd>
         <dt className="sr-only">Horário fixo</dt>
         <dd className="text-sm">{describeSchedule(student)}</dd>
         {planned ? (
@@ -198,19 +199,26 @@ function StudentCard({ student, month, canEdit, onEdit }: { student: Student; mo
   );
 }
 
-function StudentList({ state, month, busy, onChange, onSubmit, onEdit, onCancelEdit }: StudentsViewProps) {
+function StudentList({ state, month, busy, discountPercent = 0, onChange, onSubmit, onEdit, onCancelEdit }: StudentsViewProps) {
   const { students, listStatus, editing } = state;
   if (listStatus === "loading" && students.length === 0) return <p className="text-sm">Carregando...</p>;
   if (listStatus === "ready" && students.length === 0) return <p className="text-sm">Nenhum aluno por aqui ainda. Cadastre o primeiro no formulário acima.</p>;
   return (
-    <ul className="flex flex-col gap-2">
-      {students.map((student) => (
-        <li key={student.id} className="rounded border p-3">
-          {editing?.id === student.id ? (
-            <StudentForm state={state} busy={busy} submitLabel="Guardar" onChange={onChange} onSubmit={onSubmit} onCancel={onCancelEdit} />
-          ) : (
-            <StudentCard student={student} month={month} canEdit={!editing && listStatus !== "loading"} onEdit={onEdit} />
-          )}
+    <ul className="flex flex-col gap-4">
+      {groupStudentsByGuardian(students).map((group) => (
+        <li key={group[0].guardian_phone} className="flex flex-col gap-2">
+          {group.length > 1 ? <h3 className="text-sm font-medium">Alunos de {group[0].guardian_name}</h3> : null}
+          <ul className="flex flex-col gap-2">
+            {group.map((student) => (
+              <li key={student.id} className="rounded border p-3">
+                {editing?.id === student.id ? (
+                  <StudentForm state={state} busy={busy} submitLabel="Guardar" onChange={onChange} onSubmit={onSubmit} onCancel={onCancelEdit} />
+                ) : (
+                  <StudentCard student={student} month={month} canEdit={!editing && listStatus !== "loading"} onEdit={onEdit} discountPercent={group.length > 1 ? discountPercent : 0} />
+                )}
+              </li>
+            ))}
+          </ul>
         </li>
       ))}
     </ul>

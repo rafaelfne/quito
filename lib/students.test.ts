@@ -7,6 +7,7 @@ import {
   changeDraft,
   currentDraft,
   formatPhone,
+  groupStudentsByGuardian,
   initialStudents,
   loadStudents,
   normalizePhone,
@@ -114,6 +115,13 @@ describe("sortStudents", () => {
     const original = [pedro, alvaro];
     expect(sortStudents(original)).toEqual([alvaro, pedro]);
     expect(original).toEqual([pedro, alvaro]);
+  });
+});
+
+describe("groupStudentsByGuardian", () => {
+  test("mantém juntos os alunos que usam o mesmo telefone de responsável", () => {
+    const bia = { ...alvaro, id: "3", name: "Bia Reis", guardian_name: "Ana Lima", guardian_phone: pedro.guardian_phone };
+    expect(groupStudentsByGuardian([bia, alvaro, pedro])).toEqual([[alvaro], [bia, pedro]]);
   });
 });
 

@@ -104,11 +104,13 @@ describe("página de alunos", () => {
     }
   });
 
-  test("busca os alunos uma vez só, mesmo quando a tela é desenhada de novo", async () => {
+  test("busca alunos e regras uma vez cada, mesmo quando a tela é desenhada de novo", async () => {
     await open();
     view();
     await settle();
-    expect(select).toHaveBeenCalledTimes(1);
+    expect(select).toHaveBeenCalledTimes(2);
+    expect(from).toHaveBeenNthCalledWith(1, "students");
+    expect(from).toHaveBeenNthCalledWith(2, "teacher_rules");
   });
 
   test("tentar de novo volta a carregar e mostra a lista", async () => {

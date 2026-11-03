@@ -106,6 +106,16 @@ export function sortStudents(students: Student[]): Student[] {
   return [...students].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
 }
 
+export function groupStudentsByGuardian(students: Student[]): Student[][] {
+  const groups = new Map<string, Student[]>();
+  for (const student of sortStudents(students)) {
+    const group = groups.get(student.guardian_phone) ?? [];
+    group.push(student);
+    groups.set(student.guardian_phone, group);
+  }
+  return [...groups.values()];
+}
+
 export async function loadStudents(client: StudentsClient): Promise<StudentsLoad> {
   try {
     const { data, error } = await withTimeout(Promise.resolve(client.from(table).select(columns)), requestTimeoutMs);

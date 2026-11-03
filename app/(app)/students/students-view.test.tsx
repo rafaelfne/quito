@@ -17,8 +17,8 @@ function handlers() {
   return { onChange: vi.fn(), onSubmit: vi.fn(), onEdit: vi.fn(), onCancelEdit: vi.fn(), onRetry: vi.fn() };
 }
 
-function render(state: StudentsState, busy = false) {
-  return renderToStaticMarkup(<StudentsView state={state} month={november2026} busy={busy} {...handlers()} />);
+function render(state: StudentsState, busy = false, discountPercent = 0) {
+  return renderToStaticMarkup(<StudentsView state={state} month={november2026} busy={busy} discountPercent={discountPercent} {...handlers()} />);
 }
 
 function expand(node: ReactNode): ReactElement<AnyProps>[] {
@@ -70,6 +70,14 @@ describe("tela de alunos", () => {
     expect(html).toContain("(21) 3456-7890");
     expect(html).toContain('aria-label="Editar Pedro Lima"');
     expect(html.indexOf("Bia Reis")).toBeLessThan(html.indexOf("Pedro Lima"));
+  });
+
+  test("agrupa alunos do mesmo responsável e mostra a cobrança com o desconto configurado", () => {
+    const sibling = { ...bia, guardian_name: pedro.guardian_name, guardian_phone: pedro.guardian_phone, billing_kind: "monthly" as const, billing_amount_cents: 30000 };
+    const html = render({ ...ready, students: [pedro, sibling] }, false, 10);
+    expect(html).toContain("Alunos de Ana Lima");
+    expect(html).toContain("Pacote de 4 aulas por R$ 270,00 com 10% de desconto");
+    expect(html).toContain("Mensalidade de R$ 270,00 com 10% de desconto");
   });
 
   test("tem os caminhos para as notas, as regras e a conta", () => {
