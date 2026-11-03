@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { LessonStatus, LessonsState, MonthLesson } from "@/lib/lessons";
+import type { LessonMark, LessonStatus, LessonsState, MakeupLesson, MonthLesson } from "@/lib/lessons";
 import { lessonKey } from "@/lib/lessons";
+import { makeupMessages, type LessonCredit, type MakeupTarget } from "@/lib/makeups";
 import type { Student } from "@/lib/students";
+
+const absence: LessonMark = { student_id: "p", lesson_date: "2026-11-02", status: "notified_absence", makeup_date: null };
+const credit: LessonCredit = { studentId: "p", studentName: "Pedro Lima", absenceDate: "2026-11-02", status: "notified_absence", expiresOn: null };
 
 type ViewProps = {
   state: LessonsState;
@@ -9,18 +13,24 @@ type ViewProps = {
   onMark: (lesson: MonthLesson, status: LessonStatus) => void;
   onChangeMonth: (delta: number) => void;
   onRetry: () => void;
+  onChangeMakeupDate: (target: MakeupTarget, date: string) => void;
+  onMakeUp: (credit: LessonCredit) => void;
+  onUndoMakeup: (makeup: MakeupLesson) => void;
 };
 
 const pedro: Student = { id: "p", name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
-const lesson: MonthLesson = { studentId: "p", studentName: "Pedro Lima", date: "2026-11-02", time: "15:00", status: null };
+const lesson: MonthLesson = { studentId: "p", studentName: "Pedro Lima", date: "2026-11-02", time: "15:00", status: null, makeupDate: null };
 
 const selectStudents = vi.fn(async () => ({ data: [pedro] as Student[] | null, error: null as { message: string } | null }));
 const lte = vi.fn(async () => ({ data: [], error: null }));
+const creditMarks = vi.fn(async () => ({ data: [] as LessonMark[], error: null }));
 const upsert = vi.fn(async () => ({ error: null as { message: string } | null }));
+const updateResult = vi.fn(async () => ({ error: null as { message: string } | null }));
+const update = vi.fn(() => ({ eq: () => ({ eq: updateResult }) }));
 const from = vi.fn((table: string) => {
   if (table === "students") return { select: selectStudents };
   if (table === "teacher_rules") return { select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) };
-  return { select: () => ({ gte: () => ({ lte }) }), upsert };
+  return { select: () => ({ gte: () => ({ lte }), in: creditMarks }), upsert, update };
 });
 
 const hooks = vi.hoisted(() => {
@@ -88,6 +98,8 @@ beforeEach(() => {
   selectStudents.mockClear();
   lte.mockClear();
   upsert.mockClear();
+  update.mockClear();
+  creditMarks.mockClear();
   vi.useFakeTimers({ toFake: ["Date"], now: new Date(2026, 10, 15, 12) });
   return () => vi.useRealTimers();
 });
@@ -129,7 +141,7 @@ describe("página de aulas", () => {
   test("um toque marca na hora, trava enquanto grava e guarda", async () => {
     (await open()).onMark(lesson, "given");
     const marking = view().state;
-    expect(marking.marks).toEqual([{ student_id: "p", lesson_date: "2026-11-02", status: "given" }]);
+    expect(marking.marks).toEqual([{ student_id: "p", lesson_date: "2026-11-02", status: "given", makeup_date: null }]);
     expect(marking.pending).toEqual([lessonKey(lesson)]);
     await settle();
     expect(upsert).toHaveBeenCalledWith({ student_id: "p", lesson_date: "2026-11-02", status: "given" }, { onConflict: "student_id,lesson_date" });
@@ -141,5 +153,51 @@ describe("página de aulas", () => {
     (await open()).onMark(lesson, "given");
     await settle();
     expect(view().state).toMatchObject({ marks: [], pending: [], failedLesson: lessonKey(lesson) });
+  });
+
+  test("marcar a reposição usa o crédito no dia escolhido", async () => {
+    creditMarks.mockResolvedValueOnce({ data: [absence], error: null });
+    const opened = await open();
+    opened.onChangeMakeupDate(credit, "2026-11-20");
+    view().onMakeUp(credit);
+    expect(view().state.marks[0].makeup_date).toBe("2026-11-20");
+    expect(view().state.pending).toEqual([lessonKey(lesson)]);
+    await settle();
+    expect(update).toHaveBeenCalledWith({ makeup_date: "2026-11-20" });
+    expect(view().state.pending).toEqual([]);
+  });
+
+  test("dia inválido não grava e avisa no crédito", async () => {
+    creditMarks.mockResolvedValueOnce({ data: [absence], error: null });
+    const opened = await open();
+    opened.onChangeMakeupDate(credit, "2026-11-01");
+    view().onMakeUp(credit);
+    expect(update).not.toHaveBeenCalled();
+    expect(view().state.makeupErrors[lessonKey(lesson)]).toBe(makeupMessages.dateBeforeAbsence);
+  });
+
+  test("se a reposição não gravar, o crédito volta e avisa", async () => {
+    creditMarks.mockResolvedValueOnce({ data: [absence], error: null });
+    updateResult.mockResolvedValueOnce({ error: { message: "sem rede" } });
+    (await open()).onMakeUp(credit);
+    await settle();
+    expect(view().state.marks[0].makeup_date).toBeNull();
+    expect(view().state.makeupErrors[lessonKey(lesson)]).toBe(makeupMessages.saveFailed);
+  });
+
+  test("desfazer a reposição devolve o crédito", async () => {
+    creditMarks.mockResolvedValueOnce({ data: [{ ...absence, makeup_date: "2026-11-05" }], error: null });
+    (await open()).onUndoMakeup({ studentId: "p", studentName: "Pedro Lima", date: "2026-11-05", absenceDate: "2026-11-02" });
+    expect(view().state.marks[0].makeup_date).toBeNull();
+    await settle();
+    expect(update).toHaveBeenCalledWith({ makeup_date: null });
+  });
+
+  test("se desfazer não gravar, a reposição continua", async () => {
+    creditMarks.mockResolvedValueOnce({ data: [{ ...absence, makeup_date: "2026-11-05" }], error: null });
+    updateResult.mockResolvedValueOnce({ error: { message: "sem rede" } });
+    (await open()).onUndoMakeup({ studentId: "p", studentName: "Pedro Lima", date: "2026-11-05", absenceDate: "2026-11-02" });
+    await settle();
+    expect(view().state.marks[0].makeup_date).toBe("2026-11-05");
   });
 });

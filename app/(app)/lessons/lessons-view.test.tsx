@@ -2,6 +2,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from "rea
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import { initialLessons, lessonKey, lessonsMessages, type LessonMark, type LessonsState, type MonthLesson } from "@/lib/lessons";
+import { makeupMessages } from "@/lib/makeups";
 import type { Student } from "@/lib/students";
 import { LessonsView } from "./lessons-view";
 
@@ -10,13 +11,13 @@ type AnyProps = Record<string, unknown> & { children?: ReactNode };
 const november2026 = { year: 2026, month: 11 };
 const pedro: Student = { id: "p", name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
 const lia: Student = { ...pedro, id: "l", name: "Lia Melo", lesson_weekday: null, lesson_time: null };
-const firstLesson: MonthLesson = { studentId: "p", studentName: "Pedro Lima", date: "2026-11-02", time: "15:00", status: null };
-const unnotified: LessonMark = { student_id: "p", lesson_date: "2026-11-02", status: "unnotified_absence" };
-const notified: LessonMark = { student_id: "p", lesson_date: "2026-11-02", status: "notified_absence" };
+const firstLesson: MonthLesson = { studentId: "p", studentName: "Pedro Lima", date: "2026-11-02", time: "15:00", status: null, makeupDate: null };
+const unnotified: LessonMark = { student_id: "p", lesson_date: "2026-11-02", status: "unnotified_absence", makeup_date: null };
+const notified: LessonMark = { student_id: "p", lesson_date: "2026-11-02", status: "notified_absence", makeup_date: null };
 const ready: LessonsState = { ...initialLessons(november2026), status: "ready", students: [pedro], noticeHours: 24 };
 
 function handlers() {
-  return { onMark: vi.fn(), onChangeMonth: vi.fn(), onRetry: vi.fn() };
+  return { onMark: vi.fn(), onChangeMonth: vi.fn(), onRetry: vi.fn(), onChangeMakeupDate: vi.fn(), onMakeUp: vi.fn(), onUndoMakeup: vi.fn() };
 }
 
 function render(state: LessonsState, today = "2026-11-03") {
@@ -41,7 +42,7 @@ function buttons(state: LessonsState) {
   const props = handlers();
   const all = expand(LessonsView({ state, today: "2026-11-03", ...props }));
   const named = (label: string) => all.filter((element) => element.type === "button" && (Children.toArray(element.props.children).join("") === label || element.props["aria-label"] === label));
-  return { props, named };
+  return { props, named, all };
 }
 
 describe("tela de aulas", () => {
@@ -128,6 +129,67 @@ describe("tela de aulas", () => {
     const html = render({ ...ready, students: [pedro, lia] });
     expect(html).toContain("1 aluno está sem horário fixo");
     expect(html).toContain("Definir em Alunos");
+  });
+
+  test("sem crédito, não mostra a parte de reposição", () => {
+    expect(render({ ...ready, marks: [unnotified] })).not.toContain(makeupMessages.title);
+  });
+
+  test("a falta avisada vira crédito, com o dia sugerido e o limite do prazo", () => {
+    const html = render({ ...ready, marks: [notified], makeupDeadlineDays: 30 });
+    expect(html).toContain(makeupMessages.title);
+    expect(html).toContain("Falta avisada de 2 de novembro, vale até 2 de dezembro");
+    expect(html).toContain('min="2026-11-02"');
+    expect(html).toContain('max="2026-12-02"');
+    expect(html).toContain('value="2026-11-03"');
+    expect(html).toContain("Virou crédito de reposição, vale até 2 de dezembro.");
+  });
+
+  test("crédito vencido some da lista e a falta conta que venceu", () => {
+    const html = render({ ...ready, marks: [notified], makeupDeadlineDays: 1 }, "2026-11-04");
+    expect(html).not.toContain(makeupMessages.title);
+    expect(html).toContain("O crédito de reposição venceu em 3 de novembro.");
+  });
+
+  test("tocar em marcar reposição manda o crédito e trocar o dia guarda o dia", () => {
+    const { props, named, all } = buttons({ ...ready, marks: [notified] });
+    (named("Marcar reposição")[0].props.onClick as () => void)();
+    expect(props.onMakeUp).toHaveBeenCalledWith(expect.objectContaining({ studentId: "p", absenceDate: "2026-11-02" }));
+    const input = all.find((element) => element.type === "input");
+    (input?.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: "2026-11-10" } });
+    expect(props.onChangeMakeupDate).toHaveBeenCalledWith(expect.objectContaining({ absenceDate: "2026-11-02" }), "2026-11-10");
+  });
+
+  test("enquanto grava, o crédito fica travado", () => {
+    const { named } = buttons({ ...ready, marks: [notified], pending: [lessonKey(firstLesson)] });
+    expect(named("Marcar reposição")[0].props.disabled).toBe(true);
+  });
+
+  test("problema na reposição aparece no crédito", () => {
+    expect(render({ ...ready, marks: [notified], makeupErrors: { [lessonKey(firstLesson)]: makeupMessages.saveFailed } })).toContain(makeupMessages.saveFailed);
+  });
+
+  test("a reposição aparece no dia dela, cobrada, e pode ser desfeita", () => {
+    const madeUp = { ...notified, makeup_date: "2026-11-05" };
+    const html = render({ ...ready, marks: [madeUp] });
+    expect(html).not.toContain(makeupMessages.title);
+    expect(html).toContain("Quinta-feira, 5 de novembro");
+    expect(html).toContain("Reposição da falta de 2 de novembro. Cobrada.");
+    expect(html).toContain("1 aula cobrada, 1 sem cobrança e 4 para marcar.");
+    const { props, named } = buttons({ ...ready, marks: [madeUp] });
+    (named("Desfazer reposição")[0].props.onClick as () => void)();
+    expect(props.onUndoMakeup).toHaveBeenCalledWith({ studentId: "p", studentName: "Pedro Lima", date: "2026-11-05", absenceDate: "2026-11-02" });
+  });
+
+  test("falta já reposta fica travada e diz como trocar", () => {
+    const madeUp = { ...notified, makeup_date: "2026-11-05" };
+    expect(render({ ...ready, marks: [madeUp] })).toContain("Reposta em 5 de novembro.");
+    expect(buttons({ ...ready, marks: [madeUp] }).named("Dada")[0].props.disabled).toBe(true);
+  });
+
+  test("reposição num mês sem aula prevista não mostra o aviso de mês vazio", () => {
+    const madeUp = { ...notified, makeup_date: "2026-11-05" };
+    expect(render({ ...ready, students: [{ ...pedro, lesson_weekday: null, lesson_time: null }], marks: [madeUp] })).not.toContain(lessonsMessages.noLessons);
   });
 
   test("falha ao carregar oferece tentar de novo", () => {

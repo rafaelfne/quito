@@ -15,8 +15,10 @@ import {
   groupByDay,
   initialLessons,
   isCharged,
+  isCreditStatus,
   lessonKey,
   lessonStatuses,
+  loadCreditMarks,
   loadLessonMarks,
   loadLessonsMonth,
   monthLessons,
@@ -41,9 +43,9 @@ const pedro: Student = { id: "p", name: "Pedro Lima", guardian_name: "Ana Lima",
 const bia: Student = { ...pedro, id: "b", name: "Bia Reis", lesson_weekday: 1, lesson_time: "09:00:00" };
 const lia: Student = { ...pedro, id: "l", name: "Lia Melo", lesson_weekday: null, lesson_time: null };
 
-const lesson: MonthLesson = { studentId: "p", studentName: "Pedro Lima", date: "2026-11-02", time: "15:00", status: null };
+const lesson: MonthLesson = { studentId: "p", studentName: "Pedro Lima", date: "2026-11-02", time: "15:00", status: null, makeupDate: null };
 
-const givenMark: LessonMark = { student_id: "p", lesson_date: "2026-11-02", status: "given" };
+const givenMark: LessonMark = { student_id: "p", lesson_date: "2026-11-02", status: "given", makeup_date: null };
 
 function ready(overrides: Partial<LessonsState> = {}): LessonsState {
   return { ...initialLessons(november2026), status: "ready", ...overrides };
@@ -51,10 +53,11 @@ function ready(overrides: Partial<LessonsState> = {}): LessonsState {
 
 type Result = { data?: unknown; error: { message: string } | null };
 
-function fakeClient(results: Partial<Record<"students" | "lesson_marks" | "teacher_rules", Result>> = {}) {
+function fakeClient(results: Partial<Record<"students" | "lesson_marks" | "credit_marks" | "teacher_rules", Result>> = {}) {
   const marksQuery = {
     gte: vi.fn(() => marksQuery),
     lte: vi.fn(async () => results.lesson_marks ?? { data: [], error: null }),
+    in: vi.fn(async () => results.credit_marks ?? { data: [], error: null }),
   };
   const removal = {
     eq: vi.fn((column: string) => (column === "lesson_date" ? Promise.resolve({ error: null }) : removal)),
@@ -74,6 +77,10 @@ describe("o que é cobrado", () => {
     expect(isCharged("unnotified_absence")).toBe(true);
     expect(isCharged("notified_absence")).toBe(false);
     expect(isCharged("teacher_absence")).toBe(false);
+  });
+
+  test("só a falta avisada e a falta do professor viram crédito", () => {
+    expect(lessonStatuses.filter(isCreditStatus)).toEqual(["notified_absence", "teacher_absence"]);
   });
 
   test("a aula dada é cobrada", () => {
@@ -161,8 +168,18 @@ describe("monthLessons", () => {
   test("quando o horário muda, a aula já marcada continua na lista, sem hora", () => {
     const moved: Student = { ...pedro, lesson_weekday: 3 };
     const lessons = monthLessons([moved], [givenMark], november2026);
-    expect(lessons[0]).toEqual({ studentId: "p", studentName: "Pedro Lima", date: "2026-11-02", time: null, status: "given" });
+    expect(lessons[0]).toEqual({ studentId: "p", studentName: "Pedro Lima", date: "2026-11-02", time: null, status: "given", makeupDate: null });
     expect(lessons).toHaveLength(5);
+  });
+
+  test("falta de outro mês não aparece na lista deste mês", () => {
+    const october: LessonMark = { student_id: "p", lesson_date: "2026-10-05", status: "notified_absence", makeup_date: null };
+    expect(monthLessons([pedro], [october], november2026).every((item) => item.status === null)).toBe(true);
+  });
+
+  test("traz o dia da reposição da falta já reposta", () => {
+    const madeUp: LessonMark = { student_id: "p", lesson_date: "2026-11-02", status: "notified_absence", makeup_date: "2026-11-05" };
+    expect(monthLessons([pedro], [madeUp], november2026)[0].makeupDate).toBe("2026-11-05");
   });
 
   test("aula marcada de aluno que ficou sem horário continua na lista", () => {
@@ -171,6 +188,13 @@ describe("monthLessons", () => {
 });
 
 describe("groupByDay", () => {
+  test("a reposição entra no dia dela, mesmo sem aula prevista", () => {
+    const makeup = { studentId: "p", studentName: "Pedro Lima", date: "2026-11-03", absenceDate: "2026-11-02" };
+    const days = groupByDay(monthLessons([pedro], [], november2026), [makeup]);
+    expect(days.map((day) => day.date).slice(0, 2)).toEqual(["2026-11-02", "2026-11-03"]);
+    expect(days[1]).toEqual({ date: "2026-11-03", lessons: [], makeups: [makeup] });
+  });
+
   test("junta as aulas do mesmo dia", () => {
     const days = groupByDay(monthLessons([pedro, bia], [], november2026));
     expect(days).toHaveLength(5);
@@ -206,6 +230,31 @@ describe("summarizeLessons", () => {
   });
 });
 
+describe("summarizeLessons com reposição", () => {
+  test("a aula de reposição conta como cobrada", () => {
+    const makeup = { studentId: "p", studentName: "Pedro Lima", date: "2026-11-03", absenceDate: "2026-11-02" };
+    expect(summarizeLessons([{ ...lesson, status: "notified_absence" }], [makeup])).toEqual({ charged: 1, free: 1, unmarked: 0 });
+  });
+});
+
+describe("loadCreditMarks", () => {
+  test("busca as faltas que viram crédito, de qualquer mês", async () => {
+    const credit: LessonMark = { student_id: "p", lesson_date: "2026-09-07", status: "teacher_absence", makeup_date: null };
+    const { client, marksQuery } = fakeClient({ credit_marks: { data: [credit], error: null } });
+    expect(await loadCreditMarks(client)).toEqual({ ok: true, marks: [credit] });
+    expect(marksQuery.in).toHaveBeenCalledWith("status", ["notified_absence", "teacher_absence"]);
+  });
+
+  test("sem faltas, devolve vazio", async () => {
+    expect(await loadCreditMarks(fakeClient({ credit_marks: { data: null, error: null } }).client)).toEqual({ ok: true, marks: [] });
+  });
+
+  test("exceção vira falha", async () => {
+    const client = { from: () => { throw new Error("sem rede"); } } as unknown as LessonsClient;
+    expect(await loadCreditMarks(client)).toEqual({ ok: false });
+  });
+});
+
 describe("loadLessonMarks", () => {
   test("busca só o mês pedido", async () => {
     const { client, from, marksQuery } = fakeClient({ lesson_marks: { data: [givenMark], error: null } });
@@ -234,9 +283,20 @@ describe("loadLessonsMonth", () => {
     const { client } = fakeClient({
       students: { data: [pedro], error: null },
       lesson_marks: { data: [givenMark], error: null },
-      teacher_rules: { data: { notice_hours: 48 }, error: null },
+      teacher_rules: { data: { notice_hours: 48, makeup_deadline_days: null }, error: null },
     });
-    expect(await loadLessonsMonth(client, november2026)).toEqual({ ok: true, month: november2026, students: [pedro], marks: [givenMark], noticeHours: 48 });
+    expect(await loadLessonsMonth(client, november2026)).toEqual({ ok: true, month: november2026, students: [pedro], marks: [givenMark], noticeHours: 48, makeupDeadlineDays: null });
+  });
+
+  test("junta as faltas de outros meses sem repetir as do mês aberto", async () => {
+    const thisMonth: LessonMark = { student_id: "p", lesson_date: "2026-11-02", status: "notified_absence", makeup_date: null };
+    const older: LessonMark = { student_id: "p", lesson_date: "2026-10-05", status: "teacher_absence", makeup_date: null };
+    const { client } = fakeClient({
+      lesson_marks: { data: [thisMonth], error: null },
+      credit_marks: { data: [thisMonth, older], error: null },
+      teacher_rules: { data: { notice_hours: 24, makeup_deadline_days: 30 }, error: null },
+    });
+    expect(await loadLessonsMonth(client, november2026)).toMatchObject({ marks: [thisMonth, older], makeupDeadlineDays: 30 });
   });
 
   test("sem regras guardadas, usa as 24 horas de partida", async () => {
@@ -244,7 +304,7 @@ describe("loadLessonsMonth", () => {
     expect(result).toMatchObject({ ok: true, noticeHours: 24 });
   });
 
-  test.each(["students", "lesson_marks", "teacher_rules"] as const)("falha ao buscar %s vira falha", async (table) => {
+  test.each(["students", "lesson_marks", "credit_marks", "teacher_rules"] as const)("falha ao buscar %s vira falha", async (table) => {
     const result = await loadLessonsMonth(fakeClient({ [table]: { error: { message: "x" } } }).client, november2026);
     expect(result).toEqual({ ok: false, month: november2026 });
   });
@@ -295,8 +355,8 @@ describe("estado da tela", () => {
   });
 
   test("resposta que chega aplica alunos, marcações e regra", () => {
-    const next = applyLessonsLoad(initialLessons(november2026), { ok: true, month: november2026, students: [pedro], marks: [givenMark], noticeHours: 12 });
-    expect(next).toMatchObject({ status: "ready", students: [pedro], marks: [givenMark], noticeHours: 12 });
+    const next = applyLessonsLoad(initialLessons(november2026), { ok: true, month: november2026, students: [pedro], marks: [givenMark], noticeHours: 12, makeupDeadlineDays: 30 });
+    expect(next).toMatchObject({ status: "ready", students: [pedro], marks: [givenMark], noticeHours: 12, makeupDeadlineDays: 30 });
   });
 
   test("falha ao carregar aparece como falha", () => {
@@ -317,8 +377,8 @@ describe("estado da tela", () => {
   });
 
   test("trocar a marcação substitui a anterior e não mexe nas outras aulas", () => {
-    const other: LessonMark = { student_id: "b", lesson_date: "2026-11-02", status: "given" };
-    const sameStudent: LessonMark = { student_id: "p", lesson_date: "2026-11-09", status: "given" };
+    const other: LessonMark = { student_id: "b", lesson_date: "2026-11-02", status: "given", makeup_date: null };
+    const sameStudent: LessonMark = { student_id: "p", lesson_date: "2026-11-09", status: "given", makeup_date: null };
     const next = beginMark(ready({ marks: [givenMark, other, sameStudent] }), { ...lesson, status: "given" }, "teacher_absence");
     expect(next.marks).toEqual([other, sameStudent, { ...givenMark, status: "teacher_absence" }]);
   });

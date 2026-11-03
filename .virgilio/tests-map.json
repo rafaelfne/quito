@@ -65,10 +65,11 @@
     {
       "id": "aulas",
       "name": "Aulas",
-      "description": "Onde o professor marca cada aula prevista do mês como dada, falta avisada, falta sem aviso ou falta do professor, e vê quais são cobradas",
+      "description": "Onde o professor marca cada aula prevista do mês como dada, falta avisada, falta sem aviso ou falta do professor, vê quais são cobradas e usa os créditos para marcar a reposição",
       "paths": [
         "app/(app)/lessons",
-        "lib/lessons.ts"
+        "lib/lessons.ts",
+        "lib/makeups.ts"
       ],
       "sensitive": "personal"
     },
@@ -126,6 +127,7 @@
     "lib/schedule.ts": "Regras do horário fixo semanal e das aulas previstas do mês",
     "lib/teacher-rules.ts": "Regras da antecedência da falta, do prazo de reposição e do mês com 5 semanas",
     "lib/lessons.ts": "Regras de marcar a aula e de quais aulas são cobradas",
+    "lib/makeups.ts": "Regras do crédito de reposição: quando nasce, quando vence e quando é usado",
     "lib/supabase.ts": "Conexão com o banco usada nas telas",
     "lib/supabase-server.ts": "Conexão com o banco usada no servidor"
   }

@@ -10,17 +10,23 @@ export const lessonStatuses = ["given", "notified_absence", "unnotified_absence"
 
 export type LessonStatus = (typeof lessonStatuses)[number];
 
-export type LessonMark = { student_id: string; lesson_date: string; status: LessonStatus };
+export const creditStatuses = ["notified_absence", "teacher_absence"] as const;
 
-export type MonthLesson = { studentId: string; studentName: string; date: string; time: string | null; status: LessonStatus | null };
+export type CreditStatus = (typeof creditStatuses)[number];
 
-export type LessonDay = { date: string; lessons: MonthLesson[] };
+export type LessonMark = { student_id: string; lesson_date: string; status: LessonStatus; makeup_date: string | null };
+
+export type MonthLesson = { studentId: string; studentName: string; date: string; time: string | null; status: LessonStatus | null; makeupDate: string | null };
+
+export type MakeupLesson = { studentId: string; studentName: string; date: string; absenceDate: string };
+
+export type LessonDay = { date: string; lessons: MonthLesson[]; makeups: MakeupLesson[] };
 
 export type LessonsSummary = { charged: number; free: number; unmarked: number };
 
 export type LessonMarksLoad = { ok: true; marks: LessonMark[] } | { ok: false };
 
-export type LessonsMonthLoad = { ok: true; month: CalendarMonth; students: Student[]; marks: LessonMark[]; noticeHours: number } | { ok: false; month: CalendarMonth };
+export type LessonsMonthLoad = { ok: true; month: CalendarMonth; students: Student[]; marks: LessonMark[]; noticeHours: number; makeupDeadlineDays: number | null } | { ok: false; month: CalendarMonth };
 
 export type LessonsState = {
   month: CalendarMonth;
@@ -28,8 +34,11 @@ export type LessonsState = {
   students: Student[];
   marks: LessonMark[];
   noticeHours: number | null;
+  makeupDeadlineDays: number | null;
   pending: string[];
   failedLesson: string | null;
+  makeupDrafts: Record<string, string>;
+  makeupErrors: Record<string, string>;
 };
 
 export const lessonsPath = "/lessons";
@@ -49,15 +58,17 @@ export const lessonsMessages = {
   undoHint: "Marcou errado? Toque em outra opção, ou na mesma para desfazer.",
 };
 
-const table = "lesson_marks";
+export const lessonMarksTable = "lesson_marks";
 
-const columns = "student_id, lesson_date, status";
+const columns = "student_id, lesson_date, status, makeup_date";
 
 const conflictColumns = "student_id,lesson_date";
 
 const monthFormat = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
 
 const dayFormat = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+
+const shortDayFormat = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long", timeZone: "UTC" });
 
 function twoDigits(value: number): string {
   return String(value).padStart(2, "0");
@@ -73,6 +84,10 @@ function counted(count: number, singular: string, plural: string): string {
 
 export function isCharged(status: LessonStatus): boolean {
   return status === "given" || status === "unnotified_absence";
+}
+
+export function isCreditStatus(status: LessonStatus): status is CreditStatus {
+  return (creditStatuses as readonly LessonStatus[]).includes(status);
 }
 
 export function chargeLabel(status: LessonStatus | null): string {
@@ -107,6 +122,10 @@ export function describeDay(date: string): string {
   return capitalized(dayFormat.format(new Date(`${date}T00:00:00Z`)));
 }
 
+export function describeShortDay(date: string): string {
+  return shortDayFormat.format(new Date(`${date}T00:00:00Z`));
+}
+
 export function describeNoticeRule(noticeHours: number): string {
   return `A falta conta como avisada quando vem com ${counted(noticeHours, "hora", "horas")} ou mais de antecedência.`;
 }
@@ -116,27 +135,31 @@ function compareLessons(a: MonthLesson, b: MonthLesson): number {
 }
 
 export function monthLessons(students: Student[], marks: LessonMark[], month: CalendarMonth): MonthLesson[] {
-  const statusByLesson = new Map(marks.map((mark) => [lessonKey({ studentId: mark.student_id, date: mark.lesson_date }), mark.status]));
+  const { first, last } = monthRange(month);
+  const monthMarks = marks.filter((mark) => mark.lesson_date >= first && mark.lesson_date <= last);
+  const markByLesson = new Map(monthMarks.map((mark) => [lessonKey({ studentId: mark.student_id, date: mark.lesson_date }), mark]));
   const lessons = students.flatMap((student) => {
     const planned = plannedLessons(student, month);
     const plannedDates = new Set(planned.map((lesson) => lesson.date));
-    const markedOutsideSchedule = marks.filter((mark) => mark.student_id === student.id && !plannedDates.has(mark.lesson_date));
+    const markedOutsideSchedule = monthMarks.filter((mark) => mark.student_id === student.id && !plannedDates.has(mark.lesson_date));
     return [
       ...planned.map(({ date, time }) => ({ date, time })),
       ...markedOutsideSchedule.map((mark) => ({ date: mark.lesson_date, time: null })),
-    ].map(({ date, time }) => ({ studentId: student.id, studentName: student.name, date, time, status: statusByLesson.get(lessonKey({ studentId: student.id, date })) ?? null }));
+    ].map(({ date, time }) => {
+      const mark = markByLesson.get(lessonKey({ studentId: student.id, date }));
+      return { studentId: student.id, studentName: student.name, date, time, status: mark?.status ?? null, makeupDate: mark?.makeup_date ?? null };
+    });
   });
   return lessons.sort(compareLessons);
 }
 
-export function groupByDay(lessons: MonthLesson[]): LessonDay[] {
-  const days: LessonDay[] = [];
-  for (const lesson of lessons) {
-    const day = days.at(-1);
-    if (day?.date === lesson.date) day.lessons.push(lesson);
-    else days.push({ date: lesson.date, lessons: [lesson] });
-  }
-  return days;
+export function groupByDay(lessons: MonthLesson[], makeups: MakeupLesson[] = []): LessonDay[] {
+  const dates = [...new Set([...lessons, ...makeups].map(({ date }) => date))].sort();
+  return dates.map((date) => ({
+    date,
+    lessons: lessons.filter((lesson) => lesson.date === date),
+    makeups: makeups.filter((makeup) => makeup.date === date),
+  }));
 }
 
 export function todayAnchorDate(days: LessonDay[], month: CalendarMonth, today: string): string | null {
@@ -145,8 +168,8 @@ export function todayAnchorDate(days: LessonDay[], month: CalendarMonth, today: 
   return days.find((day) => day.date >= today)?.date ?? null;
 }
 
-export function summarizeLessons(lessons: MonthLesson[]): LessonsSummary {
-  const summary: LessonsSummary = { charged: 0, free: 0, unmarked: 0 };
+export function summarizeLessons(lessons: MonthLesson[], makeups: MakeupLesson[] = []): LessonsSummary {
+  const summary: LessonsSummary = { charged: makeups.length, free: 0, unmarked: 0 };
   for (const { status } of lessons) {
     if (status === null) summary.unmarked += 1;
     else if (isCharged(status)) summary.charged += 1;
@@ -168,7 +191,7 @@ export function describeUnscheduled(students: Student[]): string | null {
 export async function loadLessonMarks(client: LessonsClient, month: CalendarMonth): Promise<LessonMarksLoad> {
   const { first, last } = monthRange(month);
   try {
-    const { data, error } = await withTimeout(Promise.resolve(client.from(table).select(columns).gte("lesson_date", first).lte("lesson_date", last)), requestTimeoutMs);
+    const { data, error } = await withTimeout(Promise.resolve(client.from(lessonMarksTable).select(columns).gte("lesson_date", first).lte("lesson_date", last)), requestTimeoutMs);
     if (error) return { ok: false };
     return { ok: true, marks: (data ?? []) as LessonMark[] };
   } catch {
@@ -176,17 +199,31 @@ export async function loadLessonMarks(client: LessonsClient, month: CalendarMont
   }
 }
 
+export async function loadCreditMarks(client: LessonsClient): Promise<LessonMarksLoad> {
+  try {
+    const { data, error } = await withTimeout(Promise.resolve(client.from(lessonMarksTable).select(columns).in("status", [...creditStatuses])), requestTimeoutMs);
+    if (error) return { ok: false };
+    return { ok: true, marks: (data ?? []) as LessonMark[] };
+  } catch {
+    return { ok: false };
+  }
+}
+
+function withoutRepeats(marks: LessonMark[]): LessonMark[] {
+  return [...new Map(marks.map((mark) => [lessonKey({ studentId: mark.student_id, date: mark.lesson_date }), mark])).values()];
+}
+
 export async function loadLessonsMonth(client: LessonsClient, month: CalendarMonth): Promise<LessonsMonthLoad> {
-  const [students, marks, rules] = await Promise.all([loadStudents(client), loadLessonMarks(client, month), loadTeacherRules(client)]);
-  if (!students.ok || !marks.ok || !rules.ok) return { ok: false, month };
-  return { ok: true, month, students: students.students, marks: marks.marks, noticeHours: rules.rules.notice_hours };
+  const [students, marks, credits, rules] = await Promise.all([loadStudents(client), loadLessonMarks(client, month), loadCreditMarks(client), loadTeacherRules(client)]);
+  if (!students.ok || !marks.ok || !credits.ok || !rules.ok) return { ok: false, month };
+  return { ok: true, month, students: students.students, marks: withoutRepeats([...marks.marks, ...credits.marks]), noticeHours: rules.rules.notice_hours, makeupDeadlineDays: rules.rules.makeup_deadline_days };
 }
 
 export async function persistLessonMark(client: LessonsClient, lesson: MonthLesson, status: LessonStatus | null): Promise<boolean> {
   try {
     const request = status === null
-      ? client.from(table).delete().eq("student_id", lesson.studentId).eq("lesson_date", lesson.date)
-      : client.from(table).upsert({ student_id: lesson.studentId, lesson_date: lesson.date, status }, { onConflict: conflictColumns });
+      ? client.from(lessonMarksTable).delete().eq("student_id", lesson.studentId).eq("lesson_date", lesson.date)
+      : client.from(lessonMarksTable).upsert({ student_id: lesson.studentId, lesson_date: lesson.date, status }, { onConflict: conflictColumns });
     const { error } = await withTimeout(Promise.resolve(request), requestTimeoutMs);
     return !error;
   } catch {
@@ -195,7 +232,7 @@ export async function persistLessonMark(client: LessonsClient, lesson: MonthLess
 }
 
 export function initialLessons(month: CalendarMonth): LessonsState {
-  return { month, status: "loading", students: [], marks: [], noticeHours: null, pending: [], failedLesson: null };
+  return { month, status: "loading", students: [], marks: [], noticeHours: null, makeupDeadlineDays: null, pending: [], failedLesson: null, makeupDrafts: {}, makeupErrors: {} };
 }
 
 export function startLessonsMonth(state: LessonsState, delta: number): LessonsState {
@@ -209,7 +246,7 @@ export function startReloadingLessons(state: LessonsState): LessonsState {
 export function applyLessonsLoad(state: LessonsState, result: LessonsMonthLoad): LessonsState {
   if (result.month.year !== state.month.year || result.month.month !== state.month.month) return state;
   if (!result.ok) return { ...state, status: "failed" };
-  return { ...state, status: "ready", students: result.students, marks: result.marks, noticeHours: result.noticeHours };
+  return { ...state, status: "ready", students: result.students, marks: result.marks, noticeHours: result.noticeHours, makeupDeadlineDays: result.makeupDeadlineDays };
 }
 
 export function nextStatus(lesson: MonthLesson, tapped: LessonStatus): LessonStatus | null {
@@ -218,7 +255,7 @@ export function nextStatus(lesson: MonthLesson, tapped: LessonStatus): LessonSta
 
 function withStatus(marks: LessonMark[], lesson: MonthLesson, status: LessonStatus | null): LessonMark[] {
   const others = marks.filter((mark) => mark.student_id !== lesson.studentId || mark.lesson_date !== lesson.date);
-  return status === null ? others : [...others, { student_id: lesson.studentId, lesson_date: lesson.date, status }];
+  return status === null ? others : [...others, { student_id: lesson.studentId, lesson_date: lesson.date, status, makeup_date: null }];
 }
 
 export function beginMark(state: LessonsState, lesson: MonthLesson, status: LessonStatus | null): LessonsState {
