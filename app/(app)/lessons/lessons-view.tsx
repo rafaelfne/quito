@@ -33,6 +33,7 @@ import {
   type LessonCredit,
   type MakeupTarget,
 } from "@/lib/makeups";
+import { paymentSettingsPath } from "@/lib/payment-settings";
 import { studentsPath } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
 
@@ -212,6 +213,9 @@ export function LessonsView({ state, today, onMark, onChangeMonth, onRetry, onCh
           </Link>
           <Link className="text-sm underline" href={teacherRulesPath}>
             Regras
+          </Link>
+          <Link className="text-sm underline" href={paymentSettingsPath}>
+            Recebimento
           </Link>
           <Link className="text-sm underline" href={accountPath}>
             Conta

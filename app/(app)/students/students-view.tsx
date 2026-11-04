@@ -3,6 +3,7 @@ import { accountPath } from "@/lib/account";
 import { closingPath } from "@/lib/closing";
 import { lessonsPath } from "@/lib/lessons";
 import { billingKinds, billingOptions, describeBilling, isBillingKind, packageRolloverHint } from "@/lib/billing";
+import { paymentSettingsPath } from "@/lib/payment-settings";
 import { describePlannedLessons, describeSchedule, weekdayOptions, type CalendarMonth } from "@/lib/schedule";
 import { afterSignInPath } from "@/lib/session";
 import { currentDraft, formatPhone, groupStudentsByGuardian, studentMessages, type Student, type StudentField, type StudentsState } from "@/lib/students";
@@ -245,6 +246,9 @@ export function StudentsView(props: StudentsViewProps) {
           </Link>
           <Link className="text-sm underline" href={teacherRulesPath}>
             Regras
+          </Link>
+          <Link className="text-sm underline" href={paymentSettingsPath}>
+            Recebimento
           </Link>
           <Link className="text-sm underline" href={accountPath}>
             Conta

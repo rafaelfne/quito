@@ -6,6 +6,7 @@ import { accountPath } from "@/lib/account";
 import { closingPath } from "@/lib/closing";
 import { lessonsPath } from "@/lib/lessons";
 import { cleanNote, noteWarning } from "@/lib/notes";
+import { paymentSettingsPath } from "@/lib/payment-settings";
 import { studentsPath } from "@/lib/students";
 import { supabase } from "@/lib/supabase";
 import { teacherRulesPath } from "@/lib/teacher-rules";
@@ -63,6 +64,9 @@ export default function NotesPage() {
           </Link>
           <Link className="text-sm underline" href={teacherRulesPath}>
             Regras
+          </Link>
+          <Link className="text-sm underline" href={paymentSettingsPath}>
+            Recebimento
           </Link>
           <Link className="text-sm underline" href={accountPath}>
             Conta

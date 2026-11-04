@@ -2,6 +2,7 @@ import Link from "next/link";
 import { accountPath } from "@/lib/account";
 import { closingPath } from "@/lib/closing";
 import { lessonsPath } from "@/lib/lessons";
+import { paymentSettingsPath } from "@/lib/payment-settings";
 import { studentsPath } from "@/lib/students";
 import { fiveWeekOptions, fiveWeekPolicies, makeupOptions, makeupPolicies, teacherRulesMessages, type TeacherRulesField, type TeacherRulesState } from "@/lib/teacher-rules";
 
@@ -169,6 +170,9 @@ export function TeacherRulesView({ state, busy, onChange, onSubmit, onRetry }: T
           </Link>
           <Link className="text-sm underline" href={closingPath}>
             Fechamento
+          </Link>
+          <Link className="text-sm underline" href={paymentSettingsPath}>
+            Recebimento
           </Link>
           <Link className="text-sm underline" href={accountPath}>
             Conta

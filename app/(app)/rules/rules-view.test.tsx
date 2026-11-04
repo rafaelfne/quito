@@ -72,6 +72,7 @@ describe("tela de regras", () => {
     const html = render(ready);
     expect(html).toContain('href="/students"');
     expect(html).toContain('href="/lessons"');
+    expect(html).toContain('href="/payment"');
     expect(html).toContain('href="/account"');
   });
 

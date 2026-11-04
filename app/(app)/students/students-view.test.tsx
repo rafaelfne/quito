@@ -85,6 +85,7 @@ describe("tela de alunos", () => {
     expect(html).toContain('href="/notes"');
     expect(html).toContain('href="/lessons"');
     expect(html).toContain('href="/rules"');
+    expect(html).toContain('href="/payment"');
     expect(html).toContain('href="/account"');
   });
 

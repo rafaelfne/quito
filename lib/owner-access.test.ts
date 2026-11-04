@@ -18,6 +18,7 @@ describe("cada professor só vê os próprios dados", () => {
     expect(tables).toContain("students");
     expect(tables).toContain("teacher_rules");
     expect(tables).toContain("lesson_marks");
+    expect(tables).toContain("payment_settings");
   });
 
   test.each(tables)("a tabela %s nasce com a regra de acesso ligada e só para o dono", (table) => {
