@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "virgilio guard --cursor"
+      },
+      {
+        "command": "virgilio agent pre-tool --cursor"
+      }
+    ]
+  }
+}

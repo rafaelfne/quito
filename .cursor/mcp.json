@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "supabase-ensaio": {
+      "url": "http://127.0.0.1:54621/mcp"
+    }
+  }
+}
