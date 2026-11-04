@@ -1,5 +1,5 @@
 # Controle de aulas
-<!-- virgilio:feature id=controle-de-aulas stage=building epic=43 -->
+<!-- virgilio:feature id=controle-de-aulas stage=live epic=43 since=2026-11-04 -->
 
 ## O que é
 
