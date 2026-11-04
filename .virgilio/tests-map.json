@@ -65,10 +65,11 @@
     {
       "id": "recebimento",
       "name": "Dados de recebimento",
-      "description": "Onde o professor guarda a chave Pix, o nome que aparece para o responsável e o dia de vencimento das cobranças",
+      "description": "Onde o professor guarda a chave Pix, o nome que aparece para o responsável, o dia de vencimento padrão e o dia diferente por responsável",
       "paths": [
         "app/(app)/payment",
-        "lib/payment-settings.ts"
+        "lib/payment-settings.ts",
+        "lib/guardian-due-days.ts"
       ],
       "sensitive": "personal"
     },
@@ -151,6 +152,7 @@
     "lib/schedule.ts": "Regras do horário fixo semanal e das aulas previstas do mês",
     "lib/teacher-rules.ts": "Regras da antecedência da falta, do prazo de reposição e do mês com 5 semanas",
     "lib/payment-settings.ts": "Regras da chave Pix, do nome para o responsável e do dia de vencimento em mês mais curto",
+    "lib/guardian-due-days.ts": "Regras do dia de vencimento trocado por responsável, valendo para todos os irmãos",
     "lib/lessons.ts": "Regras de marcar a aula e de quais aulas são cobradas",
     "lib/makeups.ts": "Regras do crédito de reposição: quando nasce, quando vence e quando é usado",
     "lib/closing.ts": "Regras do fechamento: quanto cada aluno e cada responsável deve no mês",
