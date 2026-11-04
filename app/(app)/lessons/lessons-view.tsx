@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { accountPath } from "@/lib/account";
+import { chargesPath } from "@/lib/charges";
 import { closingPath } from "@/lib/closing";
 import {
   chargeLabel,
@@ -216,6 +217,9 @@ export function LessonsView({ state, today, onMark, onChangeMonth, onRetry, onCh
           </Link>
           <Link className="text-sm underline" href={paymentSettingsPath}>
             Recebimento
+          </Link>
+          <Link className="text-sm underline" href={chargesPath}>
+            Cobranças
           </Link>
           <Link className="text-sm underline" href={accountPath}>
             Conta

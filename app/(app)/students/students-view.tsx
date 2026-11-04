@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { accountPath } from "@/lib/account";
+import { chargesPath } from "@/lib/charges";
 import { closingPath } from "@/lib/closing";
 import { lessonsPath } from "@/lib/lessons";
 import { billingKinds, billingOptions, describeBilling, isBillingKind, packageRolloverHint } from "@/lib/billing";
@@ -249,6 +250,9 @@ export function StudentsView(props: StudentsViewProps) {
           </Link>
           <Link className="text-sm underline" href={paymentSettingsPath}>
             Recebimento
+          </Link>
+          <Link className="text-sm underline" href={chargesPath}>
+            Cobranças
           </Link>
           <Link className="text-sm underline" href={accountPath}>
             Conta

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { accountPath } from "@/lib/account";
 import { formatCurrency } from "@/lib/billing";
+import { chargesPath } from "@/lib/charges";
 import {
   buildMonthClosing,
   closingMessages,
@@ -137,6 +138,9 @@ export function ClosingView({ state, today, onChangeMonth, onRetry }: ClosingVie
           </Link>
           <Link className="text-sm underline" href={paymentSettingsPath}>
             Recebimento
+          </Link>
+          <Link className="text-sm underline" href={chargesPath}>
+            Cobranças
           </Link>
           <Link className="text-sm underline" href={accountPath}>
             Conta

@@ -1,0 +1,128 @@
+import { buildMonthClosing, loadClosingMonth, type GuardianClosing, type MonthClosing, type StudentClosing } from "@/lib/closing";
+import { describeMonth, monthRange, shiftMonth, type LessonsClient } from "@/lib/lessons";
+import { calendarMonthOf, type CalendarMonth } from "@/lib/schedule";
+import { requestTimeoutMs, withTimeout } from "@/lib/sign-in";
+
+export type ChargeStudent = Pick<StudentClosing, "studentId" | "studentName" | "lines" | "attendance" | "packageBalance" | "credits" | "totalCents">;
+
+export type NewCharge = {
+  charge_month: string;
+  guardian_phone: string;
+  guardian_name: string;
+  total_cents: number;
+  account: ChargeStudent[];
+};
+
+export type Charge = NewCharge & { id: string };
+
+export type ChargesPlan = { newCharges: NewCharge[]; waiting: string[]; nothingToCharge: string[] };
+
+export type ChargesLoad = { ok: true; month: CalendarMonth; charges: Charge[]; waiting: string[]; nothingToCharge: string[] } | { ok: false; month: CalendarMonth };
+
+export type ChargesState = { month: CalendarMonth; status: "loading" | "ready" | "failed"; charges: Charge[]; waiting: string[]; nothingToCharge: string[] };
+
+export const chargesPath = "/charges";
+
+export const chargeMessages = {
+  loadFailed: "Não deu para abrir as cobranças agora. Confira a internet e tente de novo.",
+  empty: "Nenhuma cobrança deste mês. As cobranças aparecem aqui depois que o mês acaba, para os alunos que já estavam cadastrados nele.",
+  frozen: "O valor fica guardado como estava quando a cobrança ficou pronta. Corrigir uma aula depois não muda este valor.",
+  guardianTotal: "Total a cobrar",
+  monthTotal: "Total do mês",
+  waitingTitle: "Ainda não ficaram prontas",
+  nothingToChargeTitle: "Nada a cobrar neste mês",
+};
+
+const table = "charges";
+
+const columns = "id, charge_month, guardian_phone, guardian_name, total_cents, account";
+
+export function endedMonthOf(date: Date): CalendarMonth {
+  return shiftMonth(calendarMonthOf(date), -1);
+}
+
+export function describeWaiting(month: CalendarMonth): string {
+  return `Falta marcar aulas ou definir a forma de cobrança. Confira em Fechamento, no mês de ${describeMonth(month).toLocaleLowerCase("pt-BR")}.`;
+}
+
+export function isGuardianReady(guardian: GuardianClosing): boolean {
+  return guardian.students.every((student) => !student.missingBilling && !(student.dependsOnMarks && student.unmarked > 0));
+}
+
+function chargeStudentFrom({ studentId, studentName, lines, attendance, packageBalance, credits, totalCents }: StudentClosing): ChargeStudent {
+  return { studentId, studentName, lines, attendance, packageBalance, credits, totalCents };
+}
+
+function newChargeFrom(guardian: GuardianClosing, month: CalendarMonth): NewCharge {
+  return {
+    charge_month: monthRange(month).first,
+    guardian_phone: guardian.phone,
+    guardian_name: guardian.guardianName,
+    total_cents: guardian.totalCents,
+    account: guardian.students.map(chargeStudentFrom),
+  };
+}
+
+export function planMonthCharges(closing: MonthClosing, month: CalendarMonth, existing: Charge[]): ChargesPlan {
+  const chargedPhones = new Set(existing.map((charge) => charge.guardian_phone));
+  const chargedStudents = new Set(existing.flatMap((charge) => charge.account.map((student) => student.studentId)));
+  const plan: ChargesPlan = { newCharges: [], waiting: [], nothingToCharge: [] };
+  for (const guardian of closing.guardians) {
+    if (chargedPhones.has(guardian.phone) || guardian.students.some((student) => chargedStudents.has(student.studentId))) continue;
+    if (!isGuardianReady(guardian)) plan.waiting.push(guardian.guardianName);
+    else if (guardian.totalCents === 0) plan.nothingToCharge.push(guardian.guardianName);
+    else plan.newCharges.push(newChargeFrom(guardian, month));
+  }
+  return plan;
+}
+
+export function monthChargesTotal(charges: Charge[]): number {
+  return charges.reduce((total, charge) => total + charge.total_cents, 0);
+}
+
+export async function loadMonthCharges(client: LessonsClient, month: CalendarMonth): Promise<Charge[] | null> {
+  try {
+    const { data, error } = await withTimeout(Promise.resolve(client.from(table).select(columns).eq("charge_month", monthRange(month).first)), requestTimeoutMs);
+    return error ? null : ((data ?? []) as Charge[]);
+  } catch {
+    return null;
+  }
+}
+
+export async function insertNewCharges(client: LessonsClient, charges: NewCharge[]): Promise<boolean> {
+  try {
+    const { error } = await withTimeout(Promise.resolve(client.from(table).upsert(charges, { onConflict: "owner_id,charge_month,guardian_phone", ignoreDuplicates: true })), requestTimeoutMs);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+function byGuardianName(charges: Charge[]): Charge[] {
+  return [...charges].sort((a, b) => a.guardian_name.localeCompare(b.guardian_name, "pt-BR", { sensitivity: "base" }));
+}
+
+export async function syncMonthCharges(client: LessonsClient, month: CalendarMonth, today: string): Promise<ChargesLoad> {
+  const [closing, existing] = await Promise.all([loadClosingMonth(client, month), loadMonthCharges(client, month)]);
+  if (!closing.ok || existing === null) return { ok: false, month };
+  const { newCharges, waiting, nothingToCharge } = planMonthCharges(buildMonthClosing(closing, month, today), month, existing);
+  if (newCharges.length === 0) return { ok: true, month, charges: byGuardianName(existing), waiting, nothingToCharge };
+  if (!(await insertNewCharges(client, newCharges))) return { ok: false, month };
+  const charges = await loadMonthCharges(client, month);
+  if (charges === null) return { ok: false, month };
+  return { ok: true, month, charges: byGuardianName(charges), waiting, nothingToCharge };
+}
+
+export function initialCharges(month: CalendarMonth): ChargesState {
+  return { month, status: "loading", charges: [], waiting: [], nothingToCharge: [] };
+}
+
+export function startReloadingCharges(state: ChargesState): ChargesState {
+  return { ...state, status: "loading" };
+}
+
+export function applyChargesLoad(state: ChargesState, result: ChargesLoad): ChargesState {
+  if (!result.ok) return { ...state, status: "failed" };
+  const { charges, waiting, nothingToCharge } = result;
+  return { ...state, status: "ready", charges, waiting, nothingToCharge };
+}

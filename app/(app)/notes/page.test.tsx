@@ -119,6 +119,7 @@ describe("página de notas", () => {
     expect(html).toContain('href="/lessons"');
     expect(html).toContain('href="/rules"');
     expect(html).toContain('href="/payment"');
+    expect(html).toContain('href="/charges"');
     expect(html).toContain('href="/account"');
     expect(from).toHaveBeenCalledWith("notes");
     expect(order).toHaveBeenCalledWith("created_at", { ascending: false });
