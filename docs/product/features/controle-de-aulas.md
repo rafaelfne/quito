@@ -1,5 +1,5 @@
 # Controle de aulas
-<!-- virgilio:feature stage=open -->
+<!-- virgilio:feature id=controle-de-aulas stage=building epic=43 -->
 
 ## O que é
 
@@ -34,3 +34,8 @@ Um caderno mínimo em que o professor registra os alunos, como cada um paga e as
 
 - Parte dos professores que fecham o mês sem corrigir nenhum valor à mão. O valor de hoje ainda não existe. A meta inicial é 80%.
 - Tempo que o professor leva para fechar o mês, da abertura da tela até o valor de todos os alunos. A meta é menos de 5 minutos.
+
+## Descobertas e Spikes
+<!-- virgilio:items -->
+- Descoberta: [Posicionamento: o Quitô entende aula](../findings/posicionamento.md)
+<!-- virgilio:items-end -->

@@ -6,6 +6,7 @@ tool: claude-code
 agent:
   tools:
     - claude-code
+    - codex
   default: claude-code
 github:
   repo: rafaelfne/quito
@@ -34,5 +35,5 @@ tests:
   diff_min: 80
 guardrails:
   hooks: .githooks
-  virgilio_version: 2026.1.0-beta.24
+  virgilio_version: 2026.1.0-beta.30
   required_checks: true
