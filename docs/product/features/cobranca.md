@@ -18,10 +18,10 @@ A cobrança é sempre do mês que terminou: em 5 de dezembro, o responsável pag
 - Mensagem montada: o nome do responsável e dos alunos, o mês, o valor, a conta aberta (aulas, faltas, reposições, descontos e acertos), a chave Pix e o vencimento entram sozinhos no modelo escolhido. A chave Pix fica sozinha numa linha, para o responsável copiar com um toque longo.
 - Rodapé do Quitô: a mensagem termina com a linha "Conta feita pelo Quitô", ligada de partida, e o professor pode desligar.
 - Prévia: o professor vê a mensagem de cada responsável antes de enviar, e na primeira vez passa por ela antes do primeiro envio.
-- Envio só no dia do vencimento: do dia 1 até o vencimento, o painel mostra a cobrança como "pronta para o dia 5", com a prévia, mas o botão de enviar só aparece no dia do vencimento.
+- Envio a partir do dia do vencimento: do dia 1 até o vencimento, o painel mostra a cobrança como "pronta para o dia 5", com a prévia, mas o botão de enviar só aparece no dia do vencimento. Se o professor não enviar no dia, o botão continua no painel até o envio.
 - Envio pelo WhatsApp com um toque, sem custo: o toque abre o WhatsApp do professor com a mensagem já escrita para o telefone do responsável, e a cobrança passa a constar como enviada, com a opção de desfazer se ele desistiu.
 - Marcar como pago, com um toque no painel. Para os lembretes daquele responsável no mês e pode ser desfeito.
-- Lembretes configuráveis: o professor define quantos dias depois do vencimento sai cada lembrete e quantos no máximo, com um modelo de lembrete gentil para cada um. Cada lembrete aparece no painel no dia, com o mesmo toque para o WhatsApp.
+- Lembretes configuráveis: o professor define quantos dias depois do envio da cobrança sai cada lembrete e quantos no máximo, com um modelo de lembrete gentil para cada um. Cobrança enviada com atraso conta a partir do dia em que foi enviada, e nenhum lembrete sai antes do envio. Cada lembrete aparece no painel no dia, com o mesmo toque para o WhatsApp.
 - Painel do mês: as cobranças e lembretes de hoje no topo, com o toque para o WhatsApp, as cobranças que ainda não estão prontas e por quê, e abaixo quem já pagou, quem está em aberto e há quantos dias. É a tela que o professor vê ao abrir o app.
 
 ## O que fica de fora

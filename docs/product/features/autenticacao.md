@@ -36,4 +36,5 @@ O jeito de o professor entrar no Quitô sem senha: ele digita o e-mail e recebe 
 ## Descobertas e Spikes
 <!-- virgilio:items -->
 - Descoberta: [Login no iPhone instalado](../findings/login-no-iphone.md)
+- Descoberta: [Entrar com Google ainda desligado](../findings/google-desligado.md)
 <!-- virgilio:items-end -->
