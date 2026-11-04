@@ -13,7 +13,7 @@ Um caderno mínimo em que o professor registra os alunos, como cada um paga e as
 - Regras do professor, numa tela só e iguais para todos os alunos dele: com quanta antecedência a falta conta como avisada (24 horas de partida), se a reposição tem prazo e qual, e se na mensalidade fixa o mês com 5 semanas custa igual ou soma o valor de uma aula avulsa.
 - Marcar cada aula prevista como dada, falta avisada, falta sem aviso ou falta do professor, com um toque. Só a falta sem aviso é cobrada.
 - Reposição: a falta avisada e a falta do professor viram crédito, e o crédito é usado quando o professor marca a aula de reposição. Se o professor definiu prazo, o crédito vencido some do fechamento.
-- Desconto para irmãos: alunos com o mesmo responsável ficam juntos e recebem o desconto que o professor definir.
+- Desconto para irmãos: alunos com o mesmo responsável ficam juntos e recebem o percentual que o professor definir sobre a cobrança de cada aluno.
 - Fechamento do mês: uma tela com quanto cada responsável deve, com a conta aberta (aulas, faltas, reposições e descontos).
 
 ## O que fica de fora
@@ -28,7 +28,7 @@ Um caderno mínimo em que o professor registra os alunos, como cada um paga e as
 
 ## Perguntas em aberto
 
-- Como funcionam os descontos: só para irmãos ou outros também, em porcentagem ou em valor fixo. O dono vai pensar nisso com calma, e a tarefa de desconto só começa depois dessa resposta.
+- O desconto é percentual e vale para alunos que compartilham o mesmo responsável.
 
 ## Como medir
 
