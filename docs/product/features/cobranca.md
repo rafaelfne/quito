@@ -1,5 +1,5 @@
 # Cobrança
-<!-- virgilio:feature stage=open -->
+<!-- virgilio:feature id=cobranca stage=building epic=61 -->
 
 ## O que é
 
@@ -52,3 +52,9 @@ A cobrança é sempre do mês que terminou: em 5 de dezembro, o responsável pag
 - Dias de atraso em média, do vencimento até o professor marcar como pago. O valor de hoje é o que o professor responde no cadastro, e a meta é cair pela metade depois de três meses de uso.
 - Parte das cobranças pagas até o dia do vencimento. A meta inicial é 70%.
 - Parte das cobranças enviadas no próprio dia do vencimento, que mostra se o painel sem notificação basta. A meta inicial é 60%.
+
+## Descobertas e Spikes
+<!-- virgilio:items -->
+- Spike: [Envio automático pelo WhatsApp](../spikes/envio-pelo-whatsapp.md)
+- Descoberta: [Tom da mensagem de cobrança](../findings/tom-da-mensagem.md)
+<!-- virgilio:items-end -->
