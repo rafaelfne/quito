@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { GettingStartedState } from "@/lib/getting-started";
 
-type ViewProps = { state: GettingStartedState; onRetry: () => void };
+type ViewProps = { state: GettingStartedState; onRetry: () => void; baselineDelayDays: number | null; onSaveBaselineDelay: (days: number) => Promise<void> };
 
-const maybeSingle = vi.fn(async () => ({ data: { finished_at: null } as { finished_at: string | null } | null, error: null as { message: string } | null }));
-const upsert = vi.fn(async () => ({ error: null }));
+const maybeSingle = vi.fn(async () => ({ data: { finished_at: null, baseline_delay_days: null } as { finished_at: string | null; baseline_delay_days: number | null } | null, error: null as { message: string } | null }));
+const upsert = vi.fn(async () => ({ error: null as { message: string } | null }));
 const students = vi.fn(async () => ({ data: [], error: null }));
 const from = vi.fn((table: string) => (table === "students" ? { select: students } : { select: () => ({ maybeSingle }), upsert }));
 
@@ -87,5 +87,26 @@ describe("página de primeiros passos", () => {
     expect(view().state.status).toBe("loading");
     await settle();
     expect(view().state.status).toBe("ready");
+  });
+
+  test("guarda a média de atraso e atualiza os passos", async () => {
+    maybeSingle.mockResolvedValueOnce({ data: { finished_at: null, baseline_delay_days: null }, error: null });
+    maybeSingle.mockResolvedValueOnce({ data: { finished_at: null, baseline_delay_days: 12 }, error: null });
+    view();
+    await settle();
+    await view().onSaveBaselineDelay(12);
+    await settle();
+    expect(upsert).toHaveBeenCalledWith({ baseline_delay_days: 12 }, { onConflict: "owner_id" });
+    expect(view().baselineDelayDays).toBe(12);
+    expect(maybeSingle).toHaveBeenCalledTimes(2);
+  });
+
+  test("mantém o valor atual quando não consegue guardar a resposta", async () => {
+    upsert.mockResolvedValueOnce({ error: { message: "sem rede" } });
+    view();
+    await settle();
+    await view().onSaveBaselineDelay(12);
+    expect(view().baselineDelayDays).toBeNull();
+    expect(maybeSingle).toHaveBeenCalledTimes(1);
   });
 });

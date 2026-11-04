@@ -6,8 +6,17 @@ const primaryLinkClass = "flex min-h-11 items-center justify-center rounded bg-f
 const secondaryLinkClass = "flex min-h-11 items-center justify-center rounded border px-3 py-2";
 const secondaryButtonClass = "min-h-11 rounded border px-3 py-2";
 
-function StepAction({ step, isCurrent }: { step: GettingStartedStep; isCurrent: boolean }) {
+export function StepAction({ step, isCurrent, baselineDelayDays, onSaveBaselineDelay }: { step: GettingStartedStep; isCurrent: boolean; baselineDelayDays: number | null; onSaveBaselineDelay: (days: number) => void }) {
   if (step.done) return <p className="text-sm font-medium">Feito</p>;
+  if (step.action === "baseline-delay") {
+    return (
+      <form action={(formData) => onSaveBaselineDelay(Number(formData.get("baseline-delay-days")))} className="flex flex-col gap-2">
+        <label className="text-sm" htmlFor="baseline-delay-days">Dias de atraso</label>
+        <input className="min-h-11 rounded border px-3" id="baseline-delay-days" name="baseline-delay-days" type="number" min="0" max="365" step="1" required defaultValue={baselineDelayDays ?? ""} />
+        <button className={isCurrent ? primaryLinkClass : secondaryButtonClass} type="submit">Salvar resposta</button>
+      </form>
+    );
+  }
   return (
     <Link className={isCurrent ? primaryLinkClass : secondaryLinkClass} href={step.path}>
       {isCurrent ? "Continuar" : "Abrir"}
@@ -15,7 +24,7 @@ function StepAction({ step, isCurrent }: { step: GettingStartedStep; isCurrent: 
   );
 }
 
-function StepList({ steps }: { steps: GettingStartedStep[] }) {
+function StepList({ steps, baselineDelayDays, onSaveBaselineDelay }: { steps: GettingStartedStep[]; baselineDelayDays: number | null; onSaveBaselineDelay: (days: number) => void }) {
   const current = currentStep(steps);
   return (
     <ol className="flex flex-col gap-3">
@@ -27,7 +36,7 @@ function StepList({ steps }: { steps: GettingStartedStep[] }) {
               {index + 1}. {step.title}
             </h2>
             <p className="text-sm">{step.hint}</p>
-            <StepAction step={step} isCurrent={isCurrent} />
+            <StepAction step={step} isCurrent={isCurrent} baselineDelayDays={baselineDelayDays} onSaveBaselineDelay={onSaveBaselineDelay} />
           </li>
         );
       })}
@@ -59,7 +68,7 @@ function Progress({ steps }: { steps: GettingStartedStep[] }) {
   );
 }
 
-export function GettingStartedView({ state, onRetry }: { state: GettingStartedState; onRetry: () => void }) {
+export function GettingStartedView({ state, onRetry, baselineDelayDays = null, onSaveBaselineDelay = () => undefined }: { state: GettingStartedState; onRetry: () => void; baselineDelayDays?: number | null; onSaveBaselineDelay?: (days: number) => void }) {
   const unfinished = state.status === "ready" && remainingSteps(state.steps) > 0;
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-4 sm:p-8">
@@ -81,7 +90,7 @@ export function GettingStartedView({ state, onRetry }: { state: GettingStartedSt
       {state.status === "ready" ? (
         <>
           <Progress steps={state.steps} />
-          <StepList steps={state.steps} />
+          <StepList steps={state.steps} baselineDelayDays={baselineDelayDays} onSaveBaselineDelay={onSaveBaselineDelay} />
         </>
       ) : null}
       {state.status !== "ready" || unfinished ? (

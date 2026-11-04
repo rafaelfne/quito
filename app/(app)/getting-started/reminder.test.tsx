@@ -47,8 +47,8 @@ vi.mock("@/lib/getting-started", async (original) => ({ ...(await original<typeo
 const { GettingStartedReminder } = await import("./reminder");
 
 const steps = [{ id: "a", title: "Passo", hint: "Dica", path: "/students", done: false }];
-const pending: GettingStartedLoad = { ok: true, progress: { started: true, finished: false, steps } };
-const neverStarted: GettingStartedLoad = { ok: true, progress: { started: false, finished: false, steps } };
+const pending: GettingStartedLoad = { ok: true, progress: { started: true, finished: false, baselineDelayDays: null, steps } };
+const neverStarted: GettingStartedLoad = { ok: true, progress: { started: false, finished: false, baselineDelayDays: null, steps } };
 
 function settle() {
   return new Promise((resolve) => setTimeout(resolve, 0));

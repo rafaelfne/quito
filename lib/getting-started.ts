@@ -5,7 +5,7 @@ import { loadStudents, studentsPath, type Student } from "@/lib/students";
 
 export type GettingStartedClient = Pick<SupabaseClient, "from">;
 
-type StepFacts = { students: Student[] };
+type StepFacts = { students: Student[]; baselineDelayDays: number | null };
 
 type StepDefinition = {
   id: string;
@@ -13,11 +13,12 @@ type StepDefinition = {
   hint: string;
   path: string;
   isDone: (facts: StepFacts) => boolean;
+  action?: "baseline-delay";
 };
 
 export type GettingStartedStep = Omit<StepDefinition, "isDone"> & { done: boolean };
 
-export type GettingStartedProgress = { started: boolean; finished: boolean; steps: GettingStartedStep[] };
+export type GettingStartedProgress = { started: boolean; finished: boolean; baselineDelayDays: number | null; steps: GettingStartedStep[] };
 
 export type GettingStartedLoad = { ok: true; progress: GettingStartedProgress } | { ok: false };
 
@@ -47,6 +48,14 @@ function hasBillingAndSchedule(student: Student): boolean {
 
 const stepDefinitions: StepDefinition[] = [
   {
+    id: "baseline-delay",
+    title: "Quantos dias os pais costumam atrasar, em média?",
+    hint: "Essa resposta será comparada com os atrasos medidos pelo Quitô.",
+    path: gettingStartedPath,
+    action: "baseline-delay",
+    isDone: ({ baselineDelayDays }) => baselineDelayDays !== null,
+  },
+  {
     id: "students",
     title: "Cadastre seus alunos",
     hint: "Nome do aluno, nome do responsável e WhatsApp.",
@@ -63,7 +72,7 @@ const stepDefinitions: StepDefinition[] = [
 ];
 
 function stepsFrom(isDone: (definition: StepDefinition) => boolean): GettingStartedStep[] {
-  return stepDefinitions.map((definition) => ({ id: definition.id, title: definition.title, hint: definition.hint, path: definition.path, done: isDone(definition) }));
+  return stepDefinitions.map((definition) => ({ id: definition.id, title: definition.title, hint: definition.hint, path: definition.path, action: definition.action, done: isDone(definition) }));
 }
 
 export function remainingSteps(steps: GettingStartedStep[]): number {
@@ -81,14 +90,15 @@ export function describeRemaining(steps: GettingStartedStep[]): string {
 
 export async function loadGettingStarted(client: GettingStartedClient): Promise<GettingStartedLoad> {
   try {
-    const { data, error } = await withTimeout(Promise.resolve(client.from(table).select("finished_at").maybeSingle()), requestTimeoutMs);
+    const { data, error } = await withTimeout(Promise.resolve(client.from(table).select("finished_at, baseline_delay_days").maybeSingle()), requestTimeoutMs);
     if (error) return { ok: false };
-    const record = data as { finished_at: string | null } | null;
+    const record = data as { finished_at: string | null; baseline_delay_days: number | null } | null;
     const started = record !== null;
-    if (record?.finished_at) return { ok: true, progress: { started, finished: true, steps: stepsFrom(() => true) } };
+    const baselineDelayDays = record?.baseline_delay_days ?? null;
+    if (record?.finished_at) return { ok: true, progress: { started, finished: true, baselineDelayDays, steps: stepsFrom(() => true) } };
     const students = await loadStudents(client);
     if (!students.ok) return { ok: false };
-    return { ok: true, progress: { started, finished: false, steps: stepsFrom(({ isDone }) => isDone({ students: students.students })) } };
+    return { ok: true, progress: { started, finished: false, baselineDelayDays, steps: stepsFrom(({ isDone }) => isDone({ students: students.students, baselineDelayDays })) } };
   } catch {
     return { ok: false };
   }
@@ -109,6 +119,11 @@ export function startGettingStarted(client: GettingStartedClient): Promise<boole
 
 export function finishGettingStarted(client: GettingStartedClient): Promise<boolean> {
   return saved(client.from(table).upsert({ finished_at: new Date().toISOString() }, { onConflict: "owner_id" }));
+}
+
+export function saveBaselineDelay(client: GettingStartedClient, days: number): Promise<boolean> {
+  if (!Number.isInteger(days) || days < 0 || days > 365) return Promise.resolve(false);
+  return saved(client.from(table).upsert({ baseline_delay_days: days }, { onConflict: "owner_id" }));
 }
 
 export async function openGettingStarted(client: GettingStartedClient): Promise<GettingStartedLoad> {
@@ -133,7 +148,7 @@ function isStepPath(pathname: string): boolean {
 }
 
 export function tracksReminder(pathname: string): boolean {
-  return pathname === afterSignInPath || isStepPath(pathname);
+  return pathname === afterSignInPath || (pathname !== gettingStartedPath && isStepPath(pathname));
 }
 
 export function reminderFor(pathname: string, load: GettingStartedLoad): GettingStartedReminder {
