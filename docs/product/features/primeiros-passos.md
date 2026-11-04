@@ -1,5 +1,5 @@
 # Primeiros passos
-<!-- virgilio:feature stage=open -->
+<!-- virgilio:feature id=primeiros-passos stage=building epic=79 -->
 
 ## O que é
 
