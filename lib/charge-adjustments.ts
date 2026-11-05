@@ -13,6 +13,8 @@ export type ChargedMonth = { charge_month: string; account: ChargedStudent[] };
 
 const monthNameFormat = new Intl.DateTimeFormat("pt-BR", { month: "long", timeZone: "UTC" });
 
+export const adjustmentLabelPrefix = "Acerto de ";
+
 const remainderNote = " (o restante fica para o próximo mês)";
 
 const unspecificCorrection = "correção nas aulas";
@@ -31,12 +33,12 @@ const lessonTargets: Record<LessonStatus, [string, string]> = {
   teacher_absence: ["falta do professor", "falta do professor"],
 };
 
-function monthOfKey(key: string): CalendarMonth {
+export function monthOfKey(key: string): CalendarMonth {
   const [year, month] = key.split("-").map(Number);
   return { year, month };
 }
 
-function describeMonthName({ year, month }: CalendarMonth): string {
+export function describeMonthName({ year, month }: CalendarMonth): string {
   return monthNameFormat.format(new Date(Date.UTC(year, month - 1, 1)));
 }
 
@@ -83,7 +85,7 @@ function describeMakeupChanges(before: FrozenMark[], after: FrozenMark[], month:
 
 export function describeAdjustment(before: FrozenMark[], after: FrozenMark[], month: CalendarMonth): string {
   const changes = [...describeLessonChanges(before, after, month), ...describeMakeupChanges(before, after, month)];
-  return `Acerto de ${describeMonthName(month)}: ${changes.length > 0 ? changes.join(", ") : unspecificCorrection}`;
+  return `${adjustmentLabelPrefix}${describeMonthName(month)}: ${changes.length > 0 ? changes.join(", ") : unspecificCorrection}`;
 }
 
 function recountGrossCents(basis: ChargeBasis, studentId: string, marks: FrozenMark[], month: CalendarMonth): number | null {

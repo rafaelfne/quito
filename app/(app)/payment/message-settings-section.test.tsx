@@ -111,6 +111,10 @@ describe("mensagem de cobrança na tela", () => {
     expect(html).toContain(messageSettingsMessages.saveFailed);
   });
 
+  test("o botão diz Guardar mensagem", () => {
+    expect(render(ready)).toContain("Guardar mensagem");
+  });
+
   test("enquanto guarda, avisa no botão", () => {
     expect(render(ready, true)).toContain("Guardando...");
   });

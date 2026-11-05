@@ -1,9 +1,9 @@
 import { messageAdjustmentsFrom, messageSettingsMessages, type MessageSettingsDraft, type MessageSettingsState } from "@/lib/message-settings";
 import { defaultGreeting, defaultSignature, defaultThanks, exampleMessage, exampleMessageParts, messageTones } from "@/lib/message-templates";
 
-const inputClass = "min-h-11 rounded border bg-background px-3 py-3 text-base text-foreground";
-const primaryButtonClass = "min-h-11 flex-1 rounded bg-foreground px-3 py-2 text-background disabled:opacity-50";
-const secondaryButtonClass = "min-h-11 rounded border px-3 py-2 disabled:opacity-50";
+const inputClass = "min-h-11 rounded-sm border bg-background px-3 py-3 text-base text-foreground";
+const primaryButtonClass = "min-h-11 flex-1 rounded-sm bg-foreground px-3 py-2 text-background disabled:opacity-50";
+const secondaryButtonClass = "min-h-11 rounded-sm border px-3 py-2 disabled:opacity-50";
 
 export type MessageSettingsHandlers = {
   onMessageChange: (changes: Partial<MessageSettingsDraft>) => void;
@@ -22,7 +22,7 @@ function ToneOptions({ state, onMessageChange }: Pick<MessageSettingsSectionProp
     <fieldset className="flex flex-col gap-2">
       <legend className="text-sm">Tom da mensagem</legend>
       {messageTones.map((tone) => (
-        <label className="flex min-h-11 items-center gap-3 rounded border px-3 py-2 text-sm" key={tone.id}>
+        <label className="flex min-h-11 items-center gap-3 rounded-sm border px-3 py-2 text-sm" key={tone.id}>
           <input type="radio" name="message-tone" checked={state.draft.tone === tone.id} onChange={() => onMessageChange({ tone: tone.id })} />
           <span className="flex flex-col">
             <span className="font-medium">{tone.label}</span>
@@ -87,7 +87,7 @@ function MessageExample({ text }: { text: string }) {
       <p className="text-sm opacity-70">
         Exemplo com a conta de {exampleMessageParts.guardianName}, mãe {exampleMessageParts.studentsWithArticles}. Os dados de cada responsável entram sozinhos.
       </p>
-      <div className="rounded border p-3 text-sm">
+      <div className="rounded-sm border p-3 text-sm">
         {text.split("\n").map((line, index) => (
           <p className="min-h-5 break-words" key={index}>
             <MessageLine line={line} />

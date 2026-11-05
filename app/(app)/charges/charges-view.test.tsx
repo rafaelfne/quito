@@ -49,6 +49,27 @@ describe("tela de cobranças", () => {
     for (const path of ["/students", "/lessons", "/closing", "/rules", "/payment", "/account"]) expect(html).toContain(`href="${path}"`);
   });
 
+  test("mostra a mensagem montada de cada responsável", () => {
+    const html = render(ready({ charges: [charge], messages: { c1: "Oi, Ana!\njoao@email.com" } }));
+    expect(html).toContain(chargeMessages.messageTitle);
+    expect(html).toContain("whitespace-pre-wrap");
+    expect(html).toContain("Oi, Ana!\njoao@email.com");
+    expect(html).not.toContain(chargeMessages.messageNeedsPayment);
+  });
+
+  test("sem os dados de recebimento, leva para o Recebimento", () => {
+    const html = render(ready({ charges: [charge] }));
+    expect(html).toContain(chargeMessages.messageNeedsPayment);
+    expect(html).toContain(chargeMessages.fillPayment);
+  });
+
+  test("com o acerto cobrindo o mês, não mostra mensagem", () => {
+    const html = render(ready({ charges: [{ ...charge, total_cents: 0 }] }));
+    expect(html).toContain(chargeMessages.coveredByAdjustment);
+    expect(html).not.toContain(chargeMessages.messageTitle);
+    expect(html).not.toContain(chargeMessages.messageNeedsPayment);
+  });
+
   test("falha avisa e oferece tentar de novo", () => {
     const html = render({ ...initialCharges(november), status: "failed" });
     expect(html).toContain(chargeMessages.loadFailed);

@@ -124,6 +124,12 @@ describe("página de notas", () => {
     expect(from).toHaveBeenCalledWith("notes");
     expect(order).toHaveBeenCalledWith("created_at", { ascending: false });
   });
+
+  test("o botão da nota diz Guardar", () => {
+    const { html } = render();
+    expect(html).toMatch(/<button[^>]*type="submit"[^>]*>Guardar<\/button>/);
+    expect(html).not.toContain(">Salvar<");
+  });
 });
 
 describe("ao abrir as notas", () => {

@@ -92,7 +92,7 @@ function GenderField({ state, onChange }: { state: StudentsState; onChange: Form
         <span className="opacity-70">Para a mensagem de cobrança escrever &quot;do Pedro&quot; ou &quot;da Ana&quot;.</span>
         <div className="flex flex-wrap gap-2">
           {studentGenderOptions.map(({ value, label }) => (
-            <label key={value} className="flex min-h-11 flex-1 items-center gap-2 rounded border px-3 text-base">
+            <label key={value} className="flex min-h-11 flex-1 items-center gap-2 rounded-sm border px-3 text-base">
               <input type="radio" name="student-gender" value={value} checked={selected === value} onChange={() => onChange("gender", value)} />
               {label}
             </label>

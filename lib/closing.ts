@@ -60,6 +60,14 @@ export const closingMessages = {
   creditsTitle: "Créditos de reposição em aberto",
 };
 
+export const notChargedNote = ", sem cobrança";
+
+export const lineUnitSeparator = " × ";
+
+export const monthlyLineLabel = "Mensalidade";
+
+export const siblingDiscountPrefix = "Desconto de ";
+
 const marksPageSize = 1000;
 
 const marksColumns = "student_id, lesson_date, status, makeup_date";
@@ -82,8 +90,8 @@ export function describeAttendance(counts: AttendanceCounts): string {
     counts.given > 0 ? counted(counts.given, "aula dada", "aulas dadas") : "",
     counts.unnotified_absence > 0 ? `${counted(counts.unnotified_absence, "falta sem aviso", "faltas sem aviso")}, cobrada${counts.unnotified_absence === 1 ? "" : "s"}` : "",
     counts.makeups > 0 ? counted(counts.makeups, "reposição", "reposições") : "",
-    counts.notified_absence > 0 ? `${counted(counts.notified_absence, "falta avisada", "faltas avisadas")}, sem cobrança` : "",
-    counts.teacher_absence > 0 ? `${counted(counts.teacher_absence, "falta do professor", "faltas do professor")}, sem cobrança` : "",
+    counts.notified_absence > 0 ? `${counted(counts.notified_absence, "falta avisada", "faltas avisadas")}${notChargedNote}` : "",
+    counts.teacher_absence > 0 ? `${counted(counts.teacher_absence, "falta do professor", "faltas do professor")}${notChargedNote}` : "",
   ].filter(Boolean);
   return parts.length === 0 ? "Nenhuma aula marcada neste mês." : `${parts.join("; ")}.`;
 }
@@ -134,12 +142,12 @@ function perClassLines(cents: number, counts: AttendanceCounts): ClosingLine[] {
     { count: counts.makeups, label: counted(counts.makeups, "reposição", "reposições") },
   ]
     .filter(({ count }) => count > 0)
-    .map(({ count, label }) => ({ label: `${label} × ${unit}`, cents: count * cents }));
+    .map(({ count, label }) => ({ label: `${label}${lineUnitSeparator}${unit}`, cents: count * cents }));
   return lines.length > 0 ? lines : [{ label: "Nenhuma aula cobrada neste mês", cents: 0 }];
 }
 
 function monthlyLines(student: Student, cents: number, month: CalendarMonth, rules: ClosingRules): ClosingLine[] {
-  const lines = [{ label: "Mensalidade", cents }];
+  const lines = [{ label: monthlyLineLabel, cents }];
   const hasFiveWeeks = plannedLessons(student, month).length >= 5;
   if (hasFiveWeeks && rules.five_week_policy === "add_lesson" && rules.five_week_extra_cents !== null) lines.push({ label: "Mês com 5 semanas: uma aula avulsa a mais", cents: rules.five_week_extra_cents });
   return lines;
@@ -147,7 +155,7 @@ function monthlyLines(student: Student, cents: number, month: CalendarMonth, rul
 
 function packageLines(cents: number, packageLessons: number, bought: number): ClosingLine[] {
   if (bought === 0) return [{ label: "Nenhum pacote novo neste mês", cents: 0 }];
-  return [{ label: `${counted(bought, "pacote", "pacotes")} de ${counted(packageLessons, "aula", "aulas")} × ${formatCurrency(cents)}`, cents: bought * cents }];
+  return [{ label: `${counted(bought, "pacote", "pacotes")} de ${counted(packageLessons, "aula", "aulas")}${lineUnitSeparator}${formatCurrency(cents)}`, cents: bought * cents }];
 }
 
 function describePackageBalance(usage: ReturnType<typeof packageUsage>): string {
@@ -181,7 +189,7 @@ function closeStudent(student: Student, hasSiblings: boolean, credits: string[],
   const percent = hasSiblings ? data.rules.sibling_discount_percent : 0;
   const totalCents = discountAmount(grossCents, percent);
   const discountCents = grossCents - totalCents;
-  const lines = discountCents > 0 ? [...charge.lines, { label: `Desconto de ${percent}% para irmãos`, cents: -discountCents }] : charge.lines;
+  const lines = discountCents > 0 ? [...charge.lines, { label: `${siblingDiscountPrefix}${percent}% para irmãos`, cents: -discountCents }] : charge.lines;
   const basis = { billingKind: charge.billingKind, amountCents: charge.amountCents, packageLessons: charge.packageLessons, discountPercent: percent, monthCents: totalCents, marks: frozenMarksOf(student.id, data.marks, month) };
   return { ...base, basis, lines, packageBalance: charge.packageBalance, missingBilling: false, dependsOnMarks: student.billing_kind !== "monthly", totalCents };
 }

@@ -115,6 +115,12 @@ describe("tela de recebimento", () => {
     expect(render({ ...ready, message: paymentSettingsMessages.saveFailed })).toContain(paymentSettingsMessages.saveFailed);
   });
 
+  test("os botões dizem Guardar dados e Guardar vencimento", () => {
+    const html = render(ready);
+    expect(html).toContain("Guardar dados");
+    expect(html).toContain("Guardar vencimento");
+  });
+
   test("enquanto guarda, trava o formulário e avisa no botão", () => {
     const html = render(ready, guardiansReady, true);
     expect(html).toContain("Guardando...");

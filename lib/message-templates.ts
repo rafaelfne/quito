@@ -17,6 +17,7 @@ export type MessageParts = {
   dueDay: string;
   dueShort: string;
   dueLong: string;
+  duePassed: boolean;
   pixKey: string;
   receiverName: string;
 };
@@ -56,7 +57,7 @@ const toneTexts: Record<MessageTone, ToneText> = {
       ...parts.accountLines,
       `*Total: ${parts.total}*`,
       "",
-      `Vence hoje, dia ${parts.dueDay}. A chave Pix é:`,
+      `${parts.duePassed ? `Venceu em ${parts.dueShort}` : `Vence hoje, dia ${parts.dueDay}`}. A chave Pix é:`,
       parts.pixKey,
       `(${parts.receiverName})`,
       "",
@@ -70,7 +71,7 @@ const toneTexts: Record<MessageTone, ToneText> = {
     signaturePrefix: "",
     lines: (parts, { greeting, thanks, signature }) => [
       `${greeting}, ${parts.guardianName}.`,
-      `Cobrança de ${parts.month} (${parts.studentNames}): *${parts.total}*, vence hoje, ${parts.dueShort}.`,
+      `Cobrança de ${parts.month} (${parts.studentNames}): *${parts.total}*, ${parts.duePassed ? "venceu em" : "vence hoje,"} ${parts.dueShort}.`,
       "",
       ...parts.accountLines,
       "",
@@ -141,6 +142,7 @@ export const exampleMessageParts: MessageParts = {
   dueDay: "5",
   dueShort: "5/12",
   dueLong: "5 de dezembro",
+  duePassed: false,
   pixKey: "joao.violao@email.com",
   receiverName: "João Silva",
 };

@@ -17,9 +17,9 @@ import { describeNextDue, paymentSettingsMessages, type PaymentSettingsField, ty
 import { studentsPath } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
 
-const inputClass = "min-h-11 rounded border bg-background px-3 py-3 text-base text-foreground";
-const primaryButtonClass = "min-h-11 flex-1 rounded bg-foreground px-3 py-2 text-background disabled:opacity-50";
-const secondaryButtonClass = "min-h-11 rounded border px-3 py-2 disabled:opacity-50";
+const inputClass = "min-h-11 rounded-sm border bg-background px-3 py-3 text-base text-foreground";
+const primaryButtonClass = "min-h-11 flex-1 rounded-sm bg-foreground px-3 py-2 text-background disabled:opacity-50";
+const secondaryButtonClass = "min-h-11 rounded-sm border px-3 py-2 disabled:opacity-50";
 
 type FormHandlers = {
   onChange: (field: PaymentSettingsField, value: string) => void;
@@ -167,7 +167,7 @@ function GuardianDueForm({
   return (
     <form
       noValidate
-      className="flex flex-col gap-3 rounded border p-3"
+      className="flex flex-col gap-3 rounded-sm border p-3"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit(group.phone);

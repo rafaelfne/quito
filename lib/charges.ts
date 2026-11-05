@@ -1,4 +1,5 @@
 import { pendingAdjustments, settleAdjustments, type PendingAdjustment, type SettledAdjustment } from "@/lib/charge-adjustments";
+import { composedMessagesFor, loadChargeMessageContext } from "@/lib/charge-message";
 import { buildMonthClosing, describeUnmarked, loadClosingMonth, type GuardianClosing, type MonthClosing, type StudentClosing } from "@/lib/closing";
 import { describeMonth, monthRange, shiftMonth, type LessonsClient } from "@/lib/lessons";
 import { calendarMonthOf, type CalendarMonth } from "@/lib/schedule";
@@ -22,9 +23,9 @@ export type WaitingGuardian = { phone: string; guardianName: string; students: W
 
 export type ChargesPlan = { newCharges: NewCharge[]; waiting: WaitingGuardian[]; nothingToCharge: string[] };
 
-export type ChargesLoad = { ok: true; month: CalendarMonth; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[] } | { ok: false; month: CalendarMonth };
+export type ChargesLoad = { ok: true; month: CalendarMonth; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages?: Record<string, string> } | { ok: false; month: CalendarMonth };
 
-export type ChargesState = { month: CalendarMonth; status: "loading" | "ready" | "failed"; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[] };
+export type ChargesState = { month: CalendarMonth; status: "loading" | "ready" | "failed"; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages: Record<string, string> };
 
 export const chargesPath = "/charges";
 
@@ -39,6 +40,9 @@ export const chargeMessages = {
   missingBilling: "Forma de cobrança ainda não definida.",
   defineBilling: "Definir a forma de cobrança em Alunos",
   nothingToChargeTitle: "Nada a cobrar neste mês",
+  messageTitle: "Mensagem para o responsável",
+  messageNeedsPayment: "Para montar a mensagem, falta guardar a sua chave Pix e o seu nome.",
+  fillPayment: "Preencher em Recebimento",
 };
 
 const table = "charges";
@@ -175,8 +179,14 @@ export async function syncMonthCharges(client: LessonsClient, month: CalendarMon
   return { ok: true, month, charges: byGuardianName(charges), waiting, nothingToCharge };
 }
 
+export async function syncChargesWithMessages(client: LessonsClient, month: CalendarMonth, today: string): Promise<ChargesLoad> {
+  const [result, context] = await Promise.all([syncMonthCharges(client, month, today), loadChargeMessageContext(client)]);
+  if (!result.ok || context === null) return { ok: false, month };
+  return { ...result, messages: composedMessagesFor(result.charges, context, today) };
+}
+
 export function initialCharges(month: CalendarMonth): ChargesState {
-  return { month, status: "loading", charges: [], waiting: [], nothingToCharge: [] };
+  return { month, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {} };
 }
 
 export function startReloadingCharges(state: ChargesState): ChargesState {
@@ -185,6 +195,6 @@ export function startReloadingCharges(state: ChargesState): ChargesState {
 
 export function applyChargesLoad(state: ChargesState, result: ChargesLoad): ChargesState {
   if (!result.ok) return { ...state, status: "failed" };
-  const { charges, waiting, nothingToCharge } = result;
-  return { ...state, status: "ready", charges, waiting, nothingToCharge };
+  const { charges, waiting, nothingToCharge, messages = {} } = result;
+  return { ...state, status: "ready", charges, waiting, nothingToCharge, messages };
 }

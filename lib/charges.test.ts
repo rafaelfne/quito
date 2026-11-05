@@ -19,6 +19,7 @@ import {
   waitsForMarks,
   type Charge,
   type WaitingGuardian,
+  syncChargesWithMessages,
 } from "@/lib/charges";
 import { buildMonthClosing, type ClosingData, type ClosingRules } from "@/lib/closing";
 import type { LessonMark, LessonsClient } from "@/lib/lessons";
@@ -193,6 +194,13 @@ describe("plano das cobranças", () => {
   test("a conta guardada não leva o que só serve para o fechamento", () => {
     const [charge] = planMonthCharges(closingOf(), november, []).newCharges;
     expect(Object.keys(charge.account[0]).sort()).toEqual(["attendance", "basis", "credits", "lines", "packageBalance", "settled", "studentId", "studentName", "totalCents"]);
+  });
+});
+
+describe("cobranças com a mensagem montada", () => {
+  test("se a cobrança ou os dados da mensagem não abrem, a tela oferece tentar de novo", async () => {
+    const { client } = fakeClient({ students: [pedro], marks: [], charges: [] });
+    expect(await syncChargesWithMessages(client, november, today)).toEqual({ ok: false, month: november });
   });
 });
 
@@ -426,7 +434,7 @@ const bia: WaitingGuardian = { phone: "11933334444", guardianName: "Bia", studen
 
 describe("estado da tela", () => {
   test("começa carregando o mês", () => {
-    expect(initialCharges(november)).toEqual({ month: november, status: "loading", charges: [], waiting: [], nothingToCharge: [] });
+    expect(initialCharges(november)).toEqual({ month: november, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {} });
   });
 
   test("recarregar mantém o que já estava na tela", () => {
@@ -436,7 +444,7 @@ describe("estado da tela", () => {
 
   test("aplica o resultado", () => {
     const result = { ok: true as const, month: november, charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"] };
-    expect(applyChargesLoad(initialCharges(november), result)).toEqual({ month: november, status: "ready", charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"] });
+    expect(applyChargesLoad(initialCharges(november), result)).toEqual({ month: november, status: "ready", charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"], messages: {} });
   });
 
   test("falha marca a tela", () => {

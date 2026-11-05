@@ -111,6 +111,10 @@ describe("tela de regras", () => {
     expect(render({ ...ready, message: teacherRulesMessages.saveFailed })).toContain(teacherRulesMessages.saveFailed);
   });
 
+  test("o botão diz Guardar regras", () => {
+    expect(render(ready)).toContain("Guardar regras");
+  });
+
   test("enquanto guarda, trava o formulário e avisa no botão", () => {
     const html = render(ready, true);
     expect(html).toContain("Guardando...");

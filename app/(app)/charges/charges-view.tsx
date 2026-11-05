@@ -9,9 +9,9 @@ import type { CalendarMonth } from "@/lib/schedule";
 import { formatPhone, studentsPath } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
 
-const secondaryButtonClass = "min-h-11 rounded border px-3 py-2 disabled:opacity-50";
+const secondaryButtonClass = "min-h-11 rounded-sm border px-3 py-2 disabled:opacity-50";
 
-const shortcutClass = "inline-flex min-h-11 items-center rounded border px-3 py-2 text-sm";
+const shortcutClass = "inline-flex min-h-11 items-center rounded-sm border px-3 py-2 text-sm";
 
 type ChargesViewProps = {
   state: ChargesState;
@@ -46,9 +46,28 @@ function StudentAccount({ student }: { student: ChargeStudent }) {
   );
 }
 
-function ChargeCard({ charge }: { charge: Charge }) {
+function ChargeMessage({ message }: { message: string | undefined }) {
+  if (message === undefined) {
+    return (
+      <div className="flex flex-col items-start gap-2 border-t pt-3 text-sm">
+        <p>{chargeMessages.messageNeedsPayment}</p>
+        <Link className={shortcutClass} href={paymentSettingsPath}>
+          {chargeMessages.fillPayment}
+        </Link>
+      </div>
+    );
+  }
   return (
-    <section className="flex flex-col gap-3 rounded border p-3">
+    <div className="flex flex-col gap-2 border-t pt-3">
+      <h3 className="font-medium">{chargeMessages.messageTitle}</h3>
+      <p className="rounded-sm border p-3 text-sm break-words whitespace-pre-wrap">{message}</p>
+    </div>
+  );
+}
+
+function ChargeCard({ charge, message }: { charge: Charge; message: string | undefined }) {
+  return (
+    <section className="flex flex-col gap-3 rounded-sm border p-3">
       <div className="flex flex-col gap-1">
         <h2 className="font-semibold break-words">{charge.guardian_name}</h2>
         <p className="text-sm">{formatPhone(charge.guardian_phone)}</p>
@@ -62,7 +81,7 @@ function ChargeCard({ charge }: { charge: Charge }) {
         <span>{chargeMessages.guardianTotal}</span>
         <span className="tabular-nums">{formatCurrency(charge.total_cents)}</span>
       </p>
-      {charge.total_cents === 0 ? <p className="text-sm">{chargeMessages.coveredByAdjustment}</p> : null}
+      {charge.total_cents === 0 ? <p className="text-sm">{chargeMessages.coveredByAdjustment}</p> : <ChargeMessage message={message} />}
     </section>
   );
 }
@@ -117,7 +136,7 @@ function WaitingCharges({ waiting, month }: { waiting: WaitingGuardian[]; month:
 }
 
 function ChargesContent({ state }: { state: ChargesState }) {
-  const { month, charges, waiting, nothingToCharge } = state;
+  const { month, charges, waiting, nothingToCharge, messages } = state;
   if (charges.length === 0 && waiting.length === 0 && nothingToCharge.length === 0) return <p className="text-sm">{chargeMessages.empty}</p>;
   return (
     <>
@@ -129,7 +148,7 @@ function ChargesContent({ state }: { state: ChargesState }) {
           </p>
           <p className="text-sm">{chargeMessages.frozen}</p>
           {charges.map((charge) => (
-            <ChargeCard key={charge.id} charge={charge} />
+            <ChargeCard key={charge.id} charge={charge} message={messages[charge.id]} />
           ))}
         </>
       ) : null}

@@ -112,6 +112,11 @@ describe("tela de alunos", () => {
     expect(render({ ...ready, message: studentMessages.saveFailed })).toContain(studentMessages.saveFailed);
   });
 
+  test("o botão diz Guardar aluno no cadastro e Guardar ao corrigir", () => {
+    expect(render(ready)).toContain("Guardar aluno");
+    expect(render(startEditing(ready, pedro))).toMatch(/>Guardar<\/button>/);
+  });
+
   test("enquanto guarda, trava o formulário e diz o que está fazendo", () => {
     const html = render(ready, true);
     expect(html).toContain("Guardando...");

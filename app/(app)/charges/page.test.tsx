@@ -15,7 +15,9 @@ const upsert = vi.fn(async (rows: Record<string, unknown>[]) => {
 const marksChain = { order: () => marksChain, range: async () => ({ data: [], error: null }) };
 const from = vi.fn((table: string) => {
   if (table === "students") return { select: selectStudents };
-  if (table === "teacher_rules") return { select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) };
+  if (table === "teacher_rules" || table === "message_settings") return { select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) };
+  if (table === "payment_settings") return { select: () => ({ maybeSingle: async () => ({ data: { pix_key: "joao@email.com", display_name: "João Silva", due_day: 5 }, error: null }) }) };
+  if (table === "guardian_due_days") return { select: async () => ({ data: [], error: null }) };
   if (table === "charges") return { upsert, select: () => ({ lt: () => marksChain, eq: async () => ({ data: [...stored], error: null }) }) };
   return { select: () => ({ lte: () => marksChain }) };
 });
@@ -92,6 +94,8 @@ describe("página de cobranças", () => {
     expect(state.charges).toHaveLength(1);
     expect(state.charges[0]).toMatchObject({ charge_month: "2026-11-01", guardian_name: "Ana Lima", total_cents: 30000 });
     expect(upsert).toHaveBeenCalledTimes(1);
+    expect(state.messages.c1).toContain("Segue a conta de novembro do Pedro Lima:");
+    expect(state.messages.c1.split("\n")).toContain("joao@email.com");
   });
 
   test("tentar de novo volta a carregar", async () => {
