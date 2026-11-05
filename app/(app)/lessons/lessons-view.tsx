@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { accountPath } from "@/lib/account";
 import { closingPath } from "@/lib/closing";
 import {
@@ -36,10 +37,6 @@ import {
 import { studentsPath } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
 
-const secondaryButtonClass = "min-h-11 rounded-sm border px-3 py-2 disabled:opacity-50";
-const statusButtonClass = "min-h-11 rounded-sm border px-2 py-2 text-sm disabled:opacity-50";
-const selectedButtonClass = "bg-foreground font-medium text-background";
-
 type LessonsViewProps = {
   state: LessonsState;
   today: string;
@@ -72,16 +69,17 @@ function LessonRow({ lesson, state, today, onMark }: { lesson: MonthLesson; stat
       </div>
       <div className="grid grid-cols-2 gap-2" role="group" aria-label={`Aula de ${lesson.studentName}, ${describeDay(lesson.date)}`}>
         {lessonStatuses.map((status) => (
-          <button
+          <Button
             key={status}
-            className={lesson.status === status ? `${statusButtonClass} ${selectedButtonClass}` : statusButtonClass}
+            variant={lesson.status === status ? "default" : "outline"}
+            size="sm"
             type="button"
             aria-pressed={lesson.status === status}
             disabled={saving || lesson.makeupDate !== null}
             onClick={() => onMark(lesson, status)}
           >
             {lessonStatusLabels[status]}
-          </button>
+          </Button>
         ))}
       </div>
       <p className="text-sm">{chargeLabel(lesson.status)}</p>
@@ -101,9 +99,9 @@ function MakeupRow({ makeup, state, onUndoMakeup }: { makeup: MakeupLesson; stat
     <li className="flex flex-col gap-2 rounded-sm border p-3">
       <span className="min-w-0 font-medium break-words">{makeup.studentName}</span>
       <p className="text-sm">Reposição da falta de {describeShortDay(makeup.absenceDate)}. Cobrada.</p>
-      <button className={secondaryButtonClass} type="button" disabled={state.pending.includes(key)} onClick={() => onUndoMakeup(makeup)}>
+      <Button variant="outline" type="button" disabled={state.pending.includes(key)} onClick={() => onUndoMakeup(makeup)}>
         Desfazer reposição
-      </button>
+      </Button>
       <ProblemText text={state.makeupErrors[key]} />
     </li>
   );
@@ -126,9 +124,9 @@ function CreditRow({ credit, state, today, onChangeMakeupDate, onMakeUp }: { cre
           onChange={(event) => onChangeMakeupDate(credit, event.target.value)}
         />
       </label>
-      <button className={secondaryButtonClass} type="button" disabled={state.pending.includes(key)} onClick={() => onMakeUp(credit)}>
+      <Button variant="outline" type="button" disabled={state.pending.includes(key)} onClick={() => onMakeUp(credit)}>
         Marcar reposição
-      </button>
+      </Button>
       <ProblemText text={state.makeupErrors[key]} />
     </li>
   );
@@ -219,15 +217,15 @@ export function LessonsView({ state, today, onMark, onChangeMonth, onRetry, onCh
         </nav>
       </header>
       <div className="flex items-center justify-between gap-2">
-        <button className={secondaryButtonClass} type="button" aria-label="Mês anterior" onClick={() => onChangeMonth(-1)}>
+        <Button variant="outline" size="icon" type="button" aria-label="Mês anterior" onClick={() => onChangeMonth(-1)}>
           ←
-        </button>
+        </Button>
         <p className="font-medium" aria-live="polite">
           {describeMonth(state.month)}
         </p>
-        <button className={secondaryButtonClass} type="button" aria-label="Mês seguinte" onClick={() => onChangeMonth(1)}>
+        <Button variant="outline" size="icon" type="button" aria-label="Mês seguinte" onClick={() => onChangeMonth(1)}>
           →
-        </button>
+        </Button>
       </div>
       {state.status === "loading" ? <p className="text-sm">Carregando...</p> : null}
       {state.status === "failed" ? (
@@ -235,9 +233,9 @@ export function LessonsView({ state, today, onMark, onChangeMonth, onRetry, onCh
           <p className="text-sm" role="alert">
             {lessonsMessages.loadFailed}
           </p>
-          <button className={secondaryButtonClass} type="button" onClick={onRetry}>
+          <Button variant="outline" type="button" onClick={onRetry}>
             Tentar de novo
-          </button>
+          </Button>
         </div>
       ) : null}
       {state.status === "ready" ? <LessonsList state={state} today={today} onMark={onMark} onChangeMakeupDate={onChangeMakeupDate} onMakeUp={onMakeUp} onUndoMakeup={onUndoMakeup} /> : null}

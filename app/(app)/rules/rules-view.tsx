@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { accountPath } from "@/lib/account";
 import { closingPath } from "@/lib/closing";
 import { lessonsPath } from "@/lib/lessons";
@@ -6,8 +7,6 @@ import { studentsPath } from "@/lib/students";
 import { fiveWeekOptions, fiveWeekPolicies, makeupOptions, makeupPolicies, teacherRulesMessages, type TeacherRulesField, type TeacherRulesState } from "@/lib/teacher-rules";
 
 const inputClass = "min-h-11 rounded-sm border bg-background px-3 py-3 text-base text-foreground";
-const primaryButtonClass = "min-h-11 flex-1 rounded-sm bg-foreground px-3 py-2 text-background disabled:opacity-50";
-const secondaryButtonClass = "min-h-11 rounded-sm border px-3 py-2 disabled:opacity-50";
 
 type FormHandlers = {
   onChange: (field: TeacherRulesField, value: string) => void;
@@ -134,9 +133,9 @@ function TeacherRulesForm({ state, busy, onChange, onSubmit }: FormHandlers & { 
             {state.message}
           </p>
         ) : null}
-        <button className={primaryButtonClass} type="submit">
+        <Button className="flex-1" type="submit">
           {busy ? "Guardando..." : "Guardar regras"}
-        </button>
+        </Button>
       </fieldset>
     </form>
   );
@@ -148,9 +147,9 @@ function LoadFailure({ onRetry }: { onRetry: () => void }) {
       <p className="text-sm" role="alert">
         {teacherRulesMessages.loadFailed}
       </p>
-      <button className={secondaryButtonClass} type="button" onClick={onRetry}>
+      <Button variant="outline" type="button" onClick={onRetry}>
         Tentar de novo
-      </button>
+      </Button>
     </div>
   );
 }

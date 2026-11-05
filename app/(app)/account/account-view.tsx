@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DeleteAccount } from "@/app/(app)/account/delete-account";
 import { SignOutButton } from "@/app/(app)/sign-out-button";
+import { Button } from "@/components/ui/button";
 import { signInMethodLabels, type AccountResult } from "@/lib/account";
 import { afterSignInPath } from "@/lib/session";
 
@@ -12,9 +13,9 @@ function AccountDetailsView({ account, onRetry }: { account: AccountResult | nul
         <p className="text-sm" role="alert">
           {account.message}
         </p>
-        <button className="rounded-sm bg-foreground px-3 py-2 text-background" type="button" onClick={onRetry}>
+        <Button type="button" onClick={onRetry}>
           Tentar de novo
-        </button>
+        </Button>
       </div>
     );
   }
