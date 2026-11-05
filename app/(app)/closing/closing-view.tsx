@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { accountPath } from "@/lib/account";
 import { formatCurrency } from "@/lib/billing";
 import {
@@ -17,8 +18,6 @@ import { describeMonth, lessonsPath } from "@/lib/lessons";
 import type { CalendarMonth } from "@/lib/schedule";
 import { formatPhone, studentsPath } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
-
-const secondaryButtonClass = "min-h-11 rounded border px-3 py-2 disabled:opacity-50";
 
 type ClosingViewProps = {
   state: ClosingState;
@@ -67,7 +66,7 @@ function StudentAccount({ student }: { student: StudentClosing }) {
 
 function GuardianCard({ guardian }: { guardian: GuardianClosing }) {
   return (
-    <section className="flex flex-col gap-3 rounded border p-3">
+    <section className="flex flex-col gap-3 rounded-sm border p-3">
       <div className="flex flex-col gap-1">
         <h2 className="font-semibold break-words">{guardian.guardianName}</h2>
         <p className="text-sm">{formatPhone(guardian.phone)}</p>
@@ -140,15 +139,15 @@ export function ClosingView({ state, today, onChangeMonth, onRetry }: ClosingVie
         </nav>
       </header>
       <div className="flex items-center justify-between gap-2">
-        <button className={secondaryButtonClass} type="button" aria-label="Mês anterior" onClick={() => onChangeMonth(-1)}>
+        <Button variant="outline" size="icon" type="button" aria-label="Mês anterior" onClick={() => onChangeMonth(-1)}>
           ←
-        </button>
+        </Button>
         <p className="font-medium" aria-live="polite">
           {describeMonth(state.month)}
         </p>
-        <button className={secondaryButtonClass} type="button" aria-label="Mês seguinte" onClick={() => onChangeMonth(1)}>
+        <Button variant="outline" size="icon" type="button" aria-label="Mês seguinte" onClick={() => onChangeMonth(1)}>
           →
-        </button>
+        </Button>
       </div>
       {state.status === "loading" ? <p className="text-sm">Carregando...</p> : null}
       {state.status === "failed" ? (
@@ -156,9 +155,9 @@ export function ClosingView({ state, today, onChangeMonth, onRetry }: ClosingVie
           <p className="text-sm" role="alert">
             {closingMessages.loadFailed}
           </p>
-          <button className={secondaryButtonClass} type="button" onClick={onRetry}>
+          <Button variant="outline" type="button" onClick={onRetry}>
             Tentar de novo
-          </button>
+          </Button>
         </div>
       ) : null}
       {state.status === "ready" && state.data ? <ClosingContent data={state.data} month={state.month} today={today} /> : null}

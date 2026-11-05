@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { accountPath } from "@/lib/account";
 import { closingPath } from "@/lib/closing";
 import { lessonsPath } from "@/lib/lessons";
@@ -8,9 +9,7 @@ import { afterSignInPath } from "@/lib/session";
 import { currentDraft, formatPhone, groupStudentsByGuardian, studentMessages, type Student, type StudentField, type StudentsState } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
 
-const inputClass = "min-h-11 rounded border bg-background px-3 py-3 text-base text-foreground";
-const primaryButtonClass = "min-h-11 flex-1 rounded bg-foreground px-3 py-2 text-background disabled:opacity-50";
-const secondaryButtonClass = "min-h-11 rounded border px-3 py-2 disabled:opacity-50";
+const inputClass = "min-h-11 rounded-sm border bg-background px-3 py-3 text-base text-foreground";
 
 type FormHandlers = {
   onChange: (field: StudentField, value: string) => void;
@@ -86,7 +85,7 @@ function BillingFields({ state, onChange }: { state: StudentsState; onChange: Fo
       <fieldset className="flex flex-col gap-2 text-sm" aria-describedby={error ? "student-billing-kind-error" : undefined}>
         <legend className="mb-1">Como este aluno paga</legend>
         {billingKinds.map((kind) => (
-          <label key={kind} className="flex min-h-11 items-center gap-2 rounded border px-3 text-base">
+          <label key={kind} className="flex min-h-11 items-center gap-2 rounded-sm border px-3 text-base">
             <input type="radio" name="billing-kind" value={kind} checked={selected === kind} onChange={() => onChange("billingKind", kind)} />
             {billingOptions[kind].label}
           </label>
@@ -155,13 +154,13 @@ function StudentForm({ state, busy, submitLabel, onChange, onSubmit, onCancel }:
           </p>
         ) : null}
         <div className="flex gap-2">
-          <button className={primaryButtonClass} type="submit">
+          <Button className="flex-1" type="submit">
             {busy ? "Guardando..." : submitLabel}
-          </button>
+          </Button>
           {onCancel ? (
-            <button className={secondaryButtonClass} type="button" onClick={onCancel}>
+            <Button variant="outline" type="button" onClick={onCancel}>
               Cancelar
-            </button>
+            </Button>
           ) : null}
         </div>
       </fieldset>
@@ -192,9 +191,9 @@ function StudentCard({ student, month, canEdit, onEdit, discountPercent }: { stu
         ) : null}
       </dl>
       {canEdit ? (
-        <button className={secondaryButtonClass} type="button" aria-label={`Editar ${student.name}`} onClick={() => onEdit(student)}>
+        <Button variant="outline" type="button" aria-label={`Editar ${student.name}`} onClick={() => onEdit(student)}>
           Editar
-        </button>
+        </Button>
       ) : null}
     </div>
   );
@@ -211,7 +210,7 @@ function StudentList({ state, month, busy, discountPercent = 0, onChange, onSubm
           {group.length > 1 ? <h3 className="text-sm font-medium">Alunos de {group[0].guardian_name}</h3> : null}
           <ul className="flex flex-col gap-2">
             {group.map((student) => (
-              <li key={student.id} className="rounded border p-3">
+              <li key={student.id} className="rounded-sm border p-3">
                 {editing?.id === student.id ? (
                   <StudentForm state={state} busy={busy} submitLabel="Guardar" onChange={onChange} onSubmit={onSubmit} onCancel={onCancelEdit} />
                 ) : (
@@ -269,9 +268,9 @@ export function StudentsView(props: StudentsViewProps) {
             <p className="text-sm" role="alert">
               {studentMessages.loadFailed}
             </p>
-            <button className={secondaryButtonClass} type="button" onClick={onRetry}>
+            <Button variant="outline" type="button" onClick={onRetry}>
               Tentar de novo
-            </button>
+            </Button>
           </div>
         ) : null}
         <StudentList {...props} />
