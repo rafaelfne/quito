@@ -24,13 +24,16 @@ function blockAfter(marker: string): string {
 
 const light = variablesOf(blockAfter(":root {"));
 const dark = variablesOf(blockAfter(".dark {"));
-const systemDark = variablesOf(blockAfter("@media (prefers-color-scheme: dark) {\n  :root {"));
 
-async function compiledRule(candidate: string): Promise<string> {
+async function compiledCss(candidate: string): Promise<string> {
   const compiler = await compile(css, {
     loadStylesheet: async () => ({ path: "index.css", base: tailwindDir, content: readFileSync(join(tailwindDir, "index.css"), "utf8") }),
   });
-  const output = compiler.build([candidate]);
+  return compiler.build([candidate]);
+}
+
+async function compiledRule(candidate: string): Promise<string> {
+  const output = await compiledCss(candidate);
   const selector = `.${candidate} {`;
   const start = output.indexOf(selector);
   expect(start, candidate).toBeGreaterThanOrEqual(0);
@@ -57,8 +60,11 @@ describe("variáveis do tema", () => {
     });
   });
 
-  test("quem usa o aparelho no modo escuro continua vendo o mesmo tema escuro", () => {
-    expect(systemDark).toEqual(dark);
+  test("o tema escuro tem uma forma só, o bloco .dark", async () => {
+    expect(css).not.toContain("prefers-color-scheme");
+    const output = await compiledCss("dark:bg-background");
+    expect(output).toContain(":where(.dark, .dark *)");
+    expect(output).not.toContain("prefers-color-scheme");
   });
 
   test.each([
