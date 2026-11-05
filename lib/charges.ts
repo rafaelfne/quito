@@ -1,9 +1,10 @@
+import { pendingAdjustments, settleAdjustments, type PendingAdjustment, type SettledAdjustment } from "@/lib/charge-adjustments";
 import { buildMonthClosing, describeUnmarked, loadClosingMonth, type GuardianClosing, type MonthClosing, type StudentClosing } from "@/lib/closing";
 import { describeMonth, monthRange, shiftMonth, type LessonsClient } from "@/lib/lessons";
 import { calendarMonthOf, type CalendarMonth } from "@/lib/schedule";
 import { requestTimeoutMs, withTimeout } from "@/lib/sign-in";
 
-export type ChargeStudent = Pick<StudentClosing, "studentId" | "studentName" | "lines" | "attendance" | "packageBalance" | "credits" | "totalCents">;
+export type ChargeStudent = Pick<StudentClosing, "studentId" | "studentName" | "lines" | "attendance" | "packageBalance" | "credits" | "totalCents"> & { basis?: StudentClosing["basis"]; settled?: SettledAdjustment[] };
 
 export type NewCharge = {
   charge_month: string;
@@ -30,7 +31,8 @@ export const chargesPath = "/charges";
 export const chargeMessages = {
   loadFailed: "Não deu para abrir as cobranças agora. Confira a internet e tente de novo.",
   empty: "Nenhuma cobrança deste mês. As cobranças aparecem aqui depois que o mês acaba, para os alunos que já estavam cadastrados nele.",
-  frozen: "O valor fica guardado como estava quando a cobrança ficou pronta. Corrigir uma aula depois não muda este valor.",
+  frozen: "O valor fica guardado como estava quando a cobrança ficou pronta. Corrigir uma aula depois não muda este valor: a diferença entra na próxima cobrança do responsável.",
+  coveredByAdjustment: "O acerto cobriu o valor deste mês. Este responsável não tem nada a pagar agora.",
   guardianTotal: "Total a cobrar",
   monthTotal: "Total do mês",
   waitingTitle: "Ainda não ficaram prontas",
@@ -42,6 +44,8 @@ export const chargeMessages = {
 const table = "charges";
 
 const columns = "id, charge_month, guardian_phone, guardian_name, total_cents, account";
+
+const chargesPageSize = 1000;
 
 export function endedMonthOf(date: Date): CalendarMonth {
   return shiftMonth(calendarMonthOf(date), -1);
@@ -79,29 +83,41 @@ function waitingGuardianFrom({ phone, guardianName, students }: GuardianClosing)
   };
 }
 
-function chargeStudentFrom({ studentId, studentName, lines, attendance, packageBalance, credits, totalCents }: StudentClosing): ChargeStudent {
-  return { studentId, studentName, lines, attendance, packageBalance, credits, totalCents };
+function chargeStudentFrom({ studentId, studentName, lines, attendance, packageBalance, credits, totalCents, basis }: StudentClosing, applied: PendingAdjustment[]): ChargeStudent {
+  const own = applied.filter((adjustment) => adjustment.studentId === studentId);
+  return {
+    studentId,
+    studentName,
+    lines: [...lines, ...own.map(({ label, cents }) => ({ label, cents }))],
+    attendance,
+    packageBalance,
+    credits,
+    totalCents: own.reduce((total, { cents }) => total + cents, totalCents),
+    basis,
+    settled: own.map(({ month, cents }) => ({ month, cents })),
+  };
 }
 
-function newChargeFrom(guardian: GuardianClosing, month: CalendarMonth): NewCharge {
+function newChargeFrom(guardian: GuardianClosing, month: CalendarMonth, applied: PendingAdjustment[]): NewCharge {
   return {
     charge_month: monthRange(month).first,
     guardian_phone: guardian.phone,
     guardian_name: guardian.guardianName,
-    total_cents: guardian.totalCents,
-    account: guardian.students.map(chargeStudentFrom),
+    total_cents: applied.reduce((total, { cents }) => total + cents, guardian.totalCents),
+    account: guardian.students.map((student) => chargeStudentFrom(student, applied)),
   };
 }
 
-export function planMonthCharges(closing: MonthClosing, month: CalendarMonth, existing: Charge[]): ChargesPlan {
+export function planMonthCharges(closing: MonthClosing, month: CalendarMonth, existing: Charge[], adjustments: Map<string, PendingAdjustment[]> = new Map()): ChargesPlan {
   const chargedPhones = new Set(existing.map((charge) => charge.guardian_phone));
   const chargedStudents = new Set(existing.flatMap((charge) => charge.account.map((student) => student.studentId)));
   const plan: ChargesPlan = { newCharges: [], waiting: [], nothingToCharge: [] };
   for (const guardian of closing.guardians) {
     if (chargedPhones.has(guardian.phone) || guardian.students.some((student) => chargedStudents.has(student.studentId))) continue;
+    const applied = settleAdjustments(guardian.totalCents, guardian.students.flatMap((student) => adjustments.get(student.studentId) ?? []));
     if (!isGuardianReady(guardian)) plan.waiting.push(waitingGuardianFrom(guardian));
-    else if (guardian.totalCents === 0) plan.nothingToCharge.push(guardian.guardianName);
-    else plan.newCharges.push(newChargeFrom(guardian, month));
+    else if (guardian.totalCents === 0 && applied.length === 0) plan.nothingToCharge.push(guardian.guardianName);
+    else plan.newCharges.push(newChargeFrom(guardian, month, applied));
   }
   return plan;
 }
@@ -114,6 +130,22 @@ export async function loadMonthCharges(client: LessonsClient, month: CalendarMon
   try {
     const { data, error } = await withTimeout(Promise.resolve(client.from(table).select(columns).eq("charge_month", monthRange(month).first)), requestTimeoutMs);
     return error ? null : ((data ?? []) as Charge[]);
+  } catch {
+    return null;
+  }
+}
+
+export async function loadEarlierCharges(client: LessonsClient, month: CalendarMonth): Promise<Charge[] | null> {
+  const charges: Charge[] = [];
+  try {
+    for (;;) {
+      const request = client.from(table).select(columns).lt("charge_month", monthRange(month).first).order("charge_month").order("id").range(charges.length, charges.length + chargesPageSize - 1);
+      const { data, error } = await withTimeout(Promise.resolve(request), requestTimeoutMs);
+      if (error) return null;
+      const page = (data ?? []) as Charge[];
+      charges.push(...page);
+      if (page.length < chargesPageSize) return charges;
+    }
   } catch {
     return null;
   }
@@ -133,9 +165,9 @@ function byGuardianName(charges: Charge[]): Charge[] {
 }
 
 export async function syncMonthCharges(client: LessonsClient, month: CalendarMonth, today: string): Promise<ChargesLoad> {
-  const [closing, existing] = await Promise.all([loadClosingMonth(client, month), loadMonthCharges(client, month)]);
-  if (!closing.ok || existing === null) return { ok: false, month };
-  const { newCharges, waiting, nothingToCharge } = planMonthCharges(buildMonthClosing(closing, month, today), month, existing);
+  const [closing, existing, earlier] = await Promise.all([loadClosingMonth(client, month), loadMonthCharges(client, month), loadEarlierCharges(client, month)]);
+  if (!closing.ok || existing === null || earlier === null) return { ok: false, month };
+  const { newCharges, waiting, nothingToCharge } = planMonthCharges(buildMonthClosing(closing, month, today), month, existing, pendingAdjustments(earlier, closing.marks));
   if (newCharges.length === 0) return { ok: true, month, charges: byGuardianName(existing), waiting, nothingToCharge };
   if (!(await insertNewCharges(client, newCharges))) return { ok: false, month };
   const charges = await loadMonthCharges(client, month);

@@ -97,10 +97,11 @@
     {
       "id": "cobrancas",
       "name": "Cobranças do mês",
-      "description": "Onde o professor vê a cobrança de cada responsável pelo mês que terminou, com o valor e a conta aberta guardados como estavam quando ela ficou pronta, e o que falta marcar nas que ainda não ficaram prontas",
+      "description": "Onde o professor vê a cobrança de cada responsável pelo mês que terminou, com o valor e a conta aberta guardados como estavam quando ela ficou pronta, o que falta marcar nas que ainda não ficaram prontas e o acerto de aula corrigida em mês já cobrado",
       "paths": [
         "app/(app)/charges",
-        "lib/charges.ts"
+        "lib/charges.ts",
+        "lib/charge-adjustments.ts"
       ],
       "sensitive": "personal"
     },
@@ -169,6 +170,7 @@
     "lib/makeups.ts": "Regras do crédito de reposição: quando nasce, quando vence e quando é usado",
     "lib/closing.ts": "Regras do fechamento: quanto cada aluno e cada responsável deve no mês",
     "lib/charges.ts": "Regras da cobrança do mês: quando fica pronta e como guarda o valor e a conta aberta",
+    "lib/charge-adjustments.ts": "Regras do acerto: a diferença de uma aula corrigida em mês já cobrado e como ela entra na próxima cobrança",
     "lib/supabase.ts": "Conexão com o banco usada nas telas",
     "lib/supabase-server.ts": "Conexão com o banco usada no servidor"
   }

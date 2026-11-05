@@ -74,6 +74,18 @@ describe("tela de cobranças", () => {
     expect(html).toContain("450,00");
   });
 
+  test("mostra a linha do acerto com o sinal de menos e não fala de valor coberto", () => {
+    const withAdjustment = { ...charge, account: [{ ...charge.account[0], lines: [{ label: "Acerto de novembro: 1 falta remarcada como avisada", cents: -8000 }] }] };
+    const html = render(ready({ charges: [withAdjustment] }));
+    expect(html).toContain("Acerto de novembro: 1 falta remarcada como avisada");
+    expect(html).toContain("− R$ 80,00");
+    expect(html).not.toContain(chargeMessages.coveredByAdjustment);
+  });
+
+  test("cobrança zerada pelo acerto avisa que não há nada a pagar", () => {
+    expect(render(ready({ charges: [{ ...charge, total_cents: 0 }] }))).toContain(chargeMessages.coveredByAdjustment);
+  });
+
   test("diz o que falta marcar em cada aluno e leva às aulas do mês cobrado", () => {
     const html = render(ready({ waiting: [waitingMarks] }));
     expect(html).toContain(chargeMessages.waitingTitle);

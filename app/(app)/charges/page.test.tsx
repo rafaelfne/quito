@@ -16,7 +16,7 @@ const marksChain = { order: () => marksChain, range: async () => ({ data: [], er
 const from = vi.fn((table: string) => {
   if (table === "students") return { select: selectStudents };
   if (table === "teacher_rules") return { select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) };
-  if (table === "charges") return { upsert, select: () => ({ eq: async () => ({ data: [...stored], error: null }) }) };
+  if (table === "charges") return { upsert, select: () => ({ lt: () => marksChain, eq: async () => ({ data: [...stored], error: null }) }) };
   return { select: () => ({ lte: () => marksChain }) };
 });
 

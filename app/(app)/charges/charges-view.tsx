@@ -62,6 +62,7 @@ function ChargeCard({ charge }: { charge: Charge }) {
         <span>{chargeMessages.guardianTotal}</span>
         <span className="tabular-nums">{formatCurrency(charge.total_cents)}</span>
       </p>
+      {charge.total_cents === 0 ? <p className="text-sm">{chargeMessages.coveredByAdjustment}</p> : null}
     </section>
   );
 }

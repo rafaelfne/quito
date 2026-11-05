@@ -9,6 +9,7 @@ import {
   initialCharges,
   insertNewCharges,
   isGuardianReady,
+  loadEarlierCharges,
   loadMonthCharges,
   monthChargesTotal,
   planMonthCharges,
@@ -62,7 +63,7 @@ function saved(overrides: Partial<Charge> = {}): Charge {
   };
 }
 
-type FakeBank = { students: Student[]; marks: LessonMark[]; charges: Charge[]; failOn?: "select" | "insert"; failReload?: boolean };
+type FakeBank = { students: Student[]; marks: LessonMark[]; charges: Charge[]; earlier?: Charge[]; failOn?: "select" | "insert" | "earlier"; failReload?: boolean };
 
 function fakeClient(bank: FakeBank) {
   const upsert = vi.fn(async (...[rows]: [Omit<Charge, "id">[], unknown]) => {
@@ -72,6 +73,7 @@ function fakeClient(bank: FakeBank) {
   });
   let chargeReads = 0;
   const marksChain = { order: () => marksChain, range: async () => ({ data: bank.marks, error: null }) };
+  const earlierChain = { order: () => earlierChain, range: async () => (bank.failOn === "earlier" ? { data: null, error: { message: "fora do ar" } } : { data: bank.earlier ?? [], error: null }) };
   const from = vi.fn((table: string) => {
     if (table === "students") return { select: async (columns: string) => (columns === "id, created_at" ? { data: [], error: null } : { data: bank.students, error: null }) };
     if (table === "teacher_rules") return { select: () => ({ maybeSingle: async () => ({ data: rules, error: null }) }) };
@@ -79,6 +81,7 @@ function fakeClient(bank: FakeBank) {
     return {
       upsert,
       select: () => ({
+        lt: () => earlierChain,
         eq: async () => {
           chargeReads += 1;
           if (bank.failOn === "select" || (bank.failReload && chargeReads > 1)) return { data: null, error: { message: "fora do ar" } };
@@ -189,7 +192,7 @@ describe("plano das cobranças", () => {
 
   test("a conta guardada não leva o que só serve para o fechamento", () => {
     const [charge] = planMonthCharges(closingOf(), november, []).newCharges;
-    expect(Object.keys(charge.account[0]).sort()).toEqual(["attendance", "credits", "lines", "packageBalance", "studentId", "studentName", "totalCents"]);
+    expect(Object.keys(charge.account[0]).sort()).toEqual(["attendance", "basis", "credits", "lines", "packageBalance", "settled", "studentId", "studentName", "totalCents"]);
   });
 });
 
@@ -264,7 +267,137 @@ describe("sincronizar as cobranças do mês", () => {
   });
 });
 
+describe("acerto no mês seguinte", () => {
+  const december = { year: 2026, month: 12 };
+  const onJanuary = "2027-01-02";
+  const decemberMondays = ["2026-12-07", "2026-12-14", "2026-12-21", "2026-12-28"];
+  const allGiven = (studentId: string, dates: string[]) => dates.map((date) => given(studentId, date));
+  const novemberMarks = allGiven("lia", mondaysOfNovember);
+  const decemberMarks = allGiven("lia", decemberMondays);
+
+  async function chargeNovemberThenDecember(correctedNovember: LessonMark[], students: Student[] = [lia]) {
+    const bank: FakeBank = { students, marks: novemberMarks, charges: [] };
+    await syncMonthCharges(fakeClient(bank).client, november, today);
+    const earlier = bank.charges;
+    const next: FakeBank = { students, marks: [...correctedNovember, ...decemberMarks], charges: [], earlier };
+    await syncMonthCharges(fakeClient(next).client, december, onJanuary);
+    return { earlier, novemberCharge: earlier[0], decemberCharge: next.charges[0] };
+  }
+
+  test("a cobrança de novembro não muda e a diferença entra em dezembro com a linha explicada", async () => {
+    const corrected = [notified("lia", mondaysOfNovember[0]), ...novemberMarks.slice(1)];
+    const { novemberCharge, decemberCharge } = await chargeNovemberThenDecember(corrected);
+    expect(novemberCharge.total_cents).toBe(40000);
+    expect(decemberCharge.total_cents).toBe(32000 - 8000);
+    expect(decemberCharge.account[0].lines.at(-1)).toEqual({ label: "Acerto de novembro: 1 aula remarcada como falta avisada", cents: -8000 });
+    expect(decemberCharge.account[0].totalCents).toBe(24000);
+    expect(decemberCharge.account[0].settled).toEqual([{ month: "2026-11-01", cents: -8000 }]);
+  });
+
+  test("sem correção, a cobrança seguinte não tem acerto", async () => {
+    const { decemberCharge } = await chargeNovemberThenDecember(novemberMarks);
+    expect(decemberCharge.total_cents).toBe(32000);
+    expect(decemberCharge.account[0].settled).toEqual([]);
+  });
+
+  test("sem correção, pacote e irmãos com desconto também não têm acerto", async () => {
+    const packaged = { ...lia, billing_kind: "package" as const, billing_amount_cents: 20000, package_lessons: 2 };
+    const sister = { ...lia, id: "eva", name: "Eva Melo" };
+    const marks = [...novemberMarks, ...allGiven("eva", mondaysOfNovember)];
+    const bank: FakeBank = { students: [packaged, sister], marks, charges: [] };
+    await syncMonthCharges(fakeClient(bank).client, november, today);
+    const next: FakeBank = { students: [packaged, sister], marks: [...marks, ...decemberMarks, ...allGiven("eva", decemberMondays)], charges: [], earlier: bank.charges };
+    await syncMonthCharges(fakeClient(next).client, december, onJanuary);
+    expect(next.charges[0].account.flatMap((student) => student.settled)).toEqual([]);
+  });
+
+  test("mudar o preço do aluno depois não vira acerto", async () => {
+    const bank: FakeBank = { students: [lia], marks: novemberMarks, charges: [] };
+    await syncMonthCharges(fakeClient(bank).client, november, today);
+    const raised = { ...lia, billing_amount_cents: 10000 };
+    const next: FakeBank = { students: [raised], marks: [...novemberMarks, ...decemberMarks], charges: [], earlier: bank.charges };
+    await syncMonthCharges(fakeClient(next).client, december, onJanuary);
+    expect(next.charges[0].total_cents).toBe(40000);
+    expect(next.charges[0].account[0].lines).toHaveLength(1);
+  });
+
+  test("telefone corrigido não perde o acerto", async () => {
+    const newPhone = { ...lia, guardian_phone: "11955556666" };
+    const { decemberCharge } = await chargeNovemberThenDecember([notified("lia", mondaysOfNovember[0]), ...novemberMarks.slice(1)], [newPhone]);
+    expect(decemberCharge.guardian_phone).toBe("11955556666");
+    expect(decemberCharge.total_cents).toBe(24000);
+  });
+
+  test("o acerto entra uma vez só", async () => {
+    const corrected = [notified("lia", mondaysOfNovember[0]), ...novemberMarks.slice(1)];
+    const { earlier, decemberCharge } = await chargeNovemberThenDecember(corrected);
+    const januaryMondays = ["2027-01-04", "2027-01-11", "2027-01-18", "2027-01-25"];
+    const next: FakeBank = { students: [lia], marks: [...corrected, ...decemberMarks, ...allGiven("lia", januaryMondays)], charges: [], earlier: [...earlier, decemberCharge] };
+    await syncMonthCharges(fakeClient(next).client, { year: 2027, month: 1 }, "2027-02-01");
+    expect(next.charges[0].total_cents).toBe(32000);
+    expect(next.charges[0].account[0].settled).toEqual([]);
+  });
+
+  test("responsável sem nada no mês recebe cobrança só com o acerto a mais", async () => {
+    const paused = decemberMondays.map((date) => notified("lia", date));
+    const bank: FakeBank = { students: [lia], marks: [notified("lia", mondaysOfNovember[0]), ...novemberMarks.slice(1)], charges: [] };
+    await syncMonthCharges(fakeClient(bank).client, november, today);
+    const next: FakeBank = { students: [lia], marks: [...novemberMarks, ...paused], charges: [], earlier: bank.charges };
+    const result = await syncMonthCharges(fakeClient(next).client, december, onJanuary);
+    expect(result.ok && result.nothingToCharge).toEqual([]);
+    expect(next.charges[0].total_cents).toBe(8000);
+    expect(next.charges[0].account[0].lines.at(-1)).toEqual({ label: "Acerto de novembro: 1 falta remarcada como dada", cents: 8000 });
+  });
+
+  test("acerto a menos sem nada a cobrar no mês espera a próxima cobrança", async () => {
+    const paused = decemberMondays.map((date) => notified("lia", date));
+    const bank: FakeBank = { students: [lia], marks: novemberMarks, charges: [] };
+    await syncMonthCharges(fakeClient(bank).client, november, today);
+    const next: FakeBank = { students: [lia], marks: [notified("lia", mondaysOfNovember[0]), ...novemberMarks.slice(1), ...paused], charges: [], earlier: bank.charges };
+    const result = await syncMonthCharges(fakeClient(next).client, december, onJanuary);
+    expect(result.ok && result.nothingToCharge).toEqual(["Caio Melo"]);
+    expect(next.charges).toEqual([]);
+  });
+
+  test("falha ao ler as cobranças anteriores não cria nada", async () => {
+    const { client, upsert } = fakeClient({ students: [lia], marks: novemberMarks, charges: [], failOn: "earlier" });
+    expect(await syncMonthCharges(client, november, today)).toEqual({ ok: false, month: november });
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  test("responsável esperando marcação não usa o acerto ainda", () => {
+    const adjustments = new Map([["lia", [{ studentId: "lia", month: "2026-10-01", cents: -8000, label: "Acerto de outubro: x" }]]]);
+    const plan = planMonthCharges(closingOf({ students: [lia] }), november, [], adjustments);
+    expect(plan.newCharges).toEqual([]);
+    expect(plan.waiting).toHaveLength(1);
+  });
+});
+
 describe("leitura e gravação", () => {
+  test("cobranças anteriores são lidas em páginas até acabar", async () => {
+    const pages = [Array.from({ length: 1000 }, (_, index) => saved({ id: `c${index}` })), [saved({ id: "fim" })]];
+    const range = vi.fn(async () => ({ data: pages.shift() ?? [], error: null }));
+    const chain = { order: () => chain, range };
+    const client = { from: () => ({ select: () => ({ lt: () => chain }) }) } as unknown as LessonsClient;
+    expect(await loadEarlierCharges(client, november)).toHaveLength(1001);
+    expect(range).toHaveBeenCalledTimes(2);
+  });
+
+  test("cobranças anteriores sem nenhuma linha devolvem lista vazia", async () => {
+    const chain = { order: () => chain, range: async () => ({ data: null, error: null }) };
+    const client = { from: () => ({ select: () => ({ lt: () => chain }) }) } as unknown as LessonsClient;
+    expect(await loadEarlierCharges(client, november)).toEqual([]);
+  });
+
+  test("erro inesperado ao ler as cobranças anteriores devolve falha", async () => {
+    const client = {
+      from: () => {
+        throw new Error("sem rede");
+      },
+    } as unknown as LessonsClient;
+    expect(await loadEarlierCharges(client, november)).toBeNull();
+  });
+
   test("ler cobranças sem nenhuma linha devolve lista vazia", async () => {
     const client = { from: () => ({ select: () => ({ eq: async () => ({ data: null, error: null }) }) }) } as unknown as LessonsClient;
     expect(await loadMonthCharges(client, november)).toEqual([]);
