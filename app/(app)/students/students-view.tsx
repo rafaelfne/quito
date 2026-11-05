@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { accountPath } from "@/lib/account";
 import { closingPath } from "@/lib/closing";
 import { lessonsPath } from "@/lib/lessons";
@@ -9,8 +10,6 @@ import { currentDraft, formatPhone, groupStudentsByGuardian, studentMessages, ty
 import { teacherRulesPath } from "@/lib/teacher-rules";
 
 const inputClass = "min-h-11 rounded-sm border bg-background px-3 py-3 text-base text-foreground";
-const primaryButtonClass = "min-h-11 flex-1 rounded-sm bg-foreground px-3 py-2 text-background disabled:opacity-50";
-const secondaryButtonClass = "min-h-11 rounded-sm border px-3 py-2 disabled:opacity-50";
 
 type FormHandlers = {
   onChange: (field: StudentField, value: string) => void;
@@ -155,13 +154,13 @@ function StudentForm({ state, busy, submitLabel, onChange, onSubmit, onCancel }:
           </p>
         ) : null}
         <div className="flex gap-2">
-          <button className={primaryButtonClass} type="submit">
+          <Button className="flex-1" type="submit">
             {busy ? "Guardando..." : submitLabel}
-          </button>
+          </Button>
           {onCancel ? (
-            <button className={secondaryButtonClass} type="button" onClick={onCancel}>
+            <Button variant="outline" type="button" onClick={onCancel}>
               Cancelar
-            </button>
+            </Button>
           ) : null}
         </div>
       </fieldset>
@@ -192,9 +191,9 @@ function StudentCard({ student, month, canEdit, onEdit, discountPercent }: { stu
         ) : null}
       </dl>
       {canEdit ? (
-        <button className={secondaryButtonClass} type="button" aria-label={`Editar ${student.name}`} onClick={() => onEdit(student)}>
+        <Button variant="outline" type="button" aria-label={`Editar ${student.name}`} onClick={() => onEdit(student)}>
           Editar
-        </button>
+        </Button>
       ) : null}
     </div>
   );
@@ -269,9 +268,9 @@ export function StudentsView(props: StudentsViewProps) {
             <p className="text-sm" role="alert">
               {studentMessages.loadFailed}
             </p>
-            <button className={secondaryButtonClass} type="button" onClick={onRetry}>
+            <Button variant="outline" type="button" onClick={onRetry}>
               Tentar de novo
-            </button>
+            </Button>
           </div>
         ) : null}
         <StudentList {...props} />

@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button";
+
 export type DeleteStep = "closed" | "confirming" | "deleting";
 
 export function DeleteAccountView({
@@ -17,9 +19,9 @@ export function DeleteAccountView({
 }) {
   if (step === "closed") {
     return (
-      <button className="rounded-sm border border-destructive px-3 py-2 text-destructive" type="button" onClick={onOpen}>
+      <Button variant="destructiveOutline" type="button" onClick={onOpen}>
         Apagar conta
-      </button>
+      </Button>
     );
   }
   const deleting = step === "deleting";
@@ -33,12 +35,12 @@ export function DeleteAccountView({
         </p>
       ) : null}
       <div className="flex flex-col gap-2">
-        <button className="rounded-sm bg-destructive px-3 py-2 text-destructive-foreground disabled:opacity-60" type="button" disabled={deleting} onClick={onConfirm}>
+        <Button variant="destructive" type="button" disabled={deleting} onClick={onConfirm}>
           {deleting ? "Apagando..." : "Sim, apagar tudo"}
-        </button>
-        <button className="rounded-sm border px-3 py-2 disabled:opacity-60" type="button" disabled={deleting} onClick={onCancel}>
+        </Button>
+        <Button variant="outline" type="button" disabled={deleting} onClick={onCancel}>
           Cancelar
-        </button>
+        </Button>
       </div>
     </section>
   );

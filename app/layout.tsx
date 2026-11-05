@@ -1,5 +1,12 @@
 import type { Metadata } from "next";
+import { Poppins, Domine, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
+
+const fontAppSans = Poppins({ variable: "--font-app-sans", weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"], subsets: ["latin"] });
+
+const fontAppSerif = Domine({ variable: "--font-app-serif", subsets: ["latin"] });
+
+const fontAppMono = IBM_Plex_Mono({ variable: "--font-app-mono", weight: ["100", "200", "300", "400", "500", "600", "700"], subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "quito",
@@ -15,7 +22,7 @@ const followSystemTheme = `(() => {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className="h-full antialiased" suppressHydrationWarning>
+    <html lang="pt-BR" className={`${fontAppMono.variable} ${fontAppSerif.variable} ${fontAppSans.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: followSystemTheme }} />
       </head>

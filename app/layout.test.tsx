@@ -8,6 +8,11 @@ vi.mock("./globals.css", () => {
   return {};
 });
 
+vi.mock("next/font/google", () => {
+  const font = ({ variable }: { variable: string }) => ({ variable });
+  return { Poppins: font, Domine: font, IBM_Plex_Mono: font };
+});
+
 const { default: RootLayout, metadata } = await import("./layout");
 
 function renderLayout() {
@@ -91,6 +96,10 @@ describe("moldura de todas as telas", () => {
     const html = renderLayout();
     expect(html).toMatch(/<html[^>]*class="[^"]*\bh-full\b/);
     expect(html).toMatch(/<body[^>]*class="[^"]*\bmin-h-full\b/);
+  });
+
+  test.each(["--font-app-sans", "--font-app-serif", "--font-app-mono"])("entrega a fonte %s à página", (variable) => {
+    expect(renderLayout()).toMatch(new RegExp(`<html[^>]*class="[^"]*${variable}\\b`));
   });
 
   test("carrega o visual comum a todas as telas", () => {

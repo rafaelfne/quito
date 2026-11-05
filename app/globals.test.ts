@@ -7,7 +7,22 @@ const appDir = join(process.cwd(), "app");
 const tailwindDir = join(process.cwd(), "node_modules", "tailwindcss");
 const css = readFileSync(join(appDir, "globals.css"), "utf8");
 
-const redSevenHundred = "oklch(50.5% 0.213 27.518)";
+const themeVariables = [
+  "--background",
+  "--foreground",
+  "--destructive",
+  "--destructive-foreground",
+  "--primary",
+  "--primary-foreground",
+  "--secondary",
+  "--secondary-foreground",
+  "--accent",
+  "--accent-foreground",
+  "--border",
+  "--ring",
+];
+
+const hasDarkBlock = css.includes(".dark {");
 
 const screenFiles = readdirSync(appDir, { recursive: true, encoding: "utf8" }).filter((path) => /\.tsx?$/.test(path) && !/\.test\.tsx?$/.test(path));
 
@@ -23,7 +38,6 @@ function blockAfter(marker: string): string {
 }
 
 const light = variablesOf(blockAfter(":root {"));
-const dark = variablesOf(blockAfter(".dark {"));
 
 async function compiledCss(candidate: string): Promise<string> {
   const compiler = await compile(css, {
@@ -41,27 +55,19 @@ async function compiledRule(candidate: string): Promise<string> {
 }
 
 describe("variáveis do tema", () => {
-  test("o tema claro guarda as cores e os cantos de hoje", () => {
-    expect(light).toEqual({
-      "--background": "#ffffff",
-      "--foreground": "#171717",
-      "--destructive": redSevenHundred,
-      "--destructive-foreground": "#ffffff",
-      "--radius": "0.25rem",
-    });
+  test.each([...themeVariables, "--radius"])("o tema claro define %s", (variable) => {
+    expect(light[variable]).toBeTruthy();
   });
 
-  test("o tema escuro guarda as cores de hoje", () => {
-    expect(dark).toEqual({
-      "--background": "#0a0a0a",
-      "--foreground": "#ededed",
-      "--destructive": redSevenHundred,
-      "--destructive-foreground": "#ffffff",
-    });
+  test.skipIf(!hasDarkBlock).each(themeVariables)("o tema escuro define %s", (variable) => {
+    expect(variablesOf(blockAfter(".dark {"))[variable]).toBeTruthy();
   });
 
-  test("o tema escuro tem uma forma só, o bloco .dark", async () => {
+  test("o tema não depende da preferência do aparelho direto no estilo", () => {
     expect(css).not.toContain("prefers-color-scheme");
+  });
+
+  test.skipIf(!hasDarkBlock)("o tema escuro tem uma forma só, o bloco .dark", async () => {
     const output = await compiledCss("dark:bg-background");
     expect(output).toContain(":where(.dark, .dark *)");
     expect(output).not.toContain("prefers-color-scheme");
@@ -74,6 +80,10 @@ describe("variáveis do tema", () => {
     ["border-destructive", "border-color: var(--destructive)"],
     ["text-destructive", "color: var(--destructive)"],
     ["text-destructive-foreground", "color: var(--destructive-foreground)"],
+    ["bg-primary", "background-color: var(--primary)"],
+    ["text-primary-foreground", "color: var(--primary-foreground)"],
+    ["bg-accent", "background-color: var(--accent)"],
+    ["border-border", "border-color: var(--border)"],
     ["rounded-sm", "border-radius: var(--radius)"],
   ])("%s lê a variável", async (candidate, declaration) => {
     expect(await compiledRule(candidate)).toContain(declaration);

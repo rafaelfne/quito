@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { codeLength, type SignInState } from "@/lib/sign-in";
 
 export type SignInFormProps = {
@@ -15,9 +16,6 @@ export type SignInFormProps = {
 };
 
 const inputClass = "rounded-sm border px-3 py-2";
-const primaryButtonClass = "rounded-sm bg-foreground px-3 py-2 text-background disabled:opacity-50";
-const secondaryButtonClass = "rounded-sm border px-3 py-2 disabled:opacity-50";
-const linkButtonClass = "text-sm underline disabled:opacity-50";
 
 export function SignInForm(props: SignInFormProps) {
   const { state, busy, testInboxUrl, testCode } = props;
@@ -53,13 +51,13 @@ export function SignInForm(props: SignInFormProps) {
               onChange={(event) => props.onEmailChange(event.target.value)}
             />
           </label>
-          <button className={primaryButtonClass} type="submit" disabled={busy}>
+          <Button type="submit" disabled={busy}>
             {busy ? "Enviando..." : "Receber código"}
-          </button>
+          </Button>
           <p className="text-center text-sm opacity-70">ou</p>
-          <button className={secondaryButtonClass} type="button" disabled={busy} onClick={props.onGoogle}>
+          <Button variant="outline" type="button" disabled={busy} onClick={props.onGoogle}>
             Entrar com Google
-          </button>
+          </Button>
         </>
       ) : (
         <>
@@ -96,16 +94,16 @@ export function SignInForm(props: SignInFormProps) {
               onChange={(event) => props.onCodeChange(event.target.value)}
             />
           </label>
-          <button className={primaryButtonClass} type="submit" disabled={busy || state.code.length !== codeLength}>
+          <Button type="submit" disabled={busy || state.code.length !== codeLength}>
             {busy ? "Conferindo..." : "Entrar"}
-          </button>
+          </Button>
           <div className="flex justify-between gap-2">
-            <button className={linkButtonClass} type="button" disabled={busy} onClick={props.onResend}>
+            <Button className="px-0" variant="link" type="button" disabled={busy} onClick={props.onResend}>
               Enviar outro código
-            </button>
-            <button className={linkButtonClass} type="button" disabled={busy} onClick={props.onEditEmail}>
+            </Button>
+            <Button className="px-0" variant="link" type="button" disabled={busy} onClick={props.onEditEmail}>
               Trocar e-mail
-            </button>
+            </Button>
           </div>
         </>
       )}
