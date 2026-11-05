@@ -1,5 +1,5 @@
 # Primeiros passos
-<!-- virgilio:feature stage=open -->
+<!-- virgilio:feature id=primeiros-passos stage=building epic=79 -->
 
 ## O que é
 
@@ -20,7 +20,7 @@ O caminho guiado do professor, da primeira entrada até a primeira cobrança pro
 - Prévia do fechamento no treino: mostra a conta de cada responsável com as aulas marcadas, identificada como treino e sem virar cobrança nem lembrete.
 - Acerto do saldo no dia 1: no início do primeiro mês cobrado, o Quitô mostra o saldo de pacote e os créditos previstos depois do treino. O professor confirma ou corrige, e a contagem real começa desse valor.
 - Prévia da primeira cobrança: a mensagem pronta, com os dados de um aluno do próprio professor e o valor previsto para o mês seguinte, no fim da sequência.
-- Convite para as notificações: ao fim da sequência, o Quitô leva o professor ao guia de ativação da funcionalidade App no celular e notificações, para ele receber o aviso no dia de cobrar.
+- Convite para as notificações: ao fim da sequência, o Quitô leva o professor ao guia de ativação da funcionalidade App no celular e notificações, para ele receber o aviso no dia de cobrar. Só aparece depois que essa funcionalidade for lançada.
 
 ## O que fica de fora
 

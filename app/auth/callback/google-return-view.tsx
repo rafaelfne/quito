@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export function GoogleReturnView({ message, retryHref }: { message: string | null; retryHref: string }) {
   return (
@@ -10,9 +11,9 @@ export function GoogleReturnView({ message, retryHref }: { message: string | nul
             <p className="text-sm" role="alert">
               {message}
             </p>
-            <Link className="rounded bg-foreground px-3 py-2 text-center text-background" href={retryHref}>
-              Voltar para a entrada
-            </Link>
+            <Button asChild>
+              <Link href={retryHref}>Voltar para a entrada</Link>
+            </Button>
           </>
         ) : (
           <p role="status">Entrando com o Google...</p>
