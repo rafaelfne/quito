@@ -1,4 +1,4 @@
-import { buildMonthClosing, loadClosingMonth, type GuardianClosing, type MonthClosing, type StudentClosing } from "@/lib/closing";
+import { buildMonthClosing, describeUnmarked, loadClosingMonth, type GuardianClosing, type MonthClosing, type StudentClosing } from "@/lib/closing";
 import { describeMonth, monthRange, shiftMonth, type LessonsClient } from "@/lib/lessons";
 import { calendarMonthOf, type CalendarMonth } from "@/lib/schedule";
 import { requestTimeoutMs, withTimeout } from "@/lib/sign-in";
@@ -15,11 +15,15 @@ export type NewCharge = {
 
 export type Charge = NewCharge & { id: string };
 
-export type ChargesPlan = { newCharges: NewCharge[]; waiting: string[]; nothingToCharge: string[] };
+export type WaitingStudent = { studentId: string; studentName: string; unmarked: number; missingBilling: boolean };
 
-export type ChargesLoad = { ok: true; month: CalendarMonth; charges: Charge[]; waiting: string[]; nothingToCharge: string[] } | { ok: false; month: CalendarMonth };
+export type WaitingGuardian = { phone: string; guardianName: string; students: WaitingStudent[] };
 
-export type ChargesState = { month: CalendarMonth; status: "loading" | "ready" | "failed"; charges: Charge[]; waiting: string[]; nothingToCharge: string[] };
+export type ChargesPlan = { newCharges: NewCharge[]; waiting: WaitingGuardian[]; nothingToCharge: string[] };
+
+export type ChargesLoad = { ok: true; month: CalendarMonth; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[] } | { ok: false; month: CalendarMonth };
+
+export type ChargesState = { month: CalendarMonth; status: "loading" | "ready" | "failed"; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[] };
 
 export const chargesPath = "/charges";
 
@@ -30,6 +34,8 @@ export const chargeMessages = {
   guardianTotal: "Total a cobrar",
   monthTotal: "Total do mês",
   waitingTitle: "Ainda não ficaram prontas",
+  missingBilling: "Forma de cobrança ainda não definida.",
+  defineBilling: "Definir a forma de cobrança em Alunos",
   nothingToChargeTitle: "Nada a cobrar neste mês",
 };
 
@@ -41,12 +47,36 @@ export function endedMonthOf(date: Date): CalendarMonth {
   return shiftMonth(calendarMonthOf(date), -1);
 }
 
-export function describeWaiting(month: CalendarMonth): string {
-  return `Falta marcar aulas ou definir a forma de cobrança. Confira em Fechamento, no mês de ${describeMonth(month).toLocaleLowerCase("pt-BR")}.`;
+export function describeMarkLessons(month: CalendarMonth): string {
+  return `Marcar as aulas de ${describeMonth(month).toLocaleLowerCase("pt-BR")}`;
+}
+
+export function describeWaitingStudent({ unmarked, missingBilling }: WaitingStudent): string {
+  return missingBilling ? chargeMessages.missingBilling : describeUnmarked(unmarked);
+}
+
+export function waitsForMarks(waiting: WaitingGuardian[]): boolean {
+  return waiting.some((guardian) => guardian.students.some((student) => student.unmarked > 0));
+}
+
+export function waitsForBilling(waiting: WaitingGuardian[]): boolean {
+  return waiting.some((guardian) => guardian.students.some((student) => student.missingBilling));
+}
+
+function holdsCharge(student: StudentClosing): boolean {
+  return student.missingBilling || (student.dependsOnMarks && student.unmarked > 0);
 }
 
 export function isGuardianReady(guardian: GuardianClosing): boolean {
-  return guardian.students.every((student) => !student.missingBilling && !(student.dependsOnMarks && student.unmarked > 0));
+  return !guardian.students.some(holdsCharge);
+}
+
+function waitingGuardianFrom({ phone, guardianName, students }: GuardianClosing): WaitingGuardian {
+  return {
+    phone,
+    guardianName,
+    students: students.filter(holdsCharge).map(({ studentId, studentName, unmarked, missingBilling }) => ({ studentId, studentName, unmarked: missingBilling ? 0 : unmarked, missingBilling })),
+  };
 }
 
 function chargeStudentFrom({ studentId, studentName, lines, attendance, packageBalance, credits, totalCents }: StudentClosing): ChargeStudent {
@@ -69,7 +99,7 @@ export function planMonthCharges(closing: MonthClosing, month: CalendarMonth, ex
   const plan: ChargesPlan = { newCharges: [], waiting: [], nothingToCharge: [] };
   for (const guardian of closing.guardians) {
     if (chargedPhones.has(guardian.phone) || guardian.students.some((student) => chargedStudents.has(student.studentId))) continue;
-    if (!isGuardianReady(guardian)) plan.waiting.push(guardian.guardianName);
+    if (!isGuardianReady(guardian)) plan.waiting.push(waitingGuardianFrom(guardian));
     else if (guardian.totalCents === 0) plan.nothingToCharge.push(guardian.guardianName);
     else plan.newCharges.push(newChargeFrom(guardian, month));
   }

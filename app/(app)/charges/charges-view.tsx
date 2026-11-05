@@ -1,14 +1,17 @@
 import Link from "next/link";
 import { accountPath } from "@/lib/account";
 import { formatCurrency } from "@/lib/billing";
-import { chargeMessages, describeWaiting, monthChargesTotal, type Charge, type ChargesState, type ChargeStudent } from "@/lib/charges";
+import { chargeMessages, describeMarkLessons, describeWaitingStudent, monthChargesTotal, waitsForBilling, waitsForMarks, type Charge, type ChargesState, type ChargeStudent, type WaitingGuardian } from "@/lib/charges";
 import { closingMessages, closingPath, describeSignedAmount } from "@/lib/closing";
-import { describeMonth, lessonsPath } from "@/lib/lessons";
+import { describeMonth, lessonsPath, lessonsPathFor } from "@/lib/lessons";
 import { paymentSettingsPath } from "@/lib/payment-settings";
+import type { CalendarMonth } from "@/lib/schedule";
 import { formatPhone, studentsPath } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
 
 const secondaryButtonClass = "min-h-11 rounded border px-3 py-2 disabled:opacity-50";
+
+const shortcutClass = "inline-flex min-h-11 items-center rounded border px-3 py-2 text-sm";
 
 type ChargesViewProps = {
   state: ChargesState;
@@ -78,6 +81,40 @@ function GuardianNames({ title, names }: { title: string; names: string[] }) {
   );
 }
 
+function WaitingCharges({ waiting, month }: { waiting: WaitingGuardian[]; month: CalendarMonth }) {
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="font-medium">{chargeMessages.waitingTitle}</h2>
+      <ul className="flex flex-col gap-3 text-sm">
+        {waiting.map((guardian) => (
+          <li key={guardian.phone} className="flex flex-col gap-1">
+            <h3 className="font-medium break-words">{guardian.guardianName}</h3>
+            <ul className="list-disc pl-5">
+              {guardian.students.map((student) => (
+                <li key={student.studentId} className="break-words">
+                  {student.studentName}: {describeWaitingStudent(student)}
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
+      <div className="flex flex-wrap gap-2">
+        {waitsForMarks(waiting) ? (
+          <Link className={shortcutClass} href={lessonsPathFor(month)}>
+            {describeMarkLessons(month)}
+          </Link>
+        ) : null}
+        {waitsForBilling(waiting) ? (
+          <Link className={shortcutClass} href={studentsPath}>
+            {chargeMessages.defineBilling}
+          </Link>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 function ChargesContent({ state }: { state: ChargesState }) {
   const { month, charges, waiting, nothingToCharge } = state;
   if (charges.length === 0 && waiting.length === 0 && nothingToCharge.length === 0) return <p className="text-sm">{chargeMessages.empty}</p>;
@@ -95,17 +132,7 @@ function ChargesContent({ state }: { state: ChargesState }) {
           ))}
         </>
       ) : null}
-      {waiting.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          <GuardianNames title={chargeMessages.waitingTitle} names={waiting} />
-          <p className="text-sm">
-            {describeWaiting(month)}{" "}
-            <Link className="underline" href={closingPath}>
-              Abrir Fechamento
-            </Link>
-          </p>
-        </div>
-      ) : null}
+      {waiting.length > 0 ? <WaitingCharges waiting={waiting} month={month} /> : null}
       {nothingToCharge.length > 0 ? <GuardianNames title={chargeMessages.nothingToChargeTitle} names={nothingToCharge} /> : null}
     </>
   );

@@ -97,7 +97,7 @@
     {
       "id": "cobrancas",
       "name": "Cobranças do mês",
-      "description": "Onde o professor vê a cobrança de cada responsável pelo mês que terminou, com o valor e a conta aberta guardados como estavam quando ela ficou pronta",
+      "description": "Onde o professor vê a cobrança de cada responsável pelo mês que terminou, com o valor e a conta aberta guardados como estavam quando ela ficou pronta, e o que falta marcar nas que ainda não ficaram prontas",
       "paths": [
         "app/(app)/charges",
         "lib/charges.ts"

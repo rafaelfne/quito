@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
-import { chargeMessages, initialCharges, type Charge, type ChargesState } from "@/lib/charges";
+import { chargeMessages, initialCharges, type Charge, type ChargesState, type WaitingGuardian } from "@/lib/charges";
 import { ChargesView } from "./charges-view";
 
 const november = { year: 2026, month: 11 };
@@ -27,6 +27,10 @@ const charge: Charge = {
     { studentId: "b", studentName: "Bruno Lima", lines: [], attendance: "Nenhuma aula marcada neste mês.", packageBalance: null, credits: [], totalCents: 0 },
   ],
 };
+
+const waitingMarks: WaitingGuardian = { phone: "11933334444", guardianName: "Bia Dias", students: [{ studentId: "r", studentName: "Rui Dias", unmarked: 2, missingBilling: false }] };
+
+const waitingBilling: WaitingGuardian = { phone: "11911112222", guardianName: "Caio Melo", students: [{ studentId: "l", studentName: "Lia Melo", unmarked: 0, missingBilling: true }] };
 
 function ready(overrides: Partial<ChargesState> = {}): ChargesState {
   return { ...initialCharges(november), status: "ready", ...overrides };
@@ -70,13 +74,28 @@ describe("tela de cobranças", () => {
     expect(html).toContain("450,00");
   });
 
-  test("diz quem ainda não ficou pronto e leva ao fechamento", () => {
-    const html = render(ready({ waiting: ["Bia Dias"] }));
+  test("diz o que falta marcar em cada aluno e leva às aulas do mês cobrado", () => {
+    const html = render(ready({ waiting: [waitingMarks] }));
     expect(html).toContain(chargeMessages.waitingTitle);
     expect(html).toContain("Bia Dias");
-    expect(html).toContain("novembro de 2026");
-    expect(html).toContain("Abrir Fechamento");
+    expect(html).toContain("Rui Dias: 2 aulas ainda sem marcar.");
+    expect(html).toContain('href="/lessons?month=2026-11"');
+    expect(html).toContain("Marcar as aulas de novembro de 2026");
+    expect(html).not.toContain(chargeMessages.defineBilling);
     expect(html).not.toContain(chargeMessages.monthTotal);
+  });
+
+  test("aluno sem forma de cobrança leva a Alunos, sem atalho para as aulas", () => {
+    const html = render(ready({ waiting: [waitingBilling] }));
+    expect(html).toContain(`Lia Melo: ${chargeMessages.missingBilling}`);
+    expect(html).toContain(chargeMessages.defineBilling);
+    expect(html).not.toContain("/lessons?month");
+  });
+
+  test("com os dois casos mostra os dois atalhos", () => {
+    const html = render(ready({ waiting: [waitingMarks, waitingBilling] }));
+    expect(html).toContain("/lessons?month=2026-11");
+    expect(html).toContain(chargeMessages.defineBilling);
   });
 
   test("diz quem não tem nada a pagar no mês", () => {

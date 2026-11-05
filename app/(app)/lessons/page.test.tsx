@@ -33,6 +33,8 @@ const from = vi.fn((table: string) => {
   return { select: () => ({ gte: () => ({ lte }), in: creditMarks }), upsert, update };
 });
 
+const requestedParams = vi.hoisted(() => ({ current: "" }));
+
 const hooks = vi.hoisted(() => {
   let slots: unknown[] = [];
   let cursor = 0;
@@ -74,6 +76,7 @@ vi.mock("react", async (original) => ({
   useCallback: hooks.useCallback,
   useEffect: hooks.useEffect,
 }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(requestedParams.current) }));
 vi.mock("@/lib/supabase", () => ({ supabase: { from, auth: {} } }));
 
 const { default: LessonsPage } = await import("./page");
@@ -95,6 +98,7 @@ async function open() {
 
 beforeEach(() => {
   hooks.reset();
+  requestedParams.current = "";
   selectStudents.mockClear();
   lte.mockClear();
   upsert.mockClear();
@@ -111,6 +115,18 @@ describe("página de aulas", () => {
     expect(view().today).toBe("2026-11-15");
     await settle();
     expect(view().state).toMatchObject({ status: "ready", students: [pedro], noticeHours: 24 });
+  });
+
+  test("abre no mês pedido pelo atalho da cobrança", async () => {
+    requestedParams.current = "month=2026-10";
+    expect(view().state.month).toEqual({ year: 2026, month: 10 });
+    await settle();
+    expect(view().state).toMatchObject({ status: "ready", month: { year: 2026, month: 10 } });
+  });
+
+  test("mês inválido no endereço abre no mês do aparelho", () => {
+    requestedParams.current = "month=2026-13";
+    expect(view().state.month).toEqual({ year: 2026, month: 11 });
   });
 
   test("carrega uma vez só, mesmo quando a tela é desenhada de novo", async () => {

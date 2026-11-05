@@ -10,6 +10,8 @@ import {
   describeMonth,
   describeNoticeRule,
   describeSummary,
+  lessonsPathFor,
+  parseMonthParam,
   describeUnscheduled,
   finishMark,
   groupByDay,
@@ -96,6 +98,21 @@ describe("o que é cobrado", () => {
   test("as quatro opções são as que o banco aceita", () => {
     const migration = readFileSync(join(process.cwd(), "supabase/migrations/20261103050000_lesson_marks.sql"), "utf8");
     for (const status of lessonStatuses) expect(migration).toContain(`'${status}'`);
+  });
+});
+
+describe("mês no endereço da tela", () => {
+  test("o atalho leva ao mês pedido, com dois dígitos", () => {
+    expect(lessonsPathFor({ year: 2026, month: 3 })).toBe("/lessons?month=2026-03");
+  });
+
+  test("lê o mês do endereço", () => {
+    expect(parseMonthParam("2026-11")).toEqual({ year: 2026, month: 11 });
+    expect(parseMonthParam(lessonsPathFor({ year: 2027, month: 1 }).split("=")[1])).toEqual({ year: 2027, month: 1 });
+  });
+
+  test("ignora o que não é um mês", () => {
+    for (const value of [null, "", "2026-13", "2026-00", "2026-1", "novembro"]) expect(parseMonthParam(value)).toBeNull();
   });
 });
 

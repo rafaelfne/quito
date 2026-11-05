@@ -1,8 +1,10 @@
 import { describe, expect, test, vi } from "vitest";
 import {
   applyChargesLoad,
+  chargeMessages,
   chargesPath,
-  describeWaiting,
+  describeMarkLessons,
+  describeWaitingStudent,
   endedMonthOf,
   initialCharges,
   insertNewCharges,
@@ -12,7 +14,10 @@ import {
   planMonthCharges,
   startReloadingCharges,
   syncMonthCharges,
+  waitsForBilling,
+  waitsForMarks,
   type Charge,
+  type WaitingGuardian,
 } from "@/lib/charges";
 import { buildMonthClosing, type ClosingData, type ClosingRules } from "@/lib/closing";
 import type { LessonMark, LessonsClient } from "@/lib/lessons";
@@ -138,7 +143,31 @@ describe("plano das cobranças", () => {
     const sister = { ...lia, guardian_name: pedro.guardian_name, guardian_phone: pedro.guardian_phone };
     const plan = planMonthCharges(closingOf({ students: [pedro, sister] }), november, []);
     expect(plan.newCharges).toEqual([]);
-    expect(plan.waiting).toEqual(["Ana Lima"]);
+    expect(plan.waiting).toEqual([{ phone: pedro.guardian_phone, guardianName: "Ana Lima", students: [{ studentId: "lia", studentName: "Lia Melo", unmarked: 5, missingBilling: false }] }]);
+  });
+
+  test("diz quantas aulas faltam marcar em cada aluno", () => {
+    const { waiting } = planMonthCharges(closingOf({ students: [lia], marks: mondaysOfNovember.slice(0, 3).map((date) => given("lia", date)) }), november, []);
+    expect(waiting[0].students).toEqual([{ studentId: "lia", studentName: "Lia Melo", unmarked: 2, missingBilling: false }]);
+  });
+
+  test("mensalidade com aula sem marcar não aparece no que falta", () => {
+    const sister = { ...lia, guardian_name: pedro.guardian_name, guardian_phone: pedro.guardian_phone };
+    const { waiting } = planMonthCharges(closingOf({ students: [pedro, sister] }), november, []);
+    expect(waiting[0].students.map((student) => student.studentId)).toEqual(["lia"]);
+  });
+
+  test("aluno sem forma de cobrança pede a forma de cobrança, não as aulas", () => {
+    const { waiting } = planMonthCharges(closingOf({ students: [noBilling] }), november, []);
+    expect(waiting[0].students).toEqual([{ studentId: "rui", studentName: "Rui Dias", unmarked: 0, missingBilling: true }]);
+  });
+
+  test("responsável com os dois problemas mostra os dois alunos", () => {
+    const sister = { ...lia, guardian_name: noBilling.guardian_name, guardian_phone: noBilling.guardian_phone };
+    const { waiting } = planMonthCharges(closingOf({ students: [noBilling, sister] }), november, []);
+    expect(waitsForMarks(waiting)).toBe(true);
+    expect(waitsForBilling(waiting)).toBe(true);
+    expect(waiting).toHaveLength(1);
   });
 
   test("responsável sem nada a pagar não vira cobrança de zero reais", () => {
@@ -205,7 +234,7 @@ describe("sincronizar as cobranças do mês", () => {
   test("avisa quem ainda não ficou pronto e cria só o resto", async () => {
     const { client } = fakeClient({ students: [pedro, noBilling], marks: [], charges: [] });
     const result = await syncMonthCharges(client, november, today);
-    expect(result.ok && result.waiting).toEqual(["Bia Dias"]);
+    expect(result.ok && result.waiting.map((guardian) => guardian.guardianName)).toEqual(["Bia Dias"]);
     expect(result.ok && result.charges.map((charge) => charge.guardian_name)).toEqual(["Ana Lima"]);
   });
 
@@ -260,6 +289,8 @@ describe("leitura e gravação", () => {
   });
 });
 
+const bia: WaitingGuardian = { phone: "11933334444", guardianName: "Bia", students: [{ studentId: "rui", studentName: "Rui", unmarked: 0, missingBilling: true }] };
+
 describe("estado da tela", () => {
   test("começa carregando o mês", () => {
     expect(initialCharges(november)).toEqual({ month: november, status: "loading", charges: [], waiting: [], nothingToCharge: [] });
@@ -271,8 +302,8 @@ describe("estado da tela", () => {
   });
 
   test("aplica o resultado", () => {
-    const result = { ok: true as const, month: november, charges: [saved()], waiting: ["Bia"], nothingToCharge: ["Caio"] };
-    expect(applyChargesLoad(initialCharges(november), result)).toEqual({ month: november, status: "ready", charges: [saved()], waiting: ["Bia"], nothingToCharge: ["Caio"] });
+    const result = { ok: true as const, month: november, charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"] };
+    expect(applyChargesLoad(initialCharges(november), result)).toEqual({ month: november, status: "ready", charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"] });
   });
 
   test("falha marca a tela", () => {
@@ -285,8 +316,13 @@ describe("textos", () => {
     expect(monthChargesTotal([saved(), saved({ id: "c2", total_cents: 1000 })])).toBe(31000);
   });
 
-  test("diz onde conferir o que falta, com o mês", () => {
-    expect(describeWaiting(november)).toContain("novembro de 2026");
-    expect(describeWaiting(november)).toContain("Fechamento");
+  test("o atalho diz o mês das aulas", () => {
+    expect(describeMarkLessons(november)).toBe("Marcar as aulas de novembro de 2026");
+  });
+
+  test("diz o que falta em cada aluno", () => {
+    expect(describeWaitingStudent({ studentId: "a", studentName: "A", unmarked: 1, missingBilling: false })).toBe("1 aula ainda sem marcar.");
+    expect(describeWaitingStudent({ studentId: "a", studentName: "A", unmarked: 3, missingBilling: false })).toBe("3 aulas ainda sem marcar.");
+    expect(describeWaitingStudent({ studentId: "a", studentName: "A", unmarked: 0, missingBilling: true })).toBe(chargeMessages.missingBilling);
   });
 });
