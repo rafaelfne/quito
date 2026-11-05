@@ -12,7 +12,7 @@ function AccountDetailsView({ account, onRetry }: { account: AccountResult | nul
         <p className="text-sm" role="alert">
           {account.message}
         </p>
-        <button className="rounded bg-foreground px-3 py-2 text-background" type="button" onClick={onRetry}>
+        <button className="rounded-sm bg-foreground px-3 py-2 text-background" type="button" onClick={onRetry}>
           Tentar de novo
         </button>
       </div>

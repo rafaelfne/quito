@@ -10,7 +10,7 @@ export function SignOutButton({ onError }: { onError: (message: string) => void 
   }
 
   return (
-    <button className="rounded border px-3 py-2" type="button" onClick={() => void signOut()}>
+    <button className="rounded-sm border px-3 py-2" type="button" onClick={() => void signOut()}>
       Sair deste aparelho
     </button>
   );

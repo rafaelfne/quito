@@ -18,7 +18,7 @@ import type { CalendarMonth } from "@/lib/schedule";
 import { formatPhone, studentsPath } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
 
-const secondaryButtonClass = "min-h-11 rounded border px-3 py-2 disabled:opacity-50";
+const secondaryButtonClass = "min-h-11 rounded-sm border px-3 py-2 disabled:opacity-50";
 
 type ClosingViewProps = {
   state: ClosingState;
@@ -67,7 +67,7 @@ function StudentAccount({ student }: { student: StudentClosing }) {
 
 function GuardianCard({ guardian }: { guardian: GuardianClosing }) {
   return (
-    <section className="flex flex-col gap-3 rounded border p-3">
+    <section className="flex flex-col gap-3 rounded-sm border p-3">
       <div className="flex flex-col gap-1">
         <h2 className="font-semibold break-words">{guardian.guardianName}</h2>
         <p className="text-sm">{formatPhone(guardian.phone)}</p>
