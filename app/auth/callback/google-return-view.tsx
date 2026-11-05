@@ -10,7 +10,7 @@ export function GoogleReturnView({ message, retryHref }: { message: string | nul
             <p className="text-sm" role="alert">
               {message}
             </p>
-            <Link className="rounded bg-foreground px-3 py-2 text-center text-background" href={retryHref}>
+            <Link className="rounded-sm bg-foreground px-3 py-2 text-center text-background" href={retryHref}>
               Voltar para a entrada
             </Link>
           </>

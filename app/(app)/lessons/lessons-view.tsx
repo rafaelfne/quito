@@ -36,8 +36,8 @@ import {
 import { studentsPath } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
 
-const secondaryButtonClass = "min-h-11 rounded border px-3 py-2 disabled:opacity-50";
-const statusButtonClass = "min-h-11 rounded border px-2 py-2 text-sm disabled:opacity-50";
+const secondaryButtonClass = "min-h-11 rounded-sm border px-3 py-2 disabled:opacity-50";
+const statusButtonClass = "min-h-11 rounded-sm border px-2 py-2 text-sm disabled:opacity-50";
 const selectedButtonClass = "bg-foreground font-medium text-background";
 
 type LessonsViewProps = {
@@ -65,7 +65,7 @@ function LessonRow({ lesson, state, today, onMark }: { lesson: MonthLesson; stat
   const saving = state.pending.includes(key);
   const creditText = describeLessonCredit(lesson, state.makeupDeadlineDays, today);
   return (
-    <li className="flex flex-col gap-2 rounded border p-3">
+    <li className="flex flex-col gap-2 rounded-sm border p-3">
       <div className="flex items-baseline justify-between gap-3">
         <span className="min-w-0 font-medium break-words">{lesson.studentName}</span>
         {lesson.time ? <span className="text-sm">{lesson.time}</span> : null}
@@ -98,7 +98,7 @@ function LessonRow({ lesson, state, today, onMark }: { lesson: MonthLesson; stat
 function MakeupRow({ makeup, state, onUndoMakeup }: { makeup: MakeupLesson; state: LessonsState; onUndoMakeup: LessonsViewProps["onUndoMakeup"] }) {
   const key = creditKey(makeup);
   return (
-    <li className="flex flex-col gap-2 rounded border p-3">
+    <li className="flex flex-col gap-2 rounded-sm border p-3">
       <span className="min-w-0 font-medium break-words">{makeup.studentName}</span>
       <p className="text-sm">Reposição da falta de {describeShortDay(makeup.absenceDate)}. Cobrada.</p>
       <button className={secondaryButtonClass} type="button" disabled={state.pending.includes(key)} onClick={() => onUndoMakeup(makeup)}>
@@ -112,13 +112,13 @@ function MakeupRow({ makeup, state, onUndoMakeup }: { makeup: MakeupLesson; stat
 function CreditRow({ credit, state, today, onChangeMakeupDate, onMakeUp }: { credit: LessonCredit; state: LessonsState; today: string } & Pick<LessonsViewProps, "onChangeMakeupDate" | "onMakeUp">) {
   const key = creditKey(credit);
   return (
-    <li className="flex flex-col gap-2 rounded border p-3">
+    <li className="flex flex-col gap-2 rounded-sm border p-3">
       <span className="min-w-0 font-medium break-words">{credit.studentName}</span>
       <p className="text-sm">{describeCredit(credit)}</p>
       <label className="flex flex-col gap-1 text-sm">
         Dia da reposição
         <input
-          className="min-h-11 rounded border px-3 py-2"
+          className="min-h-11 rounded-sm border px-3 py-2"
           type="date"
           min={credit.absenceDate}
           max={credit.expiresOn ?? undefined}

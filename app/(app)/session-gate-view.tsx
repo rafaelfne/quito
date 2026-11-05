@@ -13,7 +13,7 @@ export function SessionGateView({ status, onRetry, children }: { status: GateSta
         <p className="text-sm" role="alert">
           {sessionMessages.unreachable}
         </p>
-        <button className="rounded bg-foreground px-3 py-2 text-background" type="button" onClick={onRetry}>
+        <button className="rounded-sm bg-foreground px-3 py-2 text-background" type="button" onClick={onRetry}>
           Tentar de novo
         </button>
       </div>

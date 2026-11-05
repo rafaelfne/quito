@@ -14,9 +14,9 @@ export type SignInFormProps = {
   onGoogle: () => void;
 };
 
-const inputClass = "rounded border px-3 py-2";
-const primaryButtonClass = "rounded bg-foreground px-3 py-2 text-background disabled:opacity-50";
-const secondaryButtonClass = "rounded border px-3 py-2 disabled:opacity-50";
+const inputClass = "rounded-sm border px-3 py-2";
+const primaryButtonClass = "rounded-sm bg-foreground px-3 py-2 text-background disabled:opacity-50";
+const secondaryButtonClass = "rounded-sm border px-3 py-2 disabled:opacity-50";
 const linkButtonClass = "text-sm underline disabled:opacity-50";
 
 export function SignInForm(props: SignInFormProps) {
