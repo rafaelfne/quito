@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MessageSettingsSection, type MessageSettingsHandlers } from "@/app/(app)/payment/message-settings-section";
 import { accountPath } from "@/lib/account";
 import { chargesPath } from "@/lib/charges";
 import { closingPath } from "@/lib/closing";
@@ -11,6 +12,7 @@ import {
   type GuardianDueGroup,
 } from "@/lib/guardian-due-days";
 import { lessonsPath } from "@/lib/lessons";
+import type { MessageSettingsState } from "@/lib/message-settings";
 import { describeNextDue, paymentSettingsMessages, type PaymentSettingsField, type PaymentSettingsState } from "@/lib/payment-settings";
 import { studentsPath } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
@@ -31,11 +33,14 @@ type GuardianDueHandlers = {
 };
 
 type PaymentSettingsViewProps = FormHandlers &
-  GuardianDueHandlers & {
+  GuardianDueHandlers &
+  MessageSettingsHandlers & {
     state: PaymentSettingsState;
     guardianDueDays: GuardianDueDaysState;
+    messageSettings: MessageSettingsState;
     busy: boolean;
     busyPhone: string | null;
+    messageBusy: boolean;
     today: string;
     onRetry: () => void;
   };
@@ -254,8 +259,10 @@ function GuardianDueDaysSection({
 export function PaymentSettingsView({
   state,
   guardianDueDays,
+  messageSettings,
   busy,
   busyPhone,
+  messageBusy,
   today,
   onChange,
   onSubmit,
@@ -263,6 +270,9 @@ export function PaymentSettingsView({
   onGuardianDueChange,
   onGuardianDueSubmit,
   onGuardianDueRetry,
+  onMessageChange,
+  onMessageSubmit,
+  onMessageRetry,
 }: PaymentSettingsViewProps) {
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-4 sm:p-8">
@@ -301,6 +311,14 @@ export function PaymentSettingsView({
       ) : (
         <PaymentSettingsForm state={state} busy={busy} today={today} onChange={onChange} onSubmit={onSubmit} />
       )}
+      <MessageSettingsSection
+        state={messageSettings}
+        busy={messageBusy}
+        teacher={{ pixKey: state.draft.pixKey, displayName: state.draft.displayName }}
+        onMessageChange={onMessageChange}
+        onMessageSubmit={onMessageSubmit}
+        onMessageRetry={onMessageRetry}
+      />
       <GuardianDueDaysSection
         state={guardianDueDays}
         busyPhone={busyPhone}

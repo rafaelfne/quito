@@ -7,7 +7,7 @@ import { billingKinds, billingOptions, describeBilling, isBillingKind, packageRo
 import { paymentSettingsPath } from "@/lib/payment-settings";
 import { describePlannedLessons, describeSchedule, weekdayOptions, type CalendarMonth } from "@/lib/schedule";
 import { afterSignInPath } from "@/lib/session";
-import { currentDraft, formatPhone, groupStudentsByGuardian, studentMessages, type Student, type StudentField, type StudentsState } from "@/lib/students";
+import { currentDraft, formatPhone, groupStudentsByGuardian, studentGenderOptions, studentMessages, type Student, type StudentField, type StudentsState } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
 
 const inputClass = "min-h-11 rounded border bg-background px-3 py-3 text-base text-foreground";
@@ -39,8 +39,11 @@ type TextFieldConfig = {
   hint?: string;
 };
 
-const contactFields: TextFieldConfig[] = [
-  { field: "name", id: "student-name", label: "Nome do aluno", autoCapitalize: "words" },
+const studentNameField: TextFieldConfig = { field: "name", id: "student-name", label: "Nome do aluno", autoCapitalize: "words" };
+
+const calledAsField: TextFieldConfig = { field: "calledAs", id: "student-called-as", label: "Como quer ser chamado", autoCapitalize: "words", hint: "Do jeito que deve aparecer na mensagem de cobrança." };
+
+const guardianFields: TextFieldConfig[] = [
   { field: "guardianName", id: "student-guardian-name", label: "Nome do responsável", autoCapitalize: "words" },
   { field: "guardianPhone", id: "student-guardian-phone", label: "WhatsApp do responsável", type: "tel", inputMode: "tel", hint: "Com DDD. É para este número que a cobrança vai sair." },
 ];
@@ -77,6 +80,33 @@ function TextField({ config, state, onChange }: { config: TextFieldConfig; state
         </span>
       ) : null}
     </label>
+  );
+}
+
+function GenderField({ state, onChange }: { state: StudentsState; onChange: FormHandlers["onChange"] }) {
+  const error = state.errors.gender;
+  const selected = currentDraft(state).gender;
+  return (
+    <>
+      <fieldset className="flex flex-col gap-2 text-sm" aria-describedby={error ? "student-gender-error" : undefined}>
+        <legend className="mb-1">Gênero do aluno</legend>
+        <span className="opacity-70">Para a mensagem de cobrança escrever &quot;do Pedro&quot; ou &quot;da Ana&quot;.</span>
+        <div className="flex flex-wrap gap-2">
+          {studentGenderOptions.map(({ value, label }) => (
+            <label key={value} className="flex min-h-11 flex-1 items-center gap-2 rounded border px-3 text-base">
+              <input type="radio" name="student-gender" value={value} checked={selected === value} onChange={() => onChange("gender", value)} />
+              {label}
+            </label>
+          ))}
+        </div>
+        {error ? (
+          <span id="student-gender-error" role="alert">
+            {error}
+          </span>
+        ) : null}
+      </fieldset>
+      {selected === "other" ? <TextField config={calledAsField} state={state} onChange={onChange} /> : null}
+    </>
   );
 }
 
@@ -146,7 +176,9 @@ function StudentForm({ state, busy, submitLabel, onChange, onSubmit, onCancel }:
       }}
     >
       <fieldset className="flex flex-col gap-4" disabled={busy}>
-        {contactFields.map((config) => (
+        <TextField config={studentNameField} state={state} onChange={onChange} />
+        <GenderField state={state} onChange={onChange} />
+        {guardianFields.map((config) => (
           <TextField key={config.field} config={config} state={state} onChange={onChange} />
         ))}
         <ScheduleFields state={state} onChange={onChange} />

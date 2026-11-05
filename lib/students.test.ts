@@ -28,11 +28,11 @@ type Failure = { message: string } | null;
 type SelectResult = { data: unknown[] | null; error: Failure };
 
 const noBilling = { billing_kind: null, billing_amount_cents: null, package_lessons: null };
-const emptyDraft = { name: "", guardianName: "", guardianPhone: "", billingKind: "", billingAmount: "", packageLessons: "", lessonWeekday: "", lessonTime: "" };
-const pedro: Student = { id: "1", name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "package", billing_amount_cents: 30000, package_lessons: 4, lesson_weekday: 2, lesson_time: "15:00:00" };
-const alvaro: Student = { id: "2", name: "Álvaro Reis", guardian_name: "Bia Reis", guardian_phone: "2134567890", ...noBilling, lesson_weekday: null, lesson_time: null };
-const validDraft = { name: "  Pedro   Lima ", guardianName: " Ana  Lima", guardianPhone: "(11) 98765-4321", billingKind: "package", billingAmount: "300,00", packageLessons: "4", lessonWeekday: "2", lessonTime: "15:00" };
-const validRow = { name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "package" as const, billing_amount_cents: 30000, package_lessons: 4, lesson_weekday: 2, lesson_time: "15:00" };
+const emptyDraft = { name: "", gender: "", calledAs: "", guardianName: "", guardianPhone: "", billingKind: "", billingAmount: "", packageLessons: "", lessonWeekday: "", lessonTime: "" };
+const pedro: Student = { id: "1", name: "Pedro Lima", gender: "male", called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "package", billing_amount_cents: 30000, package_lessons: 4, lesson_weekday: 2, lesson_time: "15:00:00" };
+const alvaro: Student = { id: "2", name: "Álvaro Reis", gender: "male", called_as: null, guardian_name: "Bia Reis", guardian_phone: "2134567890", ...noBilling, lesson_weekday: null, lesson_time: null };
+const validDraft = { name: "  Pedro   Lima ", gender: "male", calledAs: "", guardianName: " Ana  Lima", guardianPhone: "(11) 98765-4321", billingKind: "package", billingAmount: "300,00", packageLessons: "4", lessonWeekday: "2", lessonTime: "15:00" };
+const validRow = { name: "Pedro Lima", gender: "male" as const, called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "package" as const, billing_amount_cents: 30000, package_lessons: 4, lesson_weekday: 2, lesson_time: "15:00" };
 
 function fakeClient(overrides: { select?: () => Promise<SelectResult>; insert?: () => Promise<{ error: Failure }>; updated?: () => Promise<SelectResult> } = {}) {
   const select = vi.fn(overrides.select ?? (async () => ({ data: [] as unknown[], error: null as Failure })));
@@ -83,8 +83,32 @@ describe("validateStudent", () => {
   test("com tudo vazio, aponta os três campos e pede o horário e a forma de cobrança", () => {
     expect(validateStudent({ ...emptyDraft, name: " " })).toEqual({
       ok: false,
-      errors: { name: studentMessages.nameMissing, guardianName: studentMessages.guardianMissing, guardianPhone: studentMessages.phoneInvalid, billingKind: billingMessages.kindMissing, lessonWeekday: scheduleMessages.weekdayMissing, lessonTime: scheduleMessages.timeInvalid },
+      errors: { name: studentMessages.nameMissing, gender: studentMessages.genderMissing, guardianName: studentMessages.guardianMissing, guardianPhone: studentMessages.phoneInvalid, billingKind: billingMessages.kindMissing, lessonWeekday: scheduleMessages.weekdayMissing, lessonTime: scheduleMessages.timeInvalid },
     });
+  });
+
+  test("sem dizer o gênero, não aprova", () => {
+    expect(validateStudent({ ...validDraft, gender: "" })).toEqual({ ok: false, errors: { gender: studentMessages.genderMissing } });
+    expect(validateStudent({ ...validDraft, gender: "outro" })).toEqual({ ok: false, errors: { gender: studentMessages.genderMissing } });
+  });
+
+  test("guarda feminino como feminino", () => {
+    const validation = validateStudent({ ...validDraft, gender: "female" });
+    expect(validation.ok && validation.row.gender).toBe("female");
+  });
+
+  test("com Outro, guarda como o aluno quer ser chamado, sem os espaços a mais", () => {
+    const validation = validateStudent({ ...validDraft, gender: "other", calledAs: "  Alex   Lima " });
+    expect(validation).toMatchObject({ ok: true, row: { gender: "other", called_as: "Alex Lima" } });
+  });
+
+  test("com Outro, pede como quer ser chamado e recusa texto grande demais", () => {
+    expect(validateStudent({ ...validDraft, gender: "other", calledAs: " " })).toEqual({ ok: false, errors: { calledAs: studentMessages.calledAsMissing } });
+    expect(validateStudent({ ...validDraft, gender: "other", calledAs: "a".repeat(studentNameLimit + 1) })).toEqual({ ok: false, errors: { calledAs: studentMessages.calledAsTooLong } });
+  });
+
+  test("trocar de Outro para Masculino não guarda o que estava escrito", () => {
+    expect(validateStudent({ ...validDraft, gender: "male", calledAs: "Alex" })).toMatchObject({ ok: true, row: { gender: "male", called_as: null } });
   });
 
   test("com o cadastro certo e a cobrança errada, não aprova", () => {
@@ -130,7 +154,7 @@ describe("loadStudents", () => {
     const { client, from, select } = fakeClient({ select: async () => ({ data: [pedro, alvaro], error: null }) });
     expect(await loadStudents(client)).toEqual({ ok: true, students: [alvaro, pedro] });
     expect(from).toHaveBeenCalledWith("students");
-    expect(select).toHaveBeenCalledWith("id, name, guardian_name, guardian_phone, billing_kind, billing_amount_cents, package_lessons, lesson_weekday, lesson_time");
+    expect(select).toHaveBeenCalledWith("id, name, gender, called_as, guardian_name, guardian_phone, billing_kind, billing_amount_cents, package_lessons, lesson_weekday, lesson_time");
   });
 
   test("sem resposta, a lista vem vazia", async () => {
@@ -194,10 +218,18 @@ describe("rascunho do formulário", () => {
     expect(currentDraft(startEditing(initialStudents, alvaro))).toMatchObject({ lessonWeekday: "", lessonTime: "" });
   });
 
+  test("corrigir um aluno sem a resposta deixa o gênero em branco", () => {
+    expect(currentDraft(startEditing(initialStudents, { ...pedro, gender: null })).gender).toBe("");
+  });
+
+  test("corrigir um aluno com Outro mostra como quer ser chamado", () => {
+    expect(currentDraft(startEditing(initialStudents, { ...pedro, gender: "other", called_as: "Alex" }))).toMatchObject({ gender: "other", calledAs: "Alex" });
+  });
+
   test("corrigir um aluno mostra os dados dele e guarda o que estava sendo digitado no novo", () => {
     const typing = changeDraft(initialStudents, "name", "Maria");
     const editing = startEditing({ ...typing, notice: "antes", message: "antes", errors: { name: "antes" } }, pedro);
-    expect(currentDraft(editing)).toEqual({ name: "Pedro Lima", guardianName: "Ana Lima", guardianPhone: "(11) 98765-4321", billingKind: "package", billingAmount: "300,00", packageLessons: "4", lessonWeekday: "2", lessonTime: "15:00" });
+    expect(currentDraft(editing)).toEqual({ name: "Pedro Lima", gender: "male", calledAs: "", guardianName: "Ana Lima", guardianPhone: "(11) 98765-4321", billingKind: "package", billingAmount: "300,00", packageLessons: "4", lessonWeekday: "2", lessonTime: "15:00" });
     expect(editing).toMatchObject({ notice: null, message: null, errors: {} });
 
     const changed = changeDraft(editing, "name", "Pedro Souza");

@@ -9,7 +9,7 @@ Uma linha no fim dizendo que a conta foi feita pelo Quitô mostra aos pais que o
 
 ## O que muda
 
-Os três modelos usam as mesmas partes, que entram sozinhas: o nome do responsável, os alunos, o mês, a conta aberta, o total, o vencimento e a chave Pix sozinha numa linha. O exemplo abaixo é de Carla, mãe do Pedro e da Ana, com a conta de novembro.
+Os três modelos usam as mesmas partes, que entram sozinhas: o nome do responsável, os alunos, o mês, a conta aberta, o total, o vencimento e a chave Pix sozinha numa linha. O "Obrigado" e o "Atenciosamente" são só o texto de partida: o professor troca o agradecimento, para a professora poder escrever "Obrigada". O exemplo abaixo é de Carla, mãe do Pedro e da Ana, com a conta de novembro.
 
 **Próximo (escolhido de partida)**
 

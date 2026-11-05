@@ -7,7 +7,7 @@ import { ClosingView } from "./closing-view";
 
 const november = { year: 2026, month: 11 };
 
-const pedro: Student = { id: "p", name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "per_class", billing_amount_cents: 8000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
+const pedro: Student = { id: "p", name: "Pedro Lima", gender: "male", called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "per_class", billing_amount_cents: 8000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
 const bruno: Student = { ...pedro, id: "b", name: "Bruno Lima", billing_kind: "monthly", billing_amount_cents: 20000 };
 const given: LessonMark = { student_id: "p", lesson_date: "2026-11-02", status: "given", makeup_date: null };
 const credit: LessonMark = { student_id: "p", lesson_date: "2026-11-09", status: "notified_absence", makeup_date: null };

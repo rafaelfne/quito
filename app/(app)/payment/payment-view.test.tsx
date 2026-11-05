@@ -2,6 +2,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from "rea
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import { guardianDueDaysMessages, initialGuardianDueDays, type GuardianDueDaysState } from "@/lib/guardian-due-days";
+import { initialMessageSettings, type MessageSettingsState } from "@/lib/message-settings";
 import { initialPaymentSettings, paymentSettingsMessages, type PaymentSettingsDraft, type PaymentSettingsState } from "@/lib/payment-settings";
 import { PaymentSettingsView } from "./payment-view";
 
@@ -9,6 +10,7 @@ type AnyProps = Record<string, unknown> & { children?: ReactNode };
 
 const today = "2026-11-04";
 const ready: PaymentSettingsState = { ...initialPaymentSettings, status: "ready" };
+const messageReady: MessageSettingsState = { ...initialMessageSettings, status: "ready" };
 const lockedForm = '<fieldset class="flex flex-col gap-4" disabled';
 const anaPhone = "11987654321";
 
@@ -31,12 +33,15 @@ function handlers() {
     onGuardianDueChange: vi.fn(),
     onGuardianDueSubmit: vi.fn(),
     onGuardianDueRetry: vi.fn(),
+    onMessageChange: vi.fn(),
+    onMessageSubmit: vi.fn(),
+    onMessageRetry: vi.fn(),
   };
 }
 
 function render(state: PaymentSettingsState, guardianDueDays: GuardianDueDaysState = guardiansReady, busy = false, busyPhone: string | null = null) {
   return renderToStaticMarkup(
-    <PaymentSettingsView state={state} guardianDueDays={guardianDueDays} busy={busy} busyPhone={busyPhone} today={today} {...handlers()} />,
+    <PaymentSettingsView state={state} guardianDueDays={guardianDueDays} messageSettings={messageReady} busy={busy} busyPhone={busyPhone} messageBusy={false} today={today} {...handlers()} />,
   );
 }
 
@@ -56,7 +61,7 @@ function expand(node: ReactNode): ReactElement<AnyProps>[] {
 
 function controls(state: PaymentSettingsState, guardianDueDays: GuardianDueDaysState = guardiansReady) {
   const props = handlers();
-  const all = expand(PaymentSettingsView({ state, guardianDueDays, busy: false, busyPhone: null, today, ...props }));
+  const all = expand(PaymentSettingsView({ state, guardianDueDays, messageSettings: messageReady, busy: false, busyPhone: null, messageBusy: false, today, ...props }));
   return {
     props,
     inputs: all.filter((element) => element.type === "input"),
@@ -120,7 +125,7 @@ describe("tela de recebimento", () => {
     const failed: PaymentSettingsState = { ...initialPaymentSettings, status: "failed" };
     const { forms, buttons, props } = controls(failed);
     expect(render(failed)).toContain(paymentSettingsMessages.loadFailed);
-    expect(forms).toHaveLength(1);
+    expect(forms).toHaveLength(2);
     (buttons[0].props.onClick as () => void)();
     expect(props.onRetry).toHaveBeenCalledOnce();
   });
@@ -131,6 +136,14 @@ describe("tela de recebimento", () => {
     expect(props.onChange).toHaveBeenCalledWith("pixKey", "joao@email.com");
     (inputs[2].props.onChange as (event: { target: { value: string } }) => void)({ target: { value: "20" } });
     expect(props.onChange).toHaveBeenCalledWith("dueDay", "20");
+  });
+
+  test("mostra a mensagem de cobrança com o nome e a chave escritos no formulário", () => {
+    const html = render(withDraft({ displayName: "Maria Souza", pixKey: "maria@email.com" }));
+    expect(html).toContain("Mensagem de cobrança");
+    expect(html).toContain("Prof. Maria");
+    expect(html).toContain("maria@email.com");
+    expect(html).toContain("(Maria Souza)");
   });
 
   test("guardar não recarrega a página e envia o formulário", () => {
@@ -170,11 +183,11 @@ describe("vencimento por responsável na tela", () => {
 
   test("digitar e guardar o vencimento do responsável", () => {
     const { inputs, forms, props } = controls(ready);
-    const guardianInput = inputs[3];
+    const guardianInput = inputs[inputs.length - 1];
     (guardianInput.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: "15" } });
     expect(props.onGuardianDueChange).toHaveBeenCalledWith(anaPhone, "15");
     const preventDefault = vi.fn();
-    (forms[1].props.onSubmit as (event: { preventDefault: () => void }) => void)({ preventDefault });
+    (forms[forms.length - 1].props.onSubmit as (event: { preventDefault: () => void }) => void)({ preventDefault });
     expect(props.onGuardianDueSubmit).toHaveBeenCalledWith(anaPhone);
   });
 

@@ -28,7 +28,7 @@ const november = { year: 2026, month: 11 };
 const today = "2026-12-01";
 const rules: ClosingRules = { makeup_deadline_days: null, five_week_policy: "same_price", five_week_extra_cents: null, sibling_discount_percent: 10 };
 
-const pedro: Student = { id: "pedro", name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
+const pedro: Student = { id: "pedro", name: "Pedro Lima", gender: "male", called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
 const bruno: Student = { ...pedro, id: "bruno", name: "Bruno Lima", billing_amount_cents: 20000 };
 const lia: Student = { ...pedro, id: "lia", name: "Lia Melo", guardian_name: "Caio Melo", guardian_phone: "11911112222", billing_kind: "per_class", billing_amount_cents: 8000 };
 const noBilling: Student = { ...pedro, id: "rui", name: "Rui Dias", guardian_name: "Bia Dias", guardian_phone: "11933334444", billing_kind: null, billing_amount_cents: null };

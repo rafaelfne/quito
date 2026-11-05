@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { guardianDueDaysMessages, type GuardianDueDaysState, type GuardianDueDayRow } from "@/lib/guardian-due-days";
+import { initialMessageSettings, messageSettingsMessages, type MessageSettingsDraft, type MessageSettingsRow, type MessageSettingsState } from "@/lib/message-settings";
 import { defaultDueDay, paymentSettingsMessages, type PaymentSettingsField, type PaymentSettingsRow, type PaymentSettingsState } from "@/lib/payment-settings";
 import type { Student } from "@/lib/students";
 
 type ViewProps = {
   state: PaymentSettingsState;
   guardianDueDays: GuardianDueDaysState;
+  messageSettings: MessageSettingsState;
   busy: boolean;
   busyPhone: string | null;
+  messageBusy: boolean;
   today: string;
   onChange: (field: PaymentSettingsField, value: string) => void;
   onSubmit: () => void;
@@ -15,12 +18,15 @@ type ViewProps = {
   onGuardianDueChange: (phone: string, dueDay: string) => void;
   onGuardianDueSubmit: (phone: string) => void;
   onGuardianDueRetry: () => void;
+  onMessageChange: (changes: Partial<MessageSettingsDraft>) => void;
+  onMessageSubmit: () => void;
+  onMessageRetry: () => void;
 };
 
 const pedro: Student = {
   id: "1",
   name: "Pedro Lima",
-  guardian_name: "Ana Lima",
+  gender: "male", called_as: null, guardian_name: "Ana Lima",
   guardian_phone: "11987654321",
   billing_kind: "monthly",
   billing_amount_cents: 30000,
@@ -42,7 +48,12 @@ const upsertDueDay = vi.fn(async (row: unknown) => ({ error: null, row }));
 const eqDelete = vi.fn(async () => ({ error: null }));
 const deleteDueDay = vi.fn(() => ({ eq: eqDelete }));
 
+const messageSingle = vi.fn(async () => ({ data: null as MessageSettingsRow | null, error: null as { message: string } | null }));
+const messageSelect = vi.fn(() => ({ maybeSingle: messageSingle }));
+const upsertMessage = vi.fn(async (row: unknown) => ({ error: null, row }));
+
 const from = vi.fn((table: string) => {
+  if (table === "message_settings") return { select: messageSelect, upsert: upsertMessage };
   if (table === "payment_settings") return { select: paymentSelect, upsert: upsertPayment };
   if (table === "students") return { select: studentsSelect };
   if (table === "guardian_due_days") return { select: dueDaysSelect, upsert: upsertDueDay, delete: deleteDueDay };
@@ -115,6 +126,9 @@ beforeEach(() => {
   maybeSingle.mockClear();
   maybeSingle.mockResolvedValue({ data: null, error: null });
   upsertPayment.mockClear();
+  messageSingle.mockClear();
+  messageSingle.mockResolvedValue({ data: null, error: null });
+  upsertMessage.mockClear();
   studentsSelect.mockClear();
   studentsSelect.mockResolvedValue({ data: [pedro], error: null });
   dueDaysSelect.mockClear();
@@ -248,5 +262,38 @@ describe("página de recebimento", () => {
     view().onGuardianDueRetry();
     await settle();
     expect(view().guardianDueDays).toMatchObject({ status: "ready", defaultDueDay: defaultDueDay });
+  });
+
+  test("abre a mensagem com o tom guardado, sem depender dos dados de recebimento", async () => {
+    maybeSingle.mockResolvedValueOnce({ data: null, error: { message: "sem rede" } });
+    messageSingle.mockResolvedValueOnce({ data: { tone: "formal", greeting: "Bom dia", thanks: null, signature: null }, error: null });
+    expect(view().messageSettings).toEqual(initialMessageSettings);
+    await settle();
+    await settle();
+    expect(view().state.status).toBe("failed");
+    expect(view().messageSettings).toMatchObject({ status: "ready", draft: { tone: "formal", greeting: "Bom dia", thanks: "", signature: "" } });
+  });
+
+  test("troca o tom, guarda, trava enquanto grava e avisa", async () => {
+    const opened = await open();
+    opened.onMessageChange({ tone: "direct" });
+    view().onMessageChange({ signature: "João, do violão" });
+    view().onMessageSubmit();
+    expect(view().messageBusy).toBe(true);
+    await settle();
+    const done = view();
+    expect(upsertMessage).toHaveBeenCalledWith({ tone: "direct", greeting: null, thanks: null, signature: "João, do violão" }, { onConflict: "owner_id" });
+    expect(done.messageBusy).toBe(false);
+    expect(done.messageSettings.notice).toBe(messageSettingsMessages.saved);
+  });
+
+  test("tentar de novo volta a carregar a mensagem", async () => {
+    messageSingle.mockResolvedValueOnce({ data: null, error: { message: "sem rede" } });
+    const failed = await open();
+    expect(failed.messageSettings.status).toBe("failed");
+    failed.onMessageRetry();
+    expect(view().messageSettings.status).toBe("loading");
+    await settle();
+    expect(view().messageSettings.status).toBe("ready");
   });
 });

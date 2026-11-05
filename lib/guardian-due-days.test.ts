@@ -32,7 +32,7 @@ const biaPhone = "2134567890";
 const pedro: Student = {
   id: "1",
   name: "Pedro Lima",
-  guardian_name: "Ana Lima",
+  gender: "male", called_as: null, guardian_name: "Ana Lima",
   guardian_phone: anaPhone,
   billing_kind: "monthly",
   billing_amount_cents: 30000,
@@ -46,7 +46,7 @@ const lia: Student = { ...pedro, id: "2", name: "Lia Lima" };
 const alvaro: Student = {
   id: "3",
   name: "Álvaro Reis",
-  guardian_name: "Bia Reis",
+  gender: "male", called_as: null, guardian_name: "Bia Reis",
   guardian_phone: biaPhone,
   billing_kind: "per_class",
   billing_amount_cents: 8000,

@@ -14,6 +14,14 @@ import {
 } from "@/lib/guardian-due-days";
 import { dateKeyOf } from "@/lib/lessons";
 import {
+  applyMessageSettingsLoad,
+  changeMessageSetting,
+  initialMessageSettings,
+  loadMessageSettings,
+  startReloadingMessageSettings,
+  submitMessageSettings,
+} from "@/lib/message-settings";
+import {
   applyPaymentSettingsLoad,
   changePaymentSetting,
   defaultDueDay,
@@ -31,6 +39,8 @@ export default function PaymentSettingsPage() {
   const [guardianDueDays, setGuardianDueDays] = useState(initialGuardianDueDays);
   const [busy, setBusy] = useState(false);
   const [busyPhone, setBusyPhone] = useState<string | null>(null);
+  const [messageSettings, setMessageSettings] = useState(initialMessageSettings);
+  const [messageBusy, setMessageBusy] = useState(false);
 
   const loadGuardians = useCallback((dueDay: number) => {
     setGuardianDueDays((current) => startReloadingGuardianDueDays(current, dueDay));
@@ -53,6 +63,12 @@ export default function PaymentSettingsPage() {
   }, [loadGuardians]);
 
   useEffect(load, [load]);
+
+  const loadMessage = useCallback(() => {
+    void loadMessageSettings(supabase).then((result) => setMessageSettings((current) => applyMessageSettingsLoad(current, result)));
+  }, []);
+
+  useEffect(loadMessage, [loadMessage]);
 
   function retry() {
     setState(startReloadingPaymentSettings);
@@ -84,12 +100,27 @@ export default function PaymentSettingsPage() {
     });
   }
 
+  function retryMessage() {
+    setMessageSettings(startReloadingMessageSettings);
+    loadMessage();
+  }
+
+  function submitMessage() {
+    setMessageBusy(true);
+    void submitMessageSettings(supabase, messageSettings).then((next) => {
+      setMessageSettings(next);
+      setMessageBusy(false);
+    });
+  }
+
   return (
     <PaymentSettingsView
       state={state}
       guardianDueDays={guardianDueDays}
+      messageSettings={messageSettings}
       busy={busy}
       busyPhone={busyPhone}
+      messageBusy={messageBusy}
       today={dateKeyOf(new Date())}
       onChange={(field: PaymentSettingsField, value: string) => setState((current) => changePaymentSetting(current, field, value))}
       onSubmit={submit}
@@ -97,6 +128,9 @@ export default function PaymentSettingsPage() {
       onGuardianDueChange={(phone, dueDay) => setGuardianDueDays((current) => changeGuardianDueDay(current, phone, dueDay))}
       onGuardianDueSubmit={submitGuardian}
       onGuardianDueRetry={retryGuardians}
+      onMessageChange={(changes) => setMessageSettings((current) => changeMessageSetting(current, changes))}
+      onMessageSubmit={submitMessage}
+      onMessageRetry={retryMessage}
     />
   );
 }

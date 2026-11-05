@@ -65,11 +65,13 @@
     {
       "id": "recebimento",
       "name": "Dados de recebimento",
-      "description": "Onde o professor guarda a chave Pix, o nome que aparece para o responsável, o dia de vencimento padrão e o dia diferente por responsável",
+      "description": "Onde o professor guarda a chave Pix, o nome que aparece para o responsável, o dia de vencimento padrão, o dia diferente por responsável e o tom, a saudação, o agradecimento e a assinatura da mensagem de cobrança",
       "paths": [
         "app/(app)/payment",
         "lib/payment-settings.ts",
-        "lib/guardian-due-days.ts"
+        "lib/guardian-due-days.ts",
+        "lib/message-settings.ts",
+        "lib/message-templates.ts"
       ],
       "sensitive": "personal"
     },
@@ -148,6 +150,7 @@
     "app/(app)/rules/rules-view.tsx": "Formulário das regras do professor na tela",
     "app/(app)/payment/page.tsx": "Tela de dados de recebimento",
     "app/(app)/payment/payment-view.tsx": "Formulário dos dados de recebimento na tela",
+    "app/(app)/payment/message-settings-section.tsx": "Escolha do tom, saudação, agradecimento, assinatura e exemplo da mensagem na tela",
     "app/(app)/lessons/page.tsx": "Tela de marcar as aulas do mês",
     "app/(app)/lessons/lessons-view.tsx": "Aulas do mês e botões de marcar na tela",
     "app/(app)/closing/page.tsx": "Tela de fechamento do mês",
@@ -160,12 +163,14 @@
     "lib/session.ts": "Regras de continuar conectado e de sair",
     "lib/account.ts": "Regras de mostrar e apagar a conta",
     "lib/notes.ts": "Regras do texto de uma nota",
-    "lib/students.ts": "Regras do cadastro de aluno e do telefone do responsável",
+    "lib/students.ts": "Regras do cadastro de aluno, do gênero e do telefone do responsável",
     "lib/billing.ts": "Regras da forma de cobrança e do valor em reais",
     "lib/schedule.ts": "Regras do horário fixo semanal e das aulas previstas do mês",
     "lib/teacher-rules.ts": "Regras da antecedência da falta, do prazo de reposição e do mês com 5 semanas",
     "lib/payment-settings.ts": "Regras da chave Pix, do nome para o responsável e do dia de vencimento em mês mais curto",
     "lib/guardian-due-days.ts": "Regras do dia de vencimento trocado por responsável, valendo para todos os irmãos",
+    "lib/message-settings.ts": "Regras de guardar o tom, a saudação, o agradecimento e a assinatura da mensagem de cobrança",
+    "lib/message-templates.ts": "Textos dos três tons da mensagem de cobrança e como as partes entram neles",
     "lib/lessons.ts": "Regras de marcar a aula e de quais aulas são cobradas",
     "lib/makeups.ts": "Regras do crédito de reposição: quando nasce, quando vence e quando é usado",
     "lib/closing.ts": "Regras do fechamento: quanto cada aluno e cada responsável deve no mês",
