@@ -89,7 +89,11 @@ describe("moldura de todas as telas", () => {
   });
 
   test("mostra o conteúdo de cada tela dentro da página", () => {
-    expect(renderLayout()).toMatch(/<body[^>]*><p>conteúdo da tela<\/p><\/body>/);
+    expect(renderLayout()).toMatch(/<body[^>]*><p>conteúdo da tela<\/p>/);
+  });
+
+  test("toda tela termina com o rodapé do contato de suporte", () => {
+    expect(renderLayout()).toMatch(/<p>conteúdo da tela<\/p><footer[^>]*>[\s\S]*suporte@quito\.app[\s\S]*<\/footer><\/body>/);
   });
 
   test("faz a tela ocupar toda a altura do aparelho", () => {
