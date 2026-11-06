@@ -89,11 +89,15 @@ describe("moldura de todas as telas", () => {
   });
 
   test("mostra o conteúdo de cada tela dentro da página", () => {
-    expect(renderLayout()).toMatch(/<body[^>]*><p>conteúdo da tela<\/p>/);
+    expect(renderLayout()).toMatch(/<body[^>]*><p>conteúdo da tela<\/p><footer/);
   });
 
   test("toda tela termina com o rodapé do contato de suporte", () => {
     expect(renderLayout()).toMatch(/<p>conteúdo da tela<\/p><footer[^>]*>[\s\S]*suporte@quito\.app[\s\S]*<\/footer><\/body>/);
+  });
+
+  test("toda tela termina com o rodapé do lema do Quitô", () => {
+    expect(renderLayout()).toMatch(/<footer[^>]*>[\s\S]*Quitô · suas aulas em dia[\s\S]*<\/footer><\/body>/);
   });
 
   test("faz a tela ocupar toda a altura do aparelho", () => {
