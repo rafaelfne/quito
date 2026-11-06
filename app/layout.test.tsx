@@ -14,6 +14,7 @@ vi.mock("next/font/google", () => {
 });
 
 const { default: RootLayout, metadata } = await import("./layout");
+const { versionLabel } = await import("@/lib/version");
 
 function renderLayout() {
   return renderToStaticMarkup(
@@ -89,7 +90,11 @@ describe("moldura de todas as telas", () => {
   });
 
   test("mostra o conteúdo de cada tela dentro da página", () => {
-    expect(renderLayout()).toMatch(/<body[^>]*><p>conteúdo da tela<\/p><\/body>/);
+    expect(renderLayout()).toMatch(/<body[^>]*><p>conteúdo da tela<\/p>/);
+  });
+
+  test("mostra o rodapé com a versão do app depois do conteúdo de cada tela", () => {
+    expect(renderLayout()).toMatch(new RegExp(`<p>conteúdo da tela</p><footer[^>]*><p>${versionLabel()}</p></footer></body>`));
   });
 
   test("faz a tela ocupar toda a altura do aparelho", () => {

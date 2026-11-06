@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Poppins, Domine, IBM_Plex_Mono } from "next/font/google";
+import { AppFooter } from "@/components/app-footer";
 import "./globals.css";
 
 const fontAppSans = Poppins({ variable: "--font-app-sans", weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"], subsets: ["latin"] });
@@ -26,7 +27,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: followSystemTheme }} />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <AppFooter />
+      </body>
     </html>
   );
 }

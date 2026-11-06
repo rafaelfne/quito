@@ -99,7 +99,9 @@
       "description": "A moldura e o visual comuns a todas as telas do app",
       "paths": [
         "app/layout.tsx",
-        "app/globals.css"
+        "app/globals.css",
+        "components/app-footer.tsx",
+        "lib/version.ts"
       ],
       "sensitive": null
     }
@@ -129,6 +131,8 @@
     "app/(app)/closing/page.tsx": "Tela de fechamento do mês",
     "app/(app)/closing/closing-view.tsx": "Conta aberta de cada responsável na tela",
     "app/layout.tsx": "Moldura de todas as telas",
+    "components/app-footer.tsx": "Rodapé com a versão do app",
+    "lib/version.ts": "Versão do app mostrada no rodapé",
     "lib/sign-in.ts": "Regras de pedir e conferir o código de entrada",
     "lib/google-sign-in.ts": "Regras de entrar com Google",
     "lib/session.ts": "Regras de continuar conectado e de sair",
