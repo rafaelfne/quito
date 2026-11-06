@@ -3,7 +3,7 @@ import Link from "next/link";
 import { helpQuestions } from "@/lib/help";
 
 export const metadata: Metadata = {
-  title: "Ajuda · quito",
+  title: "Ajuda · Quitô",
   description: "Perguntas frequentes do professor sobre o Quitô",
 };
 

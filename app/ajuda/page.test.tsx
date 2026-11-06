@@ -10,7 +10,8 @@ describe("página de ajuda", () => {
     expect(html).toContain("<h1");
     expect(html).toContain("Ajuda");
     expect(html).toContain('href="/"');
-    expect(metadata.title).toBe("Ajuda · quito");  });
+    expect(metadata.title).toBe("Ajuda · Quitô");
+  });
 
   test("traz as três perguntas do professor, na ordem combinada", () => {
     const questions = ["Como cobro meus alunos?", "Como marco uma cobrança como paga?", "Como falo com o suporte?"];
