@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
+import { firstChargePreviewMessages, type FirstChargePreview } from "@/lib/first-charge-preview";
 import { firstChargeMessages, type FirstChargeNotice } from "@/lib/first-charge";
 import { notificationsGuidePath, notificationsInviteMessages } from "@/lib/notifications-invite";
 import { gettingStartedMessages, initialGettingStarted, type GettingStartedStep } from "@/lib/getting-started";
@@ -106,6 +107,25 @@ describe("tela de primeiros passos", () => {
     expect(html).not.toContain("primeira cobrança em");
     expect(render({ status: "ready", steps })).not.toContain(firstChargeMessages.title);
   });
+
+  test("no fim da sequência, mostra a mensagem pronta da primeira cobrança e avisa que ela não é enviada agora", () => {
+    const preview: FirstChargePreview = { kind: "ready", firstMonth: { year: 2026, month: 12 }, guardianName: "Rita Souza", dueDate: "2027-01-05", message: "Oi, Rita Souza! Tudo bem?\n*Total: R$ 200,00*" };
+    const firstCharge: FirstChargeNotice = { entryMonth: { year: 2026, month: 11 }, firstMonth: { year: 2026, month: 12 }, missing: "payment", guardians: [] };
+    const html = renderToStaticMarkup(<GettingStartedView state={{ status: "ready", steps }} onRetry={vi.fn()} firstCharge={firstCharge} firstChargePreview={preview} />);
+    expect(html).toContain(firstChargePreviewMessages.title);
+    expect(html).toContain("Esta é a mensagem que Rita Souza recebe em 5 de janeiro, com o valor previsto para dezembro");
+    expect(html).toContain("Oi, Rita Souza! Tudo bem?\n*Total: R$ 200,00*");
+    expect(html).toContain(firstChargePreviewMessages.notSent);
+    expect(html.indexOf(firstChargeMessages.title)).toBeLessThan(html.indexOf(firstChargePreviewMessages.title));
+  });
+
+  test("sem como montar a mensagem, leva ao que falta; sem prévia, não mostra a seção", () => {
+    const preview: FirstChargePreview = { kind: "missing", firstMonth: { year: 2026, month: 12 }, missing: "billing" };
+    const html = renderToStaticMarkup(<GettingStartedView state={{ status: "ready", steps }} onRetry={vi.fn()} firstChargePreview={preview} />);
+    expect(html).toMatch(new RegExp(`href="/students/setup"[^>]*>${firstChargePreviewMessages.missing.billing}<`));
+    expect(html).not.toContain(firstChargePreviewMessages.notSent);
+    expect(render({ status: "ready", steps })).not.toContain(firstChargePreviewMessages.title);
+  });
 });
 
 describe("convite para as notificações", () => {
@@ -128,5 +148,12 @@ describe("convite para as notificações", () => {
     const html = renderToStaticMarkup(<NotificationsInvite />);
     expect(html).toContain('aria-labelledby="notifications-invite-title"');
     expect(html).toContain(`href="${notificationsGuidePath}"`);
+  });
+
+  test("com a prévia da primeira cobrança, o convite vem depois dela", () => {
+    const preview: FirstChargePreview = { kind: "ready", firstMonth: { year: 2026, month: 12 }, guardianName: "Rita Souza", dueDate: "2027-01-05", message: "Oi, Rita Souza!" };
+    const html = renderToStaticMarkup(<GettingStartedView state={{ status: "ready", steps: finishedSteps }} onRetry={vi.fn()} firstChargePreview={preview} notificationsInvite />);
+    expect(html).toContain(firstChargePreviewMessages.title);
+    expect(html.indexOf(firstChargePreviewMessages.title)).toBeLessThan(html.indexOf(notificationsInviteMessages.title));
   });
 });

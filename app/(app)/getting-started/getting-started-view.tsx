@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { describeFirstChargePreview, firstChargePreviewMessages, firstChargePreviewMissingPaths, type FirstChargePreview } from "@/lib/first-charge-preview";
 import { describeFirstChargeGuardian, describeFirstChargeTiming, describeFirstMonth, firstChargeMessages, firstChargeMissingMessage, firstChargeMissingPaths, type FirstChargeNotice } from "@/lib/first-charge";
 import { currentStep, describeRemaining, gettingStartedMessages, remainingSteps, type GettingStartedState, type GettingStartedStep } from "@/lib/getting-started";
 import { notificationsGuidePath, notificationsInviteMessages } from "@/lib/notifications-invite";
@@ -73,6 +74,29 @@ export function FirstChargeSection({ notice }: { notice: FirstChargeNotice }) {
   );
 }
 
+export function FirstChargePreviewSection({ preview }: { preview: FirstChargePreview }) {
+  return (
+    <section className="flex flex-col gap-2 rounded-sm border p-3" aria-labelledby="first-charge-preview-title">
+      <h2 className="font-medium" id="first-charge-preview-title">
+        {firstChargePreviewMessages.title}
+      </h2>
+      {preview.kind === "ready" ? (
+        <>
+          <p className="text-sm">{describeFirstChargePreview(preview)}</p>
+          <p className="rounded-sm border p-3 text-sm break-words whitespace-pre-wrap">{preview.message}</p>
+          <p className="text-sm">{firstChargePreviewMessages.notSent}</p>
+        </>
+      ) : (
+        <p className="text-sm">
+          <Link className="underline" href={firstChargePreviewMissingPaths[preview.missing]}>
+            {firstChargePreviewMessages.missing[preview.missing]}
+          </Link>
+        </p>
+      )}
+    </section>
+  );
+}
+
 export function NotificationsInvite() {
   return (
     <section className="flex flex-col gap-2 rounded-sm border p-3" aria-labelledby="notifications-invite-title">
@@ -111,7 +135,7 @@ function Progress({ steps }: { steps: GettingStartedStep[] }) {
   );
 }
 
-export function GettingStartedView({ state, onRetry, baselineDelayDays = null, onSaveBaselineDelay = () => undefined, firstCharge = null, notificationsInvite = false }: { state: GettingStartedState; onRetry: () => void; baselineDelayDays?: number | null; onSaveBaselineDelay?: (days: number) => void; firstCharge?: FirstChargeNotice | null; notificationsInvite?: boolean }) {
+export function GettingStartedView({ state, onRetry, baselineDelayDays = null, onSaveBaselineDelay = () => undefined, firstCharge = null, firstChargePreview = null, notificationsInvite = false }: { state: GettingStartedState; onRetry: () => void; baselineDelayDays?: number | null; onSaveBaselineDelay?: (days: number) => void; firstCharge?: FirstChargeNotice | null; firstChargePreview?: FirstChargePreview | null; notificationsInvite?: boolean }) {
   const unfinished = state.status === "ready" && remainingSteps(state.steps) > 0;
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-4 sm:p-8">
@@ -135,6 +159,7 @@ export function GettingStartedView({ state, onRetry, baselineDelayDays = null, o
           <Progress steps={state.steps} />
           <StepList steps={state.steps} baselineDelayDays={baselineDelayDays} onSaveBaselineDelay={onSaveBaselineDelay} />
           {firstCharge ? <FirstChargeSection notice={firstCharge} /> : null}
+          {firstChargePreview ? <FirstChargePreviewSection preview={firstChargePreview} /> : null}
           {notificationsInvite ? <NotificationsInvite /> : null}
         </>
       ) : null}
