@@ -1,30 +1,35 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { describeReady, importableStudents, isReady, parseStudentList, studentImportMessages, type ImportLine, type StudentImportState } from "@/lib/student-import";
+import { describeReady, importableStudents, isReady, parseStudentList, phoneInputValue, studentImportMessages, type ImportLine, type StudentImportState } from "@/lib/student-import";
 import { formatPhone, studentsPath } from "@/lib/students";
 
 type StudentImportViewProps = {
   state: StudentImportState;
   busy: boolean;
   onChange: (text: string) => void;
+  onEditLine: (line: number, field: "name" | "guardianName" | "phone", value: string) => void;
   onSubmit: () => void;
   onRetry: () => void;
   onPickContacts?: () => void;
 };
 
-function LinePreview({ line }: { line: ImportLine }) {
+function LinePreview({ line, busy, onEditLine }: { line: ImportLine; busy: boolean; onEditLine: StudentImportViewProps["onEditLine"] }) {
   const ready = isReady(line);
   return (
     <li className="flex flex-col gap-1 rounded-sm border p-3" aria-invalid={ready ? undefined : true}>
       <p className="text-xs opacity-70">Linha {line.line}</p>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-        <dt className="opacity-70">Aluno</dt>
-        <dd className="break-words font-medium">{line.name || "—"}</dd>
-        <dt className="opacity-70">Responsável</dt>
-        <dd className="break-words">{line.guardianName || "—"}</dd>
-        <dt className="opacity-70">WhatsApp</dt>
-        <dd>{line.phone ? formatPhone(line.phone) : "—"}</dd>
-      </dl>
+      <label className="flex flex-col gap-1 text-sm">
+        Nome do aluno
+        <input className="rounded-sm border bg-background px-3 py-2 text-foreground" value={line.name} disabled={busy} onChange={(event) => onEditLine(line.line, "name", event.target.value)} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm">
+        Nome do responsável
+        <input className="rounded-sm border bg-background px-3 py-2 text-foreground" value={line.guardianName} disabled={busy} onChange={(event) => onEditLine(line.line, "guardianName", event.target.value)} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm">
+        WhatsApp
+        <input className="rounded-sm border bg-background px-3 py-2 text-foreground" type="tel" value={line.phone ? formatPhone(line.phone) : phoneInputValue(line)} disabled={busy} onChange={(event) => onEditLine(line.line, "phone", event.target.value)} />
+      </label>
       {ready ? (
         <p className="text-sm font-medium">Pronto para guardar</p>
       ) : (
@@ -49,7 +54,7 @@ function ContactsPick({ busy, onPickContacts }: { busy: boolean; onPickContacts:
   );
 }
 
-export function StudentImportView({ state, busy, onChange, onSubmit, onRetry, onPickContacts }: StudentImportViewProps) {
+export function StudentImportView({ state, busy, onChange, onEditLine, onSubmit, onRetry, onPickContacts }: StudentImportViewProps) {
   const lines = parseStudentList(state.text, state.students);
   const readyCount = importableStudents(lines).length;
   const pending = lines.length - readyCount;
@@ -119,7 +124,7 @@ export function StudentImportView({ state, busy, onChange, onSubmit, onRetry, on
           <h2 className="font-semibold">Como o Quitô separou</h2>
           <ul className="flex flex-col gap-2">
             {lines.map((line) => (
-              <LinePreview key={line.line} line={line} />
+              <LinePreview key={line.line} line={line} busy={busy} onEditLine={onEditLine} />
             ))}
           </ul>
         </section>

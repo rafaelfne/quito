@@ -67,8 +67,11 @@ export function parseStudentLine(text: string, line: number): ImportLine {
   const content = text.replace(listMarker, "");
   const rawPhone = content.match(phonePattern)?.[0];
   const phone = rawPhone === undefined ? null : normalizePhone(rawPhone);
-  const cells = (rawPhone === undefined ? content : content.replace(rawPhone, "\t")).split(cellSeparator).map(cleanCell).filter(Boolean);
-  const [name = "", guardianName = ""] = leadingEmptyCell.test(content) ? ["", ...cells] : cells;
+  const tabSeparated = content.includes("\t");
+  const input = rawPhone === undefined ? content : content.replace(rawPhone, "");
+  const rawCells = input.split(tabSeparated ? "\t" : cellSeparator).map(cleanCell);
+  const cells = tabSeparated || leadingEmptyCell.test(content) ? rawCells : rawCells.filter(Boolean);
+  const [name = "", guardianName = ""] = cells;
   return { line, text, name, guardianName, phone, problems: problemsOf(name, guardianName, rawPhone, phone) };
 }
 
@@ -96,6 +99,11 @@ export function isReady(line: ImportLine): boolean {
   return line.problems.length === 0 && line.phone !== null;
 }
 
+export function phoneInputValue(line: ImportLine): string {
+  if (line.text.includes("\t")) return line.text.split("\t")[2] ?? "";
+  return line.text.match(phonePattern)?.[0] ?? "";
+}
+
 export function importableStudents(lines: ImportLine[]): ImportedStudent[] {
   return lines.filter(isReady).map((line) => ({ name: line.name, guardian_name: line.guardianName, guardian_phone: line.phone as string }));
 }
@@ -119,6 +127,19 @@ export async function saveImportedStudents(client: StudentsClient, rows: Importe
 
 export function changeImportText(state: StudentImportState, text: string): StudentImportState {
   return { ...state, text, message: null, notice: null };
+}
+
+export function changeImportLine(state: StudentImportState, lineNumber: number, field: "name" | "guardianName" | "phone", value: string): StudentImportState {
+  const line = parseStudentList(state.text, state.students).find((item) => item.line === lineNumber);
+  if (!line) return state;
+  const cells = {
+    name: line.name,
+    guardianName: line.guardianName,
+    phone: phoneInputValue(line),
+    [field]: value,
+  };
+  const text = state.text.split(/\r?\n/).map((content, index) => index + 1 === lineNumber ? [cells.name, cells.guardianName, cells.phone].join("\t") : content).join("\n");
+  return changeImportText(state, text);
 }
 
 export function addPickedContacts(state: StudentImportState, contacts: PickedContact[]): StudentImportState {

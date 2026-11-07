@@ -3,7 +3,7 @@ import type { StudentImportState } from "@/lib/student-import";
 import type { Student } from "@/lib/students";
 
 type SelectResult = { data: Student[] | null; error: { message: string } | null };
-type ViewProps = { state: StudentImportState; busy: boolean; onChange: (text: string) => void; onSubmit: () => void; onRetry: () => void; onPickContacts?: () => void };
+type ViewProps = { state: StudentImportState; busy: boolean; onChange: (text: string) => void; onEditLine: (line: number, field: "name" | "guardianName" | "phone", value: string) => void; onSubmit: () => void; onRetry: () => void; onPickContacts?: () => void };
 
 const select = vi.fn<() => Promise<SelectResult>>(async () => ({ data: [], error: null }));
 const insert = vi.fn(async (rows: unknown) => ({ error: null, rows }));
@@ -115,6 +115,13 @@ describe("página de colar a lista de alunos", () => {
     expect(insert).toHaveBeenCalledWith([{ name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321" }]);
     expect(done.busy).toBe(false);
     expect(done.state).toMatchObject({ text: "", notice: "1 aluno guardado.", students: [pedro] });
+  });
+
+  test("corrige uma linha pela tela de conferência", async () => {
+    const opened = await open();
+    opened.onChange("Mãe do Pedro, Ana Lima, 11987654321");
+    view().onEditLine(1, "name", "Pedro Lima");
+    expect(view().state.text).toBe("Pedro Lima\tAna Lima\t11987654321");
   });
 
   test("sem a escolha de contatos no celular, não oferece o botão", async () => {

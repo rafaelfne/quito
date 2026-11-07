@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { StudentImportView } from "@/app/(app)/students/import/import-view";
 import { contactsPickerOf, pickContacts, type ContactsPicker } from "@/lib/contact-picker";
-import { addPickedContacts, applyImportLoad, changeImportText, failPickingContacts, initialStudentImport, startReloadingImport, submitImport } from "@/lib/student-import";
+import { addPickedContacts, applyImportLoad, changeImportLine, changeImportText, failPickingContacts, initialStudentImport, startReloadingImport, submitImport } from "@/lib/student-import";
 import { loadStudents } from "@/lib/students";
 import { supabase } from "@/lib/supabase";
 
@@ -52,6 +52,7 @@ export default function StudentImportPage() {
       state={state}
       busy={busy}
       onChange={(text: string) => setState((current) => changeImportText(current, text))}
+      onEditLine={(line: number, field: "name" | "guardianName" | "phone", value: string) => setState((current) => changeImportLine(current, line, field, value))}
       onSubmit={submit}
       onRetry={retry}
       onPickContacts={picker ? () => chooseContacts(picker) : undefined}

@@ -11,7 +11,7 @@ const pedro: Student = { id: "1", name: "Pedro Lima", guardian_name: "Ana Lima",
 const ready: StudentImportState = { ...initialStudentImport, listStatus: "ready" };
 
 function handlers() {
-  return { onChange: vi.fn(), onSubmit: vi.fn(), onRetry: vi.fn() };
+  return { onChange: vi.fn(), onEditLine: vi.fn(), onSubmit: vi.fn(), onRetry: vi.fn() };
 }
 
 function render(state: StudentImportState, busy = false) {
@@ -53,6 +53,8 @@ describe("tela de colar a lista de alunos", () => {
     expect(html).toContain("1 pronto para guardar, 1 precisa de correção.");
     expect(html).toContain("Guardar 1 aluno");
     expect(html).toContain("ficam na caixa depois de guardar");
+    expect(html).toContain('value="Pedro Lima"');
+    expect(html).toContain("Nome do aluno");
   });
 
   test("conta no plural e marca quem já está cadastrado", () => {
@@ -102,6 +104,25 @@ describe("tela de colar a lista de alunos", () => {
     (all.find((element) => element.type === "form")!.props.onSubmit as (event: { preventDefault: () => void }) => void)({ preventDefault });
     expect(preventDefault).toHaveBeenCalled();
     expect(props.onSubmit).toHaveBeenCalled();
+  });
+
+  test("corrigir um campo da linha chama a ação com linha e campo", () => {
+    const props = handlers();
+    const all = expand(StudentImportView({ state: { ...ready, text: "Mãe do Pedro, Ana Lima" }, busy: false, ...props }));
+    const studentName = all.find((element) => element.type === "input" && element.props.value === "Mãe do Pedro");
+    (studentName!.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: "Pedro Lima" } });
+    expect(props.onEditLine).toHaveBeenCalledWith(1, "name", "Pedro Lima");
+  });
+
+  test("corrigir responsável e telefone chama a ação com cada campo", () => {
+    const props = handlers();
+    const all = expand(StudentImportView({ state: { ...ready, text: "Mãe do Pedro, Ana Lima, 11987654321" }, busy: false, ...props }));
+    const guardianName = all.find((element) => element.type === "input" && element.props.value === "Ana Lima");
+    const phone = all.find((element) => element.type === "input" && element.props.type === "tel");
+    (guardianName!.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: "Ana Souza" } });
+    (phone!.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: "11999998888" } });
+    expect(props.onEditLine).toHaveBeenNthCalledWith(1, 1, "guardianName", "Ana Souza");
+    expect(props.onEditLine).toHaveBeenNthCalledWith(2, 1, "phone", "11999998888");
   });
 
   test("sem a escolha de contatos no celular, não mostra o botão", () => {

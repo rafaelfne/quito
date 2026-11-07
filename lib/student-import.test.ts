@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import {
   addPickedContacts,
   applyImportLoad,
+  changeImportLine,
   changeImportText,
   describeReady,
   describeSaved,
@@ -148,6 +149,20 @@ describe("estado da importação", () => {
   test("mudar o texto apaga mensagens antigas", () => {
     const state = { ...ready("a"), message: "erro", notice: "ok" };
     expect(changeImportText(state, "b")).toEqual({ ...state, text: "b", message: null, notice: null });
+  });
+
+  test("corrigir campos mantém as outras informações e atualiza as marcações", () => {
+    const state = ready("Mãe do Pedro, Ana Lima", []);
+    const withName = changeImportLine(state, 1, "name", "Pedro Lima");
+    expect(parseStudentList(withName.text)[0]).toMatchObject({ name: "Pedro Lima", guardianName: "Ana Lima", problems: [studentImportMessages.phoneMissing] });
+    const typingPhone = changeImportLine(withName, 1, "phone", "11");
+    const withPhone = changeImportLine(typingPhone, 1, "phone", "11987654321");
+    expect(importableStudents(parseStudentList(withPhone.text))).toEqual([{ name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321" }]);
+  });
+
+  test("não altera a lista quando a linha não existe", () => {
+    const state = ready("Pedro Lima, Ana Lima, 11987654321");
+    expect(changeImportLine(state, 2, "name", "Bia Reis")).toBe(state);
   });
 
   test("contatos escolhidos entram na caixa com o aviso de completar o aluno", () => {
