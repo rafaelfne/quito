@@ -7,7 +7,7 @@ export type SessionStatus = "signed-in" | "signed-out" | "unreachable";
 
 export const signInBasePath = "/";
 
-export const afterSignInPath = "/notes";
+export const afterSignInPath = "/charges";
 
 export const googleCallbackPath = "/auth/callback";
 

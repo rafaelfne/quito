@@ -5,6 +5,7 @@ describe("noteWarning", () => {
   test("avisa quando a nota passa do limite", () => {
     expect(noteWarning("a".repeat(noteLimit + 1))).toBe(noteTooLongMessage);
     expect(noteTooLongMessage).toContain("2.000 caracteres");
+    expect(noteTooLongMessage).toContain("toque em Guardar");
   });
 
   test("não avisa com a nota exatamente no limite", () => {

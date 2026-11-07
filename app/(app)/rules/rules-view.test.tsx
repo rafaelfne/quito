@@ -72,6 +72,8 @@ describe("tela de regras", () => {
     const html = render(ready);
     expect(html).toContain('href="/students"');
     expect(html).toContain('href="/lessons"');
+    expect(html).toContain('href="/payment"');
+    expect(html).toContain('href="/charges"');
     expect(html).toContain('href="/account"');
   });
 
@@ -107,6 +109,10 @@ describe("tela de regras", () => {
   test("mostra o aviso de guardado e a falha ao guardar", () => {
     expect(render({ ...ready, notice: teacherRulesMessages.saved })).toContain(teacherRulesMessages.saved);
     expect(render({ ...ready, message: teacherRulesMessages.saveFailed })).toContain(teacherRulesMessages.saveFailed);
+  });
+
+  test("o botão diz Guardar regras", () => {
+    expect(render(ready)).toContain("Guardar regras");
   });
 
   test("enquanto guarda, trava o formulário e avisa no botão", () => {

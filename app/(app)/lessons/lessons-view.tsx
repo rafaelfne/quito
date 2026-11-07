@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { accountPath } from "@/lib/account";
+import { chargesPath } from "@/lib/charges";
 import { closingPath } from "@/lib/closing";
 import {
   chargeLabel,
@@ -34,6 +35,7 @@ import {
   type LessonCredit,
   type MakeupTarget,
 } from "@/lib/makeups";
+import { paymentSettingsPath } from "@/lib/payment-settings";
 import { studentsPath } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
 
@@ -210,6 +212,12 @@ export function LessonsView({ state, today, onMark, onChangeMonth, onRetry, onCh
           </Link>
           <Link className="text-sm underline" href={teacherRulesPath}>
             Regras
+          </Link>
+          <Link className="text-sm underline" href={paymentSettingsPath}>
+            Recebimento
+          </Link>
+          <Link className="text-sm underline" href={chargesPath}>
+            Cobranças
           </Link>
           <Link className="text-sm underline" href={accountPath}>
             Conta

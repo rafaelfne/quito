@@ -8,8 +8,8 @@ import { StudentsView } from "./students-view";
 
 type AnyProps = Record<string, unknown> & { children?: ReactNode };
 
-const pedro: Student = { id: "1", name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "package", billing_amount_cents: 30000, package_lessons: 4, lesson_weekday: 1, lesson_time: "15:00:00" };
-const bia: Student = { id: "2", name: "Bia Reis", guardian_name: "Rosa Reis", guardian_phone: "2134567890", billing_kind: null, billing_amount_cents: null, package_lessons: null, lesson_weekday: null, lesson_time: null };
+const pedro: Student = { id: "1", name: "Pedro Lima", gender: "male", called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "package", billing_amount_cents: 30000, package_lessons: 4, lesson_weekday: 1, lesson_time: "15:00:00" };
+const bia: Student = { id: "2", name: "Bia Reis", gender: "male", called_as: null, guardian_name: "Rosa Reis", guardian_phone: "2134567890", billing_kind: null, billing_amount_cents: null, package_lessons: null, lesson_weekday: null, lesson_time: null };
 const november2026 = { year: 2026, month: 11 };
 const ready: StudentsState = { ...initialStudents, listStatus: "ready", students: [bia, pedro] };
 
@@ -85,6 +85,8 @@ describe("tela de alunos", () => {
     expect(html).toContain('href="/notes"');
     expect(html).toContain('href="/lessons"');
     expect(html).toContain('href="/rules"');
+    expect(html).toContain('href="/payment"');
+    expect(html).toContain('href="/charges"');
     expect(html).toContain('href="/account"');
   });
 
@@ -108,6 +110,11 @@ describe("tela de alunos", () => {
     expect(render({ ...ready, notice: "Cadastro de Pedro guardado." })).toContain('role="status"');
     expect(render(ready)).not.toContain('role="status"');
     expect(render({ ...ready, message: studentMessages.saveFailed })).toContain(studentMessages.saveFailed);
+  });
+
+  test("o botão diz Guardar aluno no cadastro e Guardar ao corrigir", () => {
+    expect(render(ready)).toContain("Guardar aluno");
+    expect(render(startEditing(ready, pedro))).toMatch(/>Guardar<\/button>/);
   });
 
   test("enquanto guarda, trava o formulário e diz o que está fazendo", () => {
@@ -204,6 +211,35 @@ describe("forma de cobrança na tela de alunos", () => {
     expect(invalid).toContain('id="student-package-lessons-error"');
   });
 
+  test("pergunta o gênero do aluno com as três opções, e avisa a escolha", () => {
+    const html = render(ready);
+    expect(html).toContain("Gênero do aluno");
+    for (const label of ["Masculino", "Feminino", "Outro"]) expect(html).toContain(label);
+    expect(html).not.toContain("Como quer ser chamado");
+    const { inputs, props } = controls(ready);
+    const female = inputs.find((input) => input.props.value === "female")!;
+    (female.props.onChange as () => void)();
+    expect(props.onChange).toHaveBeenCalledWith("gender", "female");
+  });
+
+  test("com Outro, abre o campo de como quer ser chamado e aponta o erro nele", () => {
+    const other: StudentsState = { ...ready, newDraft: { ...ready.newDraft, gender: "other" }, errors: { calledAs: studentMessages.calledAsMissing } };
+    const html = render(other);
+    expect(html).toContain("Como quer ser chamado");
+    expect(html).toContain('id="student-called-as-error"');
+    const { inputs, props } = controls(other);
+    const field = inputs.find((input) => input.props["aria-describedby"] === "student-called-as-error")!;
+    (field.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: "Alex" } });
+    expect(props.onChange).toHaveBeenCalledWith("calledAs", "Alex");
+  });
+
+  test("sem a resposta, aponta o erro nessa pergunta", () => {
+    const html = render({ ...ready, errors: { gender: studentMessages.genderMissing } });
+    expect(html).toContain('id="student-gender-error"');
+    expect(html).toContain('aria-describedby="student-gender-error"');
+    expect(html).toContain(studentMessages.genderMissing);
+  });
+
   test("escolher a forma avisa qual foi escolhida", () => {
     const { inputs, props } = controls(ready);
     const radio = inputs.find((input) => input.props.value === "per_class")!;
@@ -261,7 +297,8 @@ describe("toques na tela de alunos", () => {
   test("digitar avisa qual campo mudou", () => {
     const { inputs, props } = controls(ready);
     (inputs[0].props.onChange as (event: { target: { value: string } }) => void)({ target: { value: "Maria" } });
-    (inputs[2].props.onChange as (event: { target: { value: string } }) => void)({ target: { value: "11" } });
+    const phone = inputs.find((input) => input.props.type === "tel")!;
+    (phone.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: "11" } });
     expect(props.onChange).toHaveBeenCalledWith("name", "Maria");
     expect(props.onChange).toHaveBeenCalledWith("guardianPhone", "11");
   });

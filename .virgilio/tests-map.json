@@ -63,6 +63,19 @@
       "sensitive": "personal"
     },
     {
+      "id": "recebimento",
+      "name": "Dados de recebimento",
+      "description": "Onde o professor guarda a chave Pix, o nome que aparece para o responsável, o dia de vencimento padrão, o dia diferente por responsável e o tom, a saudação, o agradecimento e a assinatura da mensagem de cobrança",
+      "paths": [
+        "app/(app)/payment",
+        "lib/payment-settings.ts",
+        "lib/guardian-due-days.ts",
+        "lib/message-settings.ts",
+        "lib/message-templates.ts"
+      ],
+      "sensitive": "personal"
+    },
+    {
       "id": "aulas",
       "name": "Aulas",
       "description": "Onde o professor marca cada aula prevista do mês como dada, falta avisada, falta sem aviso ou falta do professor, vê quais são cobradas e usa os créditos para marcar a reposição",
@@ -80,6 +93,18 @@
       "paths": [
         "app/(app)/closing",
         "lib/closing.ts"
+      ],
+      "sensitive": "personal"
+    },
+    {
+      "id": "cobrancas",
+      "name": "Cobranças do mês",
+      "description": "Onde o professor vê a cobrança de cada responsável pelo mês que terminou, com o valor e a conta aberta guardados como estavam quando ela ficou pronta, o que falta marcar nas que ainda não ficaram prontas e o acerto de aula corrigida em mês já cobrado",
+      "paths": [
+        "app/(app)/charges",
+        "lib/charges.ts",
+        "lib/charge-message.ts",
+        "lib/charge-adjustments.ts"
       ],
       "sensitive": "personal"
     },
@@ -124,23 +149,35 @@
     "app/(app)/students/students-view.tsx": "Formulário e lista de alunos na tela",
     "app/(app)/rules/page.tsx": "Tela de regras do professor",
     "app/(app)/rules/rules-view.tsx": "Formulário das regras do professor na tela",
+    "app/(app)/payment/page.tsx": "Tela de dados de recebimento",
+    "app/(app)/payment/payment-view.tsx": "Formulário dos dados de recebimento na tela",
+    "app/(app)/payment/message-settings-section.tsx": "Escolha do tom, saudação, agradecimento, assinatura e exemplo da mensagem na tela",
     "app/(app)/lessons/page.tsx": "Tela de marcar as aulas do mês",
     "app/(app)/lessons/lessons-view.tsx": "Aulas do mês e botões de marcar na tela",
     "app/(app)/closing/page.tsx": "Tela de fechamento do mês",
     "app/(app)/closing/closing-view.tsx": "Conta aberta de cada responsável na tela",
+    "app/(app)/charges/page.tsx": "Tela de cobranças do mês que terminou",
+    "app/(app)/charges/charges-view.tsx": "Cobrança guardada de cada responsável na tela",
     "app/layout.tsx": "Moldura de todas as telas",
     "lib/sign-in.ts": "Regras de pedir e conferir o código de entrada",
     "lib/google-sign-in.ts": "Regras de entrar com Google",
     "lib/session.ts": "Regras de continuar conectado e de sair",
     "lib/account.ts": "Regras de mostrar e apagar a conta",
     "lib/notes.ts": "Regras do texto de uma nota",
-    "lib/students.ts": "Regras do cadastro de aluno e do telefone do responsável",
+    "lib/students.ts": "Regras do cadastro de aluno, do gênero e do telefone do responsável",
     "lib/billing.ts": "Regras da forma de cobrança e do valor em reais",
     "lib/schedule.ts": "Regras do horário fixo semanal e das aulas previstas do mês",
     "lib/teacher-rules.ts": "Regras da antecedência da falta, do prazo de reposição e do mês com 5 semanas",
+    "lib/payment-settings.ts": "Regras da chave Pix, do nome para o responsável e do dia de vencimento em mês mais curto",
+    "lib/guardian-due-days.ts": "Regras do dia de vencimento trocado por responsável, valendo para todos os irmãos",
+    "lib/message-settings.ts": "Regras de guardar o tom, a saudação, o agradecimento e a assinatura da mensagem de cobrança",
+    "lib/message-templates.ts": "Textos dos três tons da mensagem de cobrança e como as partes entram neles",
     "lib/lessons.ts": "Regras de marcar a aula e de quais aulas são cobradas",
     "lib/makeups.ts": "Regras do crédito de reposição: quando nasce, quando vence e quando é usado",
     "lib/closing.ts": "Regras do fechamento: quanto cada aluno e cada responsável deve no mês",
+    "lib/charges.ts": "Regras da cobrança do mês: quando fica pronta e como guarda o valor e a conta aberta",
+    "lib/charge-message.ts": "Monta a mensagem de cada cobrança: nomes, mês, conta aberta, total, vencimento e chave Pix no tom escolhido",
+    "lib/charge-adjustments.ts": "Regras do acerto: a diferença de uma aula corrigida em mês já cobrado e como ela entra na próxima cobrança",
     "lib/supabase.ts": "Conexão com o banco usada nas telas",
     "lib/supabase-server.ts": "Conexão com o banco usada no servidor"
   }

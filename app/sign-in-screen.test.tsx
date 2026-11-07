@@ -161,7 +161,7 @@ describe("tela de entrada", () => {
     const { props } = renderCapturing();
     props!.onSubmitCode();
     await settle();
-    expect(replace).toHaveBeenCalledWith("/notes");
+    expect(replace).toHaveBeenCalledWith("/charges");
   });
 
   test("depois de entrar, volta para onde o professor ia", async () => {
