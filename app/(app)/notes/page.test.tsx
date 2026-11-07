@@ -118,9 +118,17 @@ describe("página de notas", () => {
     expect(html).toContain('href="/students"');
     expect(html).toContain('href="/lessons"');
     expect(html).toContain('href="/rules"');
+    expect(html).toContain('href="/payment"');
+    expect(html).toContain('href="/charges"');
     expect(html).toContain('href="/account"');
     expect(from).toHaveBeenCalledWith("notes");
     expect(order).toHaveBeenCalledWith("created_at", { ascending: false });
+  });
+
+  test("o botão da nota diz Guardar", () => {
+    const { html } = render();
+    expect(html).toMatch(/<button[^>]*type="submit"[^>]*>Guardar<\/button>/);
+    expect(html).not.toContain(">Salvar<");
   });
 });
 

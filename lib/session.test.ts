@@ -171,3 +171,10 @@ describe("signOutThisDevice", () => {
     await expect(signOutThisDevice({ signOut } as unknown as Pick<SessionAuth, "signOut">)).resolves.toEqual({ ok: false, message: sessionMessages.signOutFailed });
   });
 });
+
+describe("tela de abertura", () => {
+  test("ao entrar, o professor vê o painel do mês", () => {
+    expect(afterSignInPath).toBe("/charges");
+  });
+});
+

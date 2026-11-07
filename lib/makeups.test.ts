@@ -22,7 +22,7 @@ import {
 import type { Student } from "./students";
 
 const november2026 = { year: 2026, month: 11 };
-const pedro: Student = { id: "p", name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
+const pedro: Student = { id: "p", name: "Pedro Lima", gender: "male", called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
 const bia: Student = { ...pedro, id: "b", name: "Bia Reis" };
 
 function mark(overrides: Partial<LessonMark> = {}): LessonMark {

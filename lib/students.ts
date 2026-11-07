@@ -5,13 +5,15 @@ import { requestTimeoutMs, withTimeout } from "@/lib/sign-in";
 
 export type StudentsClient = Pick<SupabaseClient, "from">;
 
+export type StudentGender = "male" | "female" | "other";
+
 type StudentContact = { name: string; guardian_name: string; guardian_phone: string };
 
-export type StudentRow = StudentContact & BillingRow & ScheduleRow;
+export type StudentRow = StudentContact & BillingRow & ScheduleRow & { gender: StudentGender; called_as: string | null };
 
-export type Student = StudentContact & SavedBilling & SavedSchedule & { id: string };
+export type Student = StudentContact & SavedBilling & SavedSchedule & { id: string; gender: StudentGender | null; called_as: string | null };
 
-export type StudentDraft = BillingDraft & ScheduleDraft & { name: string; guardianName: string; guardianPhone: string };
+export type StudentDraft = BillingDraft & ScheduleDraft & { name: string; gender: string; calledAs: string; guardianName: string; guardianPhone: string };
 
 export type StudentField = keyof StudentDraft;
 
@@ -37,8 +39,17 @@ export const studentsPath = "/students";
 
 export const studentNameLimit = 120;
 
+export const studentGenderOptions: { value: StudentGender; label: string }[] = [
+  { value: "male", label: "Masculino" },
+  { value: "female", label: "Feminino" },
+  { value: "other", label: "Outro" },
+];
+
 export const studentMessages = {
   nameMissing: "Escreva o nome do aluno.",
+  genderMissing: "Escolha o gênero do aluno.",
+  calledAsMissing: "Escreva como o aluno quer ser chamado.",
+  calledAsTooLong: `O jeito de chamar o aluno passou do limite de ${studentNameLimit} caracteres. Encurte o texto e toque em Guardar de novo.`,
   nameTooLong: `O nome do aluno passou do limite de ${studentNameLimit} caracteres. Encurte o texto e toque em Guardar de novo.`,
   guardianMissing: "Escreva o nome do responsável.",
   guardianTooLong: `O nome do responsável passou do limite de ${studentNameLimit} caracteres. Encurte o texto e toque em Guardar de novo.`,
@@ -49,13 +60,13 @@ export const studentMessages = {
 
 const table = "students";
 
-const columns = "id, name, guardian_name, guardian_phone, billing_kind, billing_amount_cents, package_lessons, lesson_weekday, lesson_time";
+const columns = "id, name, gender, called_as, guardian_name, guardian_phone, billing_kind, billing_amount_cents, package_lessons, lesson_weekday, lesson_time";
 
 const nationalPhonePattern = /^[1-9]{2}(9\d{8}|[2-9]\d{7})$/;
 
 const countryCodePattern = /^55\d{10,11}$/;
 
-const emptyDraft: StudentDraft = { name: "", guardianName: "", guardianPhone: "", ...emptyBillingDraft, ...emptyScheduleDraft };
+const emptyDraft: StudentDraft = { name: "", gender: "", calledAs: "", guardianName: "", guardianPhone: "", ...emptyBillingDraft, ...emptyScheduleDraft };
 
 export const initialStudents: StudentsState = {
   students: [],
@@ -77,6 +88,10 @@ export function formatPhone(phone: string): string {
   return phone.replace(/^(\d{2})(\d{4,5})(\d{4})$/, "($1) $2-$3");
 }
 
+function isStudentGender(value: string): value is StudentGender {
+  return studentGenderOptions.some((option) => option.value === value);
+}
+
 function cleanName(raw: string): string {
   return raw.trim().replace(/\s+/g, " ");
 }
@@ -88,6 +103,7 @@ function nameError(name: string, missing: string, tooLong: string): string | und
 
 export function validateStudent(draft: StudentDraft): StudentValidation {
   const name = cleanName(draft.name);
+  const calledAs = draft.gender === "other" ? cleanName(draft.calledAs) : null;
   const guardianName = cleanName(draft.guardianName);
   const phone = normalizePhone(draft.guardianPhone);
   const billing = validateBilling(draft);
@@ -96,10 +112,13 @@ export function validateStudent(draft: StudentDraft): StudentValidation {
   const nameProblem = nameError(name, studentMessages.nameMissing, studentMessages.nameTooLong);
   const guardianProblem = nameError(guardianName, studentMessages.guardianMissing, studentMessages.guardianTooLong);
   if (nameProblem) errors.name = nameProblem;
+  if (!isStudentGender(draft.gender)) errors.gender = studentMessages.genderMissing;
+  const calledAsProblem = calledAs === null ? undefined : nameError(calledAs, studentMessages.calledAsMissing, studentMessages.calledAsTooLong);
+  if (calledAsProblem) errors.calledAs = calledAsProblem;
   if (guardianProblem) errors.guardianName = guardianProblem;
   if (!phone) errors.guardianPhone = studentMessages.phoneInvalid;
-  if (!phone || !billing.ok || !schedule.ok || Object.keys(errors).length > 0) return { ok: false, errors };
-  return { ok: true, row: { name, guardian_name: guardianName, guardian_phone: phone, ...billing.row, ...schedule.row } };
+  if (!phone || !billing.ok || !schedule.ok || !isStudentGender(draft.gender) || Object.keys(errors).length > 0) return { ok: false, errors };
+  return { ok: true, row: { name, gender: draft.gender, called_as: calledAs, guardian_name: guardianName, guardian_phone: phone, ...billing.row, ...schedule.row } };
 }
 
 export function sortStudents(students: Student[]): Student[] {
@@ -149,7 +168,7 @@ export function changeDraft(state: StudentsState, field: StudentField, value: st
 }
 
 export function startEditing(state: StudentsState, student: Student): StudentsState {
-  const draft = { name: student.name, guardianName: student.guardian_name, guardianPhone: formatPhone(student.guardian_phone), ...billingDraftFrom(student), ...scheduleDraftFrom(student) };
+  const draft = { name: student.name, gender: student.gender ?? "", calledAs: student.called_as ?? "", guardianName: student.guardian_name, guardianPhone: formatPhone(student.guardian_phone), ...billingDraftFrom(student), ...scheduleDraftFrom(student) };
   return { ...state, editing: { id: student.id, draft }, errors: {}, message: null, notice: null };
 }
 

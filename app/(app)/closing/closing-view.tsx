@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { accountPath } from "@/lib/account";
 import { formatCurrency } from "@/lib/billing";
+import { chargesPath } from "@/lib/charges";
 import {
   buildMonthClosing,
   closingMessages,
@@ -15,6 +16,7 @@ import {
   type StudentClosing,
 } from "@/lib/closing";
 import { describeMonth, lessonsPath } from "@/lib/lessons";
+import { paymentSettingsPath } from "@/lib/payment-settings";
 import type { CalendarMonth } from "@/lib/schedule";
 import { formatPhone, studentsPath } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
@@ -132,6 +134,12 @@ export function ClosingView({ state, today, onChangeMonth, onRetry }: ClosingVie
           </Link>
           <Link className="text-sm underline" href={teacherRulesPath}>
             Regras
+          </Link>
+          <Link className="text-sm underline" href={paymentSettingsPath}>
+            Recebimento
+          </Link>
+          <Link className="text-sm underline" href={chargesPath}>
+            Cobranças
           </Link>
           <Link className="text-sm underline" href={accountPath}>
             Conta
