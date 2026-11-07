@@ -81,11 +81,12 @@
     {
       "id": "aulas",
       "name": "Aulas",
-      "description": "Onde o professor marca cada aula prevista do mês como dada, falta avisada, falta sem aviso ou falta do professor, vê quais são cobradas e usa os créditos para marcar a reposição",
+      "description": "Onde o professor marca cada aula prevista do mês como dada, falta avisada, falta sem aviso ou falta do professor, vê quais são cobradas, vê no mês de treino que nenhuma aula gera cobrança e usa os créditos para marcar a reposição",
       "paths": [
         "app/(app)/lessons",
         "lib/lessons.ts",
-        "lib/makeups.ts"
+        "lib/makeups.ts",
+        "lib/training.ts"
       ],
       "sensitive": "personal"
     },
@@ -113,7 +114,7 @@
     {
       "id": "cobrancas",
       "name": "Cobranças do mês",
-      "description": "Onde o professor vê a cobrança de cada responsável pelo mês que terminou, com o valor e a conta aberta guardados como estavam quando ela ficou pronta, o que falta marcar nas que ainda não ficaram prontas e o acerto de aula corrigida em mês já cobrado",
+      "description": "Onde o professor vê a cobrança de cada responsável pelo mês que terminou, com o valor e a conta aberta guardados como estavam quando ela ficou pronta, o que falta marcar nas que ainda não ficaram prontas e o acerto de aula corrigida em mês já cobrado, sem criar cobrança para o mês de treino",
       "paths": [
         "app/(app)/charges",
         "lib/charges.ts",
@@ -198,6 +199,7 @@
     "lib/message-templates.ts": "Textos dos três tons da mensagem de cobrança e como as partes entram neles",
     "lib/lessons.ts": "Regras de marcar a aula e de quais aulas são cobradas",
     "lib/makeups.ts": "Regras do crédito de reposição: quando nasce, quando vence e quando é usado",
+    "lib/training.ts": "Regras do mês de treino: vai da entrada até o fim do mês e não gera cobrança",
     "lib/closing.ts": "Regras do fechamento: quanto cada aluno e cada responsável deve no mês",
     "lib/getting-started.ts": "Regras dos passos, de quanto falta e de quando lembrar o professor",
     "lib/first-charge.ts": "Regras do primeiro mês cobrado, o seguinte ao da entrada, e do dia da primeira cobrança de cada responsável",

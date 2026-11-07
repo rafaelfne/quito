@@ -3,6 +3,7 @@ import { plannedLessons, type CalendarMonth } from "@/lib/schedule";
 import { requestTimeoutMs, withTimeout } from "@/lib/sign-in";
 import { loadStudents, type Student } from "@/lib/students";
 import { loadTeacherRules } from "@/lib/teacher-rules";
+import { describeTrainingSummary, isTrainingMonth, loadTrainingMonth, trainingMessages } from "@/lib/training";
 
 export type LessonsClient = Pick<SupabaseClient, "from">;
 
@@ -26,7 +27,7 @@ export type LessonsSummary = { charged: number; free: number; unmarked: number }
 
 export type LessonMarksLoad = { ok: true; marks: LessonMark[] } | { ok: false };
 
-export type LessonsMonthLoad = { ok: true; month: CalendarMonth; students: Student[]; marks: LessonMark[]; noticeHours: number; makeupDeadlineDays: number | null } | { ok: false; month: CalendarMonth };
+export type LessonsMonthLoad = { ok: true; month: CalendarMonth; students: Student[]; marks: LessonMark[]; noticeHours: number; makeupDeadlineDays: number | null; trainingMonth: CalendarMonth | null } | { ok: false; month: CalendarMonth };
 
 export type LessonsState = {
   month: CalendarMonth;
@@ -35,6 +36,7 @@ export type LessonsState = {
   marks: LessonMark[];
   noticeHours: number | null;
   makeupDeadlineDays: number | null;
+  trainingMonth: CalendarMonth | null;
   pending: string[];
   failedLesson: string | null;
   makeupDrafts: Record<string, string>;
@@ -93,6 +95,15 @@ export function isCreditStatus(status: LessonStatus): status is CreditStatus {
 export function chargeLabel(status: LessonStatus | null): string {
   if (status === null) return "Ainda sem marcar";
   return isCharged(status) ? "Cobrada" : "Sem cobrança";
+}
+
+export function isTrainingState(state: Pick<LessonsState, "month" | "trainingMonth">): boolean {
+  return isTrainingMonth(state.month, state.trainingMonth);
+}
+
+export function lessonChargeLabel(status: LessonStatus | null, training: boolean): string {
+  if (!training || status === null) return chargeLabel(status);
+  return isCharged(status) ? trainingMessages.wouldCharge : trainingMessages.free;
 }
 
 export function lessonKey(lesson: Pick<MonthLesson, "studentId" | "date">): string {
@@ -191,6 +202,10 @@ export function describeSummary({ charged, free, unmarked }: LessonsSummary): st
   return `${counted(charged, "aula cobrada", "aulas cobradas")}, ${free} sem cobrança e ${unmarked} para marcar.`;
 }
 
+export function describeMonthSummary(summary: LessonsSummary, training: boolean): string {
+  return training ? describeTrainingSummary(summary) : describeSummary(summary);
+}
+
 export function describeUnscheduled(students: Student[]): string | null {
   const count = students.filter((student) => student.lesson_weekday === null || student.lesson_time === null).length;
   if (count === 0) return null;
@@ -223,9 +238,9 @@ function withoutRepeats(marks: LessonMark[]): LessonMark[] {
 }
 
 export async function loadLessonsMonth(client: LessonsClient, month: CalendarMonth): Promise<LessonsMonthLoad> {
-  const [students, marks, credits, rules] = await Promise.all([loadStudents(client), loadLessonMarks(client, month), loadCreditMarks(client), loadTeacherRules(client)]);
-  if (!students.ok || !marks.ok || !credits.ok || !rules.ok) return { ok: false, month };
-  return { ok: true, month, students: students.students, marks: withoutRepeats([...marks.marks, ...credits.marks]), noticeHours: rules.rules.notice_hours, makeupDeadlineDays: rules.rules.makeup_deadline_days };
+  const [students, marks, credits, rules, training] = await Promise.all([loadStudents(client), loadLessonMarks(client, month), loadCreditMarks(client), loadTeacherRules(client), loadTrainingMonth(client)]);
+  if (!students.ok || !marks.ok || !credits.ok || !rules.ok || !training.ok) return { ok: false, month };
+  return { ok: true, month, students: students.students, marks: withoutRepeats([...marks.marks, ...credits.marks]), noticeHours: rules.rules.notice_hours, makeupDeadlineDays: rules.rules.makeup_deadline_days, trainingMonth: training.trainingMonth };
 }
 
 export async function persistLessonMark(client: LessonsClient, lesson: MonthLesson, status: LessonStatus | null): Promise<boolean> {
@@ -241,7 +256,7 @@ export async function persistLessonMark(client: LessonsClient, lesson: MonthLess
 }
 
 export function initialLessons(month: CalendarMonth): LessonsState {
-  return { month, status: "loading", students: [], marks: [], noticeHours: null, makeupDeadlineDays: null, pending: [], failedLesson: null, makeupDrafts: {}, makeupErrors: {} };
+  return { month, status: "loading", students: [], marks: [], noticeHours: null, makeupDeadlineDays: null, trainingMonth: null, pending: [], failedLesson: null, makeupDrafts: {}, makeupErrors: {} };
 }
 
 export function startLessonsMonth(state: LessonsState, delta: number): LessonsState {
@@ -255,7 +270,7 @@ export function startReloadingLessons(state: LessonsState): LessonsState {
 export function applyLessonsLoad(state: LessonsState, result: LessonsMonthLoad): LessonsState {
   if (result.month.year !== state.month.year || result.month.month !== state.month.month) return state;
   if (!result.ok) return { ...state, status: "failed" };
-  return { ...state, status: "ready", students: result.students, marks: result.marks, noticeHours: result.noticeHours, makeupDeadlineDays: result.makeupDeadlineDays };
+  return { ...state, status: "ready", students: result.students, marks: result.marks, noticeHours: result.noticeHours, makeupDeadlineDays: result.makeupDeadlineDays, trainingMonth: result.trainingMonth };
 }
 
 export function nextStatus(lesson: MonthLesson, tapped: LessonStatus): LessonStatus | null {
