@@ -56,15 +56,15 @@ describe("mensagem de cobrança na tela", () => {
   test("oferece os três tons, com o Próximo marcado de partida", () => {
     const html = render(ready);
     for (const label of ["Próximo", "Direto", "Formal"]) expect(html).toContain(label);
-    expect(html.match(/checked=""/g)).toHaveLength(1);
-    expect(html).toMatch(/checked=""[^>]*\/>\s*<span[^>]*><span[^>]*>Próximo/);
+    expect(html.match(/type="radio"[^>]*checked=""/g)).toHaveLength(1);
+    expect(html).toMatch(/type="radio"[^>]*checked=""[^>]*\/>\s*<span[^>]*><span[^>]*>Próximo/);
   });
 
   test("o exemplo acompanha o tom e os ajustes, com o total em negrito", () => {
     expect(render(ready)).toContain("Oi, Carla! Tudo bem?");
     expect(render(ready)).toContain("<strong>Total: R$ 405,00</strong>");
     expect(render(withDraft({ tone: "direct" }))).toContain("<strong>R$ 405,00</strong>");
-    const adjusted = render(withDraft({ tone: "formal", greeting: "Bom dia,", thanks: "Um abraço", signature: "Tio João" }));
+    const adjusted = render(withDraft({ tone: "formal", greeting: "Bom dia,", thanks: "Um abraço", signature: "Tio João", footer: true }));
     expect(adjusted).toContain("Bom dia, Carla.");
     expect(adjusted).toMatch(/Um abraço,<\/span><\/p><p[^>]*><span>Tio João</);
   });
@@ -92,6 +92,23 @@ describe("mensagem de cobrança na tela", () => {
     expect(props.onMessageChange).toHaveBeenCalledWith({ thanks: "Obrigada" });
     (fields[2].props.onChange as (event: { target: { value: string } }) => void)({ target: { value: "Tio João" } });
     expect(props.onMessageChange).toHaveBeenCalledWith({ signature: "Tio João" });
+  });
+
+  test("a linha do Quitô vem ligada e some do exemplo quando desligada", () => {
+    const on = render(ready);
+    expect(on).toMatch(/type="checkbox"[^>]*checked=""/);
+    expect(on).toContain("Terminar com &quot;Conta feita pelo Quitô&quot;");
+    expect(on).toMatch(/<span>Conta feita pelo Quitô<\/span>/);
+    const off = render(withDraft({ footer: false }));
+    expect(off).not.toMatch(/type="checkbox"[^>]*checked=""/);
+    expect(off).not.toMatch(/<span>Conta feita pelo Quitô<\/span>/);
+  });
+
+  test("ligar e desligar a linha do Quitô avisa a escolha", () => {
+    const { inputs, props } = controls(ready);
+    const checkbox = inputs.find((input) => input.props.type === "checkbox");
+    (checkbox?.props.onChange as (event: { target: { checked: boolean } }) => void)({ target: { checked: false } });
+    expect(props.onMessageChange).toHaveBeenCalledWith({ footer: false });
   });
 
   test("guardar não recarrega a página", () => {

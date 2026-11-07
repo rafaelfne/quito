@@ -25,8 +25,8 @@ import { messageTones, type MessageTone } from "./message-templates";
 type Failure = { message: string } | null;
 type LoadResult = { data: MessageSettingsRow | null; error: Failure };
 
-const savedRow: MessageSettingsRow = { tone: "direct", greeting: "Bom dia", thanks: "Obrigada", signature: "Tio João" };
-const savedDraft = { tone: "direct" as MessageTone, greeting: "Bom dia", thanks: "Obrigada", signature: "Tio João" };
+const savedRow: MessageSettingsRow = { tone: "direct", greeting: "Bom dia", thanks: "Obrigada", signature: "Tio João", footer: true };
+const savedDraft = { tone: "direct" as MessageTone, greeting: "Bom dia", thanks: "Obrigada", signature: "Tio João", footer: true };
 
 function fakeClient(overrides: { load?: () => Promise<LoadResult>; upsert?: () => Promise<{ error: Failure }> } = {}) {
   const maybeSingle = vi.fn(overrides.load ?? (async () => ({ data: null, error: null } as LoadResult)));
@@ -47,7 +47,7 @@ function failing() {
 }
 
 describe("modelo da mensagem no banco", () => {
-  const migration = ["20261105000000_message_settings.sql", "20261105010000_message_settings_thanks.sql"]
+  const migration = ["20261105000000_message_settings.sql", "20261105010000_message_settings_thanks.sql", "20261106000000_message_settings_footer.sql"]
     .map((file) => readFileSync(join(process.cwd(), "supabase/migrations", file), "utf8"))
     .join("\n");
 
@@ -56,34 +56,40 @@ describe("modelo da mensagem no banco", () => {
     expect(migration).toContain(`char_length("thanks") between 1 and ${thanksLengthLimit}`);
     expect(migration).toContain(`char_length("signature") between 1 and ${signatureLengthLimit}`);
     expect(migration).toContain(`"tone" text not null default 'friendly'`);
+    expect(migration).toContain(`"footer" boolean not null default true`);
     expect(migration).toContain(`"tone" in (${messageTones.map((tone) => `'${tone.id}'`).join(", ")})`);
   });
 });
 
 describe("messageSettingsDraftFrom", () => {
   test("quem nunca guardou começa no Próximo, com saudação e assinatura de partida", () => {
-    expect(messageSettingsDraftFrom(null)).toEqual({ tone: "friendly", greeting: "", thanks: "", signature: "" });
+    expect(messageSettingsDraftFrom(null)).toEqual({ tone: "friendly", greeting: "", thanks: "", signature: "", footer: true });
     expect(initialMessageSettings.status).toBe("loading");
   });
 
   test("abre o que foi guardado, e o que está vazio continua em branco", () => {
     expect(messageSettingsDraftFrom(savedRow)).toEqual(savedDraft);
-    expect(messageSettingsDraftFrom({ tone: "formal", greeting: null, thanks: null, signature: null })).toEqual({ tone: "formal", greeting: "", thanks: "", signature: "" });
+    expect(messageSettingsDraftFrom({ tone: "formal", greeting: null, thanks: null, signature: null, footer: true })).toEqual({ tone: "formal", greeting: "", thanks: "", signature: "", footer: true });
+  });
+
+  test("a linha do Quitô abre como foi guardada", () => {
+    expect(messageSettingsDraftFrom({ ...savedRow, footer: false }).footer).toBe(false);
+    expect(messageAdjustmentsFrom({ ...savedDraft, footer: false }).footer).toBe(false);
   });
 
   test("um tom que o app não conhece volta ao Próximo", () => {
-    expect(messageSettingsDraftFrom({ tone: "duro" as MessageTone, greeting: null, thanks: null, signature: null }).tone).toBe("friendly");
+    expect(messageSettingsDraftFrom({ tone: "duro" as MessageTone, greeting: null, thanks: null, signature: null, footer: true }).tone).toBe("friendly");
   });
 });
 
 describe("messageAdjustmentsFrom", () => {
   test("em branco vira a saudação e a assinatura de partida", () => {
-    expect(messageAdjustmentsFrom({ tone: "friendly", greeting: "  ", thanks: " ", signature: " " })).toEqual({ tone: "friendly", greeting: null, thanks: null, signature: null });
+    expect(messageAdjustmentsFrom({ tone: "friendly", greeting: "  ", thanks: " ", signature: " ", footer: true })).toEqual({ tone: "friendly", greeting: null, thanks: null, signature: null, footer: true });
   });
 
   test("tira os espaços e a pontuação do fim da saudação, porque o nome vem logo depois", () => {
-    expect(messageAdjustmentsFrom({ tone: "friendly", greeting: " Bom dia, ", thanks: " Obrigada! ", signature: " Tio João. " })).toEqual({ tone: "friendly", greeting: "Bom dia", thanks: "Obrigada", signature: "Tio João." });
-    expect(messageAdjustmentsFrom({ tone: "friendly", greeting: "!!", thanks: "", signature: "" }).greeting).toBeNull();
+    expect(messageAdjustmentsFrom({ tone: "friendly", greeting: " Bom dia, ", thanks: " Obrigada! ", signature: " Tio João. ", footer: true })).toEqual({ tone: "friendly", greeting: "Bom dia", thanks: "Obrigada", signature: "Tio João.", footer: true });
+    expect(messageAdjustmentsFrom({ tone: "friendly", greeting: "!!", thanks: "", signature: "", footer: true }).greeting).toBeNull();
   });
 });
 
@@ -97,7 +103,7 @@ describe("validateMessageSettings", () => {
   });
 
   test("em branco é válido", () => {
-    expect(validateMessageSettings({ tone: "formal", greeting: "", thanks: "", signature: "" })).toEqual({ ok: true, row: { tone: "formal", greeting: null, thanks: null, signature: null } });
+    expect(validateMessageSettings({ tone: "formal", greeting: "", thanks: "", signature: "", footer: true })).toEqual({ ok: true, row: { tone: "formal", greeting: null, thanks: null, signature: null, footer: true } });
   });
 });
 

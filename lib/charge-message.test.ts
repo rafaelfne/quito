@@ -32,7 +32,7 @@ const ana = student(
 const carla: Charge = { id: "c1", charge_month: "2026-11-01", guardian_phone: "11987654321", guardian_name: "Carla", total_cents: 40500, account: [pedro, ana] };
 
 const context: ChargeMessageContext = {
-  adjustments: { tone: "friendly", greeting: null, thanks: null, signature: null },
+  adjustments: { tone: "friendly", greeting: null, thanks: null, signature: null, footer: true },
   payment: { pix_key: "joao.violao@email.com", display_name: "João Silva", due_day: 5 },
   dueDayOverrides: new Map(),
   students: [
@@ -59,10 +59,16 @@ describe("mensagem montada", () => {
   });
 
   test("usa os ajustes do professor e termina no rodapé", () => {
-    const message = chargeMessageOf(carla, { ...context, adjustments: { tone: "friendly", greeting: "Bom dia", thanks: "Obrigada", signature: "Tia Bia" } }, dueDay) ?? "";
+    const message = chargeMessageOf(carla, { ...context, adjustments: { tone: "friendly", greeting: "Bom dia", thanks: "Obrigada", signature: "Tia Bia", footer: true } }, dueDay) ?? "";
     expect(message.startsWith("Bom dia, Carla! Tudo bem?")).toBe(true);
     expect(message).toContain("Obrigada!\nTia Bia\n");
     expect(message.endsWith(quitoFooter)).toBe(true);
+  });
+
+  test("com a linha do Quitô desligada, termina na assinatura", () => {
+    const message = chargeMessageOf(carla, { ...context, adjustments: { ...context.adjustments, footer: false } }, dueDay) ?? "";
+    expect(message).not.toContain(quitoFooter);
+    expect(message.endsWith("Prof. João")).toBe(true);
   });
 
   test("sem os dados de recebimento, não monta a mensagem", () => {
@@ -180,7 +186,7 @@ describe("carregar o que a mensagem usa", () => {
     const single = (data: unknown, error: unknown = null) => ({ select: () => ({ maybeSingle: async () => ({ data, error }) }) });
     const from = vi.fn((table: string) => {
       if (table === "payment_settings") return single(context.payment, overrides.paymentError ? { message: "sem rede" } : null);
-      if (table === "message_settings") return single({ tone: "formal", greeting: "Bom dia", thanks: null, signature: null });
+      if (table === "message_settings") return single({ tone: "formal", greeting: "Bom dia", thanks: null, signature: null, footer: true });
       if (table === "guardian_due_days") return { select: async () => ({ data: [{ guardian_phone: "11987654321", due_day: 20 }], error: null }) };
       return { select: async () => ({ data: [{ id: "p", name: "Pedro", gender: "male", called_as: null }], error: null }) };
     });
@@ -190,7 +196,7 @@ describe("carregar o que a mensagem usa", () => {
   test("reúne o recebimento, o tom, os vencimentos e os alunos", async () => {
     const loaded = await loadChargeMessageContext(clientWith());
     expect(loaded?.payment).toEqual(context.payment);
-    expect(loaded?.adjustments).toEqual({ tone: "formal", greeting: "Bom dia", thanks: null, signature: null });
+    expect(loaded?.adjustments).toEqual({ tone: "formal", greeting: "Bom dia", thanks: null, signature: null, footer: true });
     expect(loaded?.dueDayOverrides.get("11987654321")).toBe(20);
     expect(loaded?.students.map((one) => one.id)).toEqual(["p"]);
   });

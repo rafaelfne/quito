@@ -5,6 +5,7 @@ export type MessageAdjustments = {
   greeting: string | null;
   thanks: string | null;
   signature: string | null;
+  footer: boolean;
 };
 
 export type MessageParts = {
@@ -129,7 +130,8 @@ export function composeMessage(adjustments: MessageAdjustments, parts: MessagePa
     thanks: adjustments.thanks ?? defaultThanks(tone),
     signature: adjustments.signature ?? defaultSignature(tone, parts.receiverName),
   };
-  return [...toneTexts[tone].lines(parts, wording), "", quitoFooter].join("\n");
+  const footer = adjustments.footer ? ["", quitoFooter] : [];
+  return [...toneTexts[tone].lines(parts, wording), ...footer].join("\n");
 }
 
 export const exampleMessageParts: MessageParts = {

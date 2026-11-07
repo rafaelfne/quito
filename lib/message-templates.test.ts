@@ -27,7 +27,7 @@ function findingText(label: string): string {
     .join("\n");
 }
 
-const standard = (tone: MessageTone) => ({ tone, greeting: null, thanks: null, signature: null });
+const standard = (tone: MessageTone) => ({ tone, greeting: null, thanks: null, signature: null, footer: true });
 
 describe("os três tons", () => {
   test("são Próximo, Direto e Formal, com o Próximo de partida", () => {
@@ -59,7 +59,7 @@ describe("saudação, agradecimento e assinatura", () => {
   });
 
   test.each(messageTones)("no tom $label, a saudação e a assinatura do professor entram no lugar das de partida", ({ id }) => {
-    const message = composeMessage({ tone: id, greeting: "Bom dia", thanks: "Obrigada", signature: "Tio João" }, exampleMessageParts);
+    const message = composeMessage({ tone: id, greeting: "Bom dia", thanks: "Obrigada", signature: "Tio João", footer: true }, exampleMessageParts);
     expect(message.split("\n")[0]).toMatch(/^Bom dia, Carla[!.]/);
     const lines = message.split("\n");
     expect(lines[lines.length - 3]).toBe("Tio João");
@@ -67,6 +67,14 @@ describe("saudação, agradecimento e assinatura", () => {
     expect(message).not.toContain("Obrigado");
     expect(message).not.toContain("Atenciosamente");
     expect(lines[lines.length - 1]).toBe(quitoFooter);
+  });
+});
+
+describe("linha do Quitô no fim", () => {
+  test.each(messageTones)("no tom $label, desligada, a mensagem termina na assinatura", ({ id }) => {
+    const message = composeMessage({ ...standard(id), footer: false }, exampleMessageParts);
+    expect(message).not.toContain(quitoFooter);
+    expect(message).toBe(findingText(messageTones.find((tone) => tone.id === id)?.label ?? "").replace(`\n\n${quitoFooter}`, ""));
   });
 });
 

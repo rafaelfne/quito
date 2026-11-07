@@ -266,23 +266,23 @@ describe("página de recebimento", () => {
 
   test("abre a mensagem com o tom guardado, sem depender dos dados de recebimento", async () => {
     maybeSingle.mockResolvedValueOnce({ data: null, error: { message: "sem rede" } });
-    messageSingle.mockResolvedValueOnce({ data: { tone: "formal", greeting: "Bom dia", thanks: null, signature: null }, error: null });
+    messageSingle.mockResolvedValueOnce({ data: { tone: "formal", greeting: "Bom dia", thanks: null, signature: null, footer: true }, error: null });
     expect(view().messageSettings).toEqual(initialMessageSettings);
     await settle();
     await settle();
     expect(view().state.status).toBe("failed");
-    expect(view().messageSettings).toMatchObject({ status: "ready", draft: { tone: "formal", greeting: "Bom dia", thanks: "", signature: "" } });
+    expect(view().messageSettings).toMatchObject({ status: "ready", draft: { tone: "formal", greeting: "Bom dia", thanks: "", signature: "", footer: true } });
   });
 
   test("troca o tom, guarda, trava enquanto grava e avisa", async () => {
     const opened = await open();
     opened.onMessageChange({ tone: "direct" });
-    view().onMessageChange({ signature: "João, do violão" });
+    view().onMessageChange({ signature: "João, do violão", footer: false });
     view().onMessageSubmit();
     expect(view().messageBusy).toBe(true);
     await settle();
     const done = view();
-    expect(upsertMessage).toHaveBeenCalledWith({ tone: "direct", greeting: null, thanks: null, signature: "João, do violão" }, { onConflict: "owner_id" });
+    expect(upsertMessage).toHaveBeenCalledWith({ tone: "direct", greeting: null, thanks: null, signature: "João, do violão", footer: false }, { onConflict: "owner_id" });
     expect(done.messageBusy).toBe(false);
     expect(done.messageSettings.notice).toBe(messageSettingsMessages.saved);
   });

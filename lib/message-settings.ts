@@ -11,6 +11,7 @@ export type MessageSettingsDraft = {
   greeting: string;
   thanks: string;
   signature: string;
+  footer: boolean;
 };
 
 export type MessageSettingsField = keyof MessageSettingsDraft;
@@ -46,23 +47,24 @@ export const messageSettingsMessages = {
 
 const table = "message_settings";
 
-const columns = "tone, greeting, thanks, signature";
+const columns = "tone, greeting, thanks, signature, footer";
 
 function withoutEndingPunctuation(raw: string): string {
   return raw.trim().replace(/[\s,;:.!]+$/, "");
 }
 
 export function messageAdjustmentsFrom(draft: MessageSettingsDraft): MessageAdjustments {
-  return { tone: draft.tone, greeting: withoutEndingPunctuation(draft.greeting) || null, thanks: withoutEndingPunctuation(draft.thanks) || null, signature: draft.signature.trim() || null };
+  return { tone: draft.tone, greeting: withoutEndingPunctuation(draft.greeting) || null, thanks: withoutEndingPunctuation(draft.thanks) || null, signature: draft.signature.trim() || null, footer: draft.footer };
 }
 
 export function messageSettingsDraftFrom(settings: MessageSettingsRow | null): MessageSettingsDraft {
-  if (settings === null) return { tone: defaultMessageTone, greeting: "", thanks: "", signature: "" };
+  if (settings === null) return { tone: defaultMessageTone, greeting: "", thanks: "", signature: "", footer: true };
   return {
     tone: isMessageTone(settings.tone) ? settings.tone : defaultMessageTone,
     greeting: settings.greeting ?? "",
     thanks: settings.thanks ?? "",
     signature: settings.signature ?? "",
+    footer: settings.footer !== false,
   };
 }
 

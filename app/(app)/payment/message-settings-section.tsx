@@ -1,5 +1,5 @@
 import { messageAdjustmentsFrom, messageSettingsMessages, type MessageSettingsDraft, type MessageSettingsState } from "@/lib/message-settings";
-import { defaultGreeting, defaultSignature, defaultThanks, exampleMessage, exampleMessageParts, messageTones } from "@/lib/message-templates";
+import { defaultGreeting, defaultSignature, defaultThanks, exampleMessage, exampleMessageParts, messageTones, quitoFooter } from "@/lib/message-templates";
 
 const inputClass = "min-h-11 rounded-sm border bg-background px-3 py-3 text-base text-foreground";
 const primaryButtonClass = "min-h-11 flex-1 rounded-sm bg-foreground px-3 py-2 text-background disabled:opacity-50";
@@ -106,7 +106,7 @@ export function MessageSettingsSection({ state, busy, teacher, onMessageChange, 
   return (
     <section className="flex flex-col gap-4">
       <h2 className="font-semibold">Mensagem de cobrança</h2>
-      <p className="text-sm">Escolha o tom e ajuste a saudação, o agradecimento e a assinatura. Vale para todos os responsáveis.</p>
+      <p className="text-sm">Escolha o tom e ajuste a saudação, o agradecimento, a assinatura e a linha do fim. Vale para todos os responsáveis.</p>
       {state.notice ? (
         <p className="text-sm" role="status">
           {state.notice}
@@ -157,6 +157,13 @@ export function MessageSettingsSection({ state, busy, teacher, onMessageChange, 
               error={state.errors.signature}
               onChange={(value) => onMessageChange({ signature: value })}
             />
+            <label className="flex min-h-11 items-center gap-3 rounded-sm border px-3 py-2 text-sm">
+              <input type="checkbox" checked={state.draft.footer} onChange={(event) => onMessageChange({ footer: event.target.checked })} />
+              <span className="flex flex-col">
+                <span className="font-medium">Terminar com &quot;{quitoFooter}&quot;</span>
+                <span className="opacity-70">Mostra aos pais que o valor veio de um sistema.</span>
+              </span>
+            </label>
             <MessageExample text={exampleMessage(adjustments, teacher)} />
             {state.message ? (
               <p className="text-sm" role="alert">
