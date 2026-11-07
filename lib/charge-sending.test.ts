@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { saveChargeSentAt, whatsAppLinkFor, type ChargeSendingClient } from "@/lib/charge-sending";
+import { saveChargePaidAt, saveChargeSentAt, whatsAppLinkFor, type ChargeSendingClient } from "@/lib/charge-sending";
 
 function clientWith(result: { error: { message: string } | null }) {
   const eq = vi.fn(async () => result);
@@ -46,5 +46,25 @@ describe("guardar o envio", () => {
       },
     } as unknown as ChargeSendingClient;
     expect(await saveChargeSentAt(client, "c1", null)).toBe(false);
+  });
+});
+
+describe("guardar o pagamento", () => {
+  test("marca a cobrança como paga", async () => {
+    const { client, from, update, eq } = clientWith({ error: null });
+    expect(await saveChargePaidAt(client, "c1", "2026-12-07T13:00:00.000Z")).toBe(true);
+    expect(from).toHaveBeenCalledWith("charges");
+    expect(update).toHaveBeenCalledWith({ paid_at: "2026-12-07T13:00:00.000Z" });
+    expect(eq).toHaveBeenCalledWith("id", "c1");
+  });
+
+  test("desfazer apaga o momento do pagamento", async () => {
+    const { client, update } = clientWith({ error: null });
+    expect(await saveChargePaidAt(client, "c1", null)).toBe(true);
+    expect(update).toHaveBeenCalledWith({ paid_at: null });
+  });
+
+  test("erro do banco devolve falha", async () => {
+    expect(await saveChargePaidAt(clientWith({ error: { message: "fora do ar" } }).client, "c1", null)).toBe(false);
   });
 });

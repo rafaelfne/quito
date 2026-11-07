@@ -16,7 +16,7 @@ export type NewCharge = {
   account: ChargeStudent[];
 };
 
-export type Charge = NewCharge & { id: string; sent_at?: string | null };
+export type Charge = NewCharge & { id: string; sent_at?: string | null; paid_at?: string | null };
 
 export type WaitingStudent = { studentId: string; studentName: string; unmarked: number; missingBilling: boolean };
 
@@ -26,7 +26,7 @@ export type ChargesPlan = { newCharges: NewCharge[]; waiting: WaitingGuardian[];
 
 export type ChargesLoad = { ok: true; month: CalendarMonth; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages?: Record<string, string>; dueDates?: Record<string, string>; today?: string; previewConfirmed?: boolean } | { ok: false; month: CalendarMonth };
 
-export type ChargesState = { month: CalendarMonth; status: "loading" | "ready" | "failed"; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages: Record<string, string>; dueDates: Record<string, string>; today: string; previewConfirmed: boolean; confirmingPreview: boolean; previewMessage: string | null; savingSends: string[]; sendMessage: string | null };
+export type ChargesState = { month: CalendarMonth; status: "loading" | "ready" | "failed"; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages: Record<string, string>; dueDates: Record<string, string>; today: string; previewConfirmed: boolean; confirmingPreview: boolean; previewMessage: string | null; savingSends: string[]; sendMessage: string | null; savingPayments: string[]; paymentMessage: string | null };
 
 export const chargesPath = "/charges";
 
@@ -56,11 +56,18 @@ export const chargeMessages = {
   undoSend: "Desfazer o envio",
   sendFailed: "O Quitô não conseguiu guardar que a cobrança foi enviada. Confira a internet e toque de novo.",
   undoFailed: "Não deu para desfazer o envio agora. Confira a internet e toque de novo.",
+  markPaid: "Marcar como pago",
+  savingPayment: "Guardando...",
+  paid: "Paga.",
+  paidHint: "Os lembretes deste responsável param neste mês. Se marcou por engano, desfaça.",
+  undoPaid: "Desfazer o pagamento",
+  paymentFailed: "O Quitô não conseguiu guardar que a cobrança foi paga. Confira a internet e toque de novo.",
+  undoPaymentFailed: "Não deu para desfazer o pagamento agora. Confira a internet e toque de novo.",
 };
 
 const table = "charges";
 
-const columns = "id, charge_month, guardian_phone, guardian_name, total_cents, account, sent_at";
+const columns = "id, charge_month, guardian_phone, guardian_name, total_cents, account, sent_at, paid_at";
 
 const chargesPageSize = 1000;
 
@@ -199,7 +206,7 @@ export async function syncChargesWithMessages(client: LessonsClient, month: Cale
 }
 
 export function initialCharges(month: CalendarMonth): ChargesState {
-  return { month, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null };
+  return { month, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null, savingPayments: [], paymentMessage: null };
 }
 
 export function startReloadingCharges(state: ChargesState): ChargesState {
@@ -254,4 +261,22 @@ export function applySendSaved(state: ChargesState, chargeId: string, sentAt: st
   const savingSends = state.savingSends.filter((id) => id !== chargeId);
   if (!saved) return { ...state, savingSends, sendMessage: sentAt ? chargeMessages.sendFailed : chargeMessages.undoFailed };
   return { ...state, savingSends, charges: state.charges.map((charge) => (charge.id === chargeId ? { ...charge, sent_at: sentAt } : charge)) };
+}
+
+export function isChargePaid(charge: Charge): boolean {
+  return Boolean(charge.paid_at);
+}
+
+export function awaitsReminders(charge: Charge): boolean {
+  return isChargeSent(charge) && !isChargePaid(charge);
+}
+
+export function startSavingPayment(state: ChargesState, chargeId: string): ChargesState {
+  return { ...state, savingPayments: [...state.savingPayments.filter((id) => id !== chargeId), chargeId], paymentMessage: null };
+}
+
+export function applyPaidSaved(state: ChargesState, chargeId: string, paidAt: string | null, saved: boolean): ChargesState {
+  const savingPayments = state.savingPayments.filter((id) => id !== chargeId);
+  if (!saved) return { ...state, savingPayments, paymentMessage: paidAt ? chargeMessages.paymentFailed : chargeMessages.undoPaymentFailed };
+  return { ...state, savingPayments, charges: state.charges.map((charge) => (charge.id === chargeId ? { ...charge, paid_at: paidAt } : charge)) };
 }

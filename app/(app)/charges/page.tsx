@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ChargesView } from "@/app/(app)/charges/charges-view";
-import { applyChargesLoad, applyPreviewConfirmation, applySendSaved, endedMonthOf, initialCharges, startConfirmingPreview, startReloadingCharges, startSavingSend, syncChargesWithMessages } from "@/lib/charges";
-import { saveChargeSentAt } from "@/lib/charge-sending";
+import { applyChargesLoad, applyPaidSaved, applyPreviewConfirmation, applySendSaved, endedMonthOf, initialCharges, startConfirmingPreview, startReloadingCharges, startSavingPayment, startSavingSend, syncChargesWithMessages } from "@/lib/charges";
+import { saveChargePaidAt, saveChargeSentAt } from "@/lib/charge-sending";
 import { confirmMessagePreview } from "@/lib/message-preview";
 import { dateKeyOf } from "@/lib/lessons";
 import { supabase } from "@/lib/supabase";
@@ -33,5 +33,20 @@ export default function ChargesPage() {
     void saveChargeSentAt(supabase, chargeId, sentAt).then((saved) => setState((current) => applySendSaved(current, chargeId, sentAt, saved)));
   }
 
-  return <ChargesView state={state} onRetry={retry} onConfirmPreview={confirmPreview} onSend={(chargeId) => saveSent(chargeId, new Date().toISOString())} onUndoSend={(chargeId) => saveSent(chargeId, null)} />;
+  function savePaid(chargeId: string, paidAt: string | null) {
+    setState((current) => startSavingPayment(current, chargeId));
+    void saveChargePaidAt(supabase, chargeId, paidAt).then((saved) => setState((current) => applyPaidSaved(current, chargeId, paidAt, saved)));
+  }
+
+  return (
+    <ChargesView
+      state={state}
+      onRetry={retry}
+      onConfirmPreview={confirmPreview}
+      onSend={(chargeId) => saveSent(chargeId, new Date().toISOString())}
+      onUndoSend={(chargeId) => saveSent(chargeId, null)}
+      onMarkPaid={(chargeId) => savePaid(chargeId, new Date().toISOString())}
+      onUndoPaid={(chargeId) => savePaid(chargeId, null)}
+    />
+  );
 }

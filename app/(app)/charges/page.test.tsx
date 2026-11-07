@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { chargeMessages, type ChargesState } from "@/lib/charges";
 import type { Student } from "@/lib/students";
 
-type ViewProps = { state: ChargesState; onRetry: () => void; onConfirmPreview: () => void; onSend: (chargeId: string) => void; onUndoSend: (chargeId: string) => void };
+type ViewProps = { state: ChargesState; onRetry: () => void; onConfirmPreview: () => void; onSend: (chargeId: string) => void; onUndoSend: (chargeId: string) => void; onMarkPaid: (chargeId: string) => void; onUndoPaid: (chargeId: string) => void };
 
 const pedro: Student = { id: "p", name: "Pedro Lima", gender: "male", called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
 
@@ -151,6 +151,32 @@ describe("página de cobranças", () => {
     await settle();
     expect(view().state.sendMessage).toBe(chargeMessages.sendFailed);
     expect(view().state.charges[0].sent_at).toBeUndefined();
+  });
+
+  test("o toque em marcar como pago guarda o pagamento e desfazer volta atrás", async () => {
+    view();
+    await settle();
+    view().onMarkPaid("c1");
+    expect(view().state.savingPayments).toEqual(["c1"]);
+    await settle();
+    expect(update).toHaveBeenLastCalledWith({ paid_at: new Date(2026, 11, 1, 12).toISOString() });
+    expect(sentEq).toHaveBeenLastCalledWith("id", "c1");
+    expect(view().state.charges[0].paid_at).toBe(new Date(2026, 11, 1, 12).toISOString());
+    expect(view().state.savingPayments).toEqual([]);
+    view().onUndoPaid("c1");
+    await settle();
+    expect(update).toHaveBeenLastCalledWith({ paid_at: null });
+    expect(view().state.charges[0].paid_at).toBeNull();
+  });
+
+  test("se não deu para guardar o pagamento, avisa", async () => {
+    sentEq.mockResolvedValueOnce({ error: { message: "fora do ar" } });
+    view();
+    await settle();
+    view().onMarkPaid("c1");
+    await settle();
+    expect(view().state.paymentMessage).toBe(chargeMessages.paymentFailed);
+    expect(view().state.charges[0].paid_at).toBeUndefined();
   });
 
   test("tentar de novo volta a carregar", async () => {

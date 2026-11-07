@@ -50,7 +50,7 @@ function ready(overrides: Partial<ChargesState> = {}): ChargesState {
 }
 
 function render(state: ChargesState) {
-  return renderToStaticMarkup(<ChargesView state={state} onRetry={vi.fn()} onConfirmPreview={vi.fn()} onSend={vi.fn()} onUndoSend={vi.fn()} />);
+  return renderToStaticMarkup(<ChargesView state={state} onRetry={vi.fn()} onConfirmPreview={vi.fn()} onSend={vi.fn()} onUndoSend={vi.fn()} onMarkPaid={vi.fn()} onUndoPaid={vi.fn()} />);
 }
 
 describe("tela de cobranças", () => {
@@ -219,7 +219,7 @@ describe("envio pelo WhatsApp", () => {
   test("tocar em enviar e em desfazer avisam a página com a cobrança certa", () => {
     const onSend = vi.fn();
     const onUndoSend = vi.fn();
-    const props = { onRetry: vi.fn(), onConfirmPreview: vi.fn(), onSend, onUndoSend };
+    const props = { onRetry: vi.fn(), onConfirmPreview: vi.fn(), onSend, onUndoSend, onMarkPaid: vi.fn(), onUndoPaid: vi.fn() };
     const link = collect(ChargesView({ state: ready(confirmed), ...props })).find((element) => element.type === "a" && String(element.props.href).startsWith("https://wa.me/"));
     (link?.props.onClick as () => void)();
     expect(onSend).toHaveBeenCalledWith("c1");
@@ -250,5 +250,64 @@ describe("envio pelo WhatsApp", () => {
 
   test("se não deu para guardar o envio, avisa", () => {
     expect(render(ready({ ...confirmed, sendMessage: chargeMessages.sendFailed }))).toContain(chargeMessages.sendFailed);
+  });
+});
+
+describe("marcar como pago", () => {
+  const confirmed = { charges: [charge], messages: { c1: "Oi, Ana!" }, dueDates: { c1: "2026-12-05" }, today: "2026-12-07", previewConfirmed: true };
+  const paidCharge = { ...charge, sent_at: "2026-12-05T13:00:00.000Z", paid_at: "2026-12-07T13:00:00.000Z" };
+
+  test("cobrança em aberto oferece marcar como pago", () => {
+    const html = render(ready(confirmed));
+    expect(html).toContain(chargeMessages.markPaid);
+    expect(html).not.toContain(chargeMessages.paid);
+  });
+
+  test("antes do vencimento também dá para marcar como pago", () => {
+    const html = render(ready({ ...confirmed, today: "2026-12-01" }));
+    expect(html).toContain("Pronta para o dia 5");
+    expect(html).toContain(chargeMessages.markPaid);
+  });
+
+  test("cobrança zerada pelo acerto não tem o que pagar", () => {
+    expect(render(ready({ ...confirmed, charges: [{ ...charge, total_cents: 0 }] }))).not.toContain(chargeMessages.markPaid);
+  });
+
+  test("cobrança paga diz que foi paga, para de oferecer o envio e oferece desfazer", () => {
+    const html = render(ready({ ...confirmed, charges: [paidCharge] }));
+    expect(html).toContain(chargeMessages.paid);
+    expect(html).toContain(chargeMessages.paidHint);
+    expect(html).toContain(chargeMessages.undoPaid);
+    expect(html).not.toContain(chargeMessages.markPaid);
+    expect(html).not.toContain(chargeMessages.sendOnWhatsApp);
+    expect(html).not.toContain(chargeMessages.undoSend);
+    expect(html).not.toContain("wa.me");
+  });
+
+  test("paga antes do vencimento, não mostra mais pronta para o dia", () => {
+    const html = render(ready({ ...confirmed, today: "2026-12-01", charges: [{ ...charge, paid_at: "2026-12-01T13:00:00.000Z" }] }));
+    expect(html).not.toContain("Pronta para o dia 5");
+    expect(html).not.toContain(chargeMessages.sendOnDueDay);
+  });
+
+  test("tocar em marcar como pago e em desfazer avisam a página com a cobrança certa", () => {
+    const onMarkPaid = vi.fn();
+    const onUndoPaid = vi.fn();
+    const props = { onRetry: vi.fn(), onConfirmPreview: vi.fn(), onSend: vi.fn(), onUndoSend: vi.fn(), onMarkPaid, onUndoPaid };
+    const mark = collect(ChargesView({ state: ready(confirmed), ...props })).find((element) => element.type === "button" && element.props.children === chargeMessages.markPaid);
+    (mark?.props.onClick as () => void)();
+    expect(onMarkPaid).toHaveBeenCalledWith("c1");
+    const undo = collect(ChargesView({ state: ready({ ...confirmed, charges: [paidCharge] }), ...props })).find((element) => element.type === "button" && element.props.children === chargeMessages.undoPaid);
+    (undo?.props.onClick as () => void)();
+    expect(onUndoPaid).toHaveBeenCalledWith("c1");
+  });
+
+  test("enquanto guarda o pagamento, o botão espera", () => {
+    expect(render(ready({ ...confirmed, savingPayments: ["c1"] }))).toContain(chargeMessages.savingPayment);
+    expect(render(ready({ ...confirmed, charges: [paidCharge], savingPayments: ["c1"] }))).toContain(chargeMessages.savingPayment);
+  });
+
+  test("se não deu para guardar o pagamento, avisa", () => {
+    expect(render(ready({ ...confirmed, paymentMessage: chargeMessages.paymentFailed }))).toContain(chargeMessages.paymentFailed);
   });
 });

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { accountPath } from "@/lib/account";
 import { formatCurrency } from "@/lib/billing";
-import { canSendCharge, chargeMessages, describeMarkLessons, describeReadyFor, isChargeSent, isDueToSend, needsFirstPreview, describeWaitingStudent, monthChargesTotal, waitsForBilling, waitsForMarks, type Charge, type ChargesState, type ChargeStudent, type WaitingGuardian } from "@/lib/charges";
+import { canSendCharge, chargeMessages, describeMarkLessons, describeReadyFor, isChargePaid, isChargeSent, isDueToSend, needsFirstPreview, describeWaitingStudent, monthChargesTotal, waitsForBilling, waitsForMarks, type Charge, type ChargesState, type ChargeStudent, type WaitingGuardian } from "@/lib/charges";
 import { closingMessages, closingPath, describeSignedAmount } from "@/lib/closing";
 import { describeMonth, lessonsPath, lessonsPathFor } from "@/lib/lessons";
 import { whatsAppLinkFor } from "@/lib/charge-sending";
@@ -20,6 +20,8 @@ type ChargesViewProps = {
   onConfirmPreview: () => void;
   onSend: (chargeId: string) => void;
   onUndoSend: (chargeId: string) => void;
+  onMarkPaid: (chargeId: string) => void;
+  onUndoPaid: (chargeId: string) => void;
 };
 
 type Sending = {
@@ -27,6 +29,12 @@ type Sending = {
   link: string | null;
   saving: boolean;
   onSend: () => void;
+  onUndo: () => void;
+};
+
+type Payment = {
+  saving: boolean;
+  onMarkPaid: () => void;
   onUndo: () => void;
 };
 
@@ -74,6 +82,7 @@ function ConfirmPreview({ confirming, onConfirm }: FirstPreview) {
 const primaryButtonClass = "inline-flex min-h-11 items-center justify-center rounded-sm bg-primary px-3 py-2 font-medium text-primary-foreground aria-disabled:pointer-events-none aria-disabled:opacity-50";
 
 function SendCharge({ charge, sending }: { charge: Charge; sending: Sending }) {
+  if (isChargePaid(charge)) return null;
   if (isChargeSent(charge)) {
     return (
       <div className="flex flex-col items-start gap-2 text-sm">
@@ -91,6 +100,27 @@ function SendCharge({ charge, sending }: { charge: Charge; sending: Sending }) {
     <a className={primaryButtonClass} href={sending.link} target="_blank" rel="noopener noreferrer" aria-disabled={sending.saving} onClick={sending.onSend}>
       {sending.saving ? chargeMessages.savingSend : chargeMessages.sendOnWhatsApp}
     </a>
+  );
+}
+
+function ChargePayment({ charge, payment }: { charge: Charge; payment: Payment }) {
+  if (isChargePaid(charge)) {
+    return (
+      <div className="flex flex-col items-start gap-2 border-t pt-3 text-sm">
+        <p className="font-medium">{chargeMessages.paid}</p>
+        <p>{chargeMessages.paidHint}</p>
+        <button className={secondaryButtonClass} type="button" disabled={payment.saving} onClick={payment.onUndo}>
+          {payment.saving ? chargeMessages.savingPayment : chargeMessages.undoPaid}
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col items-start gap-2 border-t pt-3">
+      <button className={secondaryButtonClass} type="button" disabled={payment.saving} onClick={payment.onMarkPaid}>
+        {payment.saving ? chargeMessages.savingPayment : chargeMessages.markPaid}
+      </button>
+    </div>
   );
 }
 
@@ -115,7 +145,7 @@ function ChargeMessage({ charge, message, firstPreview, sending }: { charge: Cha
   );
 }
 
-function ChargeCard({ charge, message, firstPreview, sending }: { charge: Charge; message: string | undefined; firstPreview: FirstPreview | null; sending: Sending }) {
+function ChargeCard({ charge, message, firstPreview, sending, payment }: { charge: Charge; message: string | undefined; firstPreview: FirstPreview | null; sending: Sending; payment: Payment }) {
   return (
     <section className="flex flex-col gap-3 rounded-sm border p-3">
       <div className="flex flex-col gap-1">
@@ -134,7 +164,14 @@ function ChargeCard({ charge, message, firstPreview, sending }: { charge: Charge
         <span>{chargeMessages.guardianTotal}</span>
         <span className="tabular-nums">{formatCurrency(charge.total_cents)}</span>
       </p>
-      {charge.total_cents === 0 ? <p className="text-sm">{chargeMessages.coveredByAdjustment}</p> : <ChargeMessage charge={charge} message={message} firstPreview={firstPreview} sending={sending} />}
+      {charge.total_cents === 0 ? (
+        <p className="text-sm">{chargeMessages.coveredByAdjustment}</p>
+      ) : (
+        <>
+          <ChargeMessage charge={charge} message={message} firstPreview={firstPreview} sending={sending} />
+          <ChargePayment charge={charge} payment={payment} />
+        </>
+      )}
     </section>
   );
 }
@@ -188,19 +225,19 @@ function WaitingCharges({ waiting, month }: { waiting: WaitingGuardian[]; month:
   );
 }
 
-type ChargesContentProps = Pick<ChargesViewProps, "state" | "onConfirmPreview" | "onSend" | "onUndoSend">;
+type ChargesContentProps = Omit<ChargesViewProps, "onRetry">;
 
 type SendTargets = { readyFor: string | null; link: string | null };
 
 function sendTargetsFor(state: ChargesState, charge: Charge): SendTargets {
   const due = state.dueDates[charge.id];
   const message = state.messages[charge.id];
-  if (isChargeSent(charge) || due === undefined || message === undefined) return { readyFor: null, link: null };
+  if (isChargePaid(charge) || isChargeSent(charge) || due === undefined || message === undefined) return { readyFor: null, link: null };
   if (!isDueToSend(state, charge.id)) return { readyFor: describeReadyFor(due), link: null };
   return { readyFor: null, link: canSendCharge(state, charge.id) ? whatsAppLinkFor(charge.guardian_phone, message) : null };
 }
 
-function ChargesContent({ state, onConfirmPreview, onSend, onUndoSend }: ChargesContentProps) {
+function ChargesContent({ state, onConfirmPreview, onSend, onUndoSend, onMarkPaid, onUndoPaid }: ChargesContentProps) {
   const { month, charges, waiting, nothingToCharge, messages } = state;
   const firstPreview = needsFirstPreview(state) ? { confirming: state.confirmingPreview, onConfirm: onConfirmPreview } : null;
   if (charges.length === 0 && waiting.length === 0 && nothingToCharge.length === 0) return <p className="text-sm">{chargeMessages.empty}</p>;
@@ -224,6 +261,11 @@ function ChargesContent({ state, onConfirmPreview, onSend, onUndoSend }: Charges
               {state.sendMessage}
             </p>
           ) : null}
+          {state.paymentMessage ? (
+            <p className="text-sm" role="alert">
+              {state.paymentMessage}
+            </p>
+          ) : null}
           {charges.map((charge) => (
             <ChargeCard
               key={charge.id}
@@ -231,6 +273,7 @@ function ChargesContent({ state, onConfirmPreview, onSend, onUndoSend }: Charges
               message={messages[charge.id]}
               firstPreview={firstPreview}
               sending={{ ...sendTargetsFor(state, charge), saving: state.savingSends.includes(charge.id), onSend: () => onSend(charge.id), onUndo: () => onUndoSend(charge.id) }}
+              payment={{ saving: state.savingPayments.includes(charge.id), onMarkPaid: () => onMarkPaid(charge.id), onUndo: () => onUndoPaid(charge.id) }}
             />
           ))}
         </>
@@ -241,7 +284,7 @@ function ChargesContent({ state, onConfirmPreview, onSend, onUndoSend }: Charges
   );
 }
 
-export function ChargesView({ state, onRetry, onConfirmPreview, onSend, onUndoSend }: ChargesViewProps) {
+export function ChargesView({ state, onRetry, ...actions }: ChargesViewProps) {
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-4 sm:p-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -279,7 +322,7 @@ export function ChargesView({ state, onRetry, onConfirmPreview, onSend, onUndoSe
           </button>
         </div>
       ) : null}
-      {state.status === "ready" ? <ChargesContent state={state} onConfirmPreview={onConfirmPreview} onSend={onSend} onUndoSend={onUndoSend} /> : null}
+      {state.status === "ready" ? <ChargesContent state={state} {...actions} /> : null}
     </main>
   );
 }

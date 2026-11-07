@@ -1,6 +1,10 @@
 import { describe, expect, test, vi } from "vitest";
 import {
   applyChargesLoad,
+  applyPaidSaved,
+  awaitsReminders,
+  isChargePaid,
+  startSavingPayment,
   applyPreviewConfirmation,
   applySendSaved,
   canSendCharge,
@@ -444,7 +448,7 @@ const bia: WaitingGuardian = { phone: "11933334444", guardianName: "Bia", studen
 
 describe("estado da tela", () => {
   test("começa carregando o mês", () => {
-    expect(initialCharges(november)).toEqual({ month: november, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null });
+    expect(initialCharges(november)).toEqual({ month: november, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null, savingPayments: [], paymentMessage: null });
   });
 
   test("recarregar mantém o que já estava na tela", () => {
@@ -454,7 +458,7 @@ describe("estado da tela", () => {
 
   test("aplica o resultado", () => {
     const result = { ok: true as const, month: november, charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"] };
-    expect(applyChargesLoad(initialCharges(november), result)).toEqual({ month: november, status: "ready", charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null });
+    expect(applyChargesLoad(initialCharges(november), result)).toEqual({ month: november, status: "ready", charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null, savingPayments: [], paymentMessage: null });
   });
 
   test("traz se o professor já passou pela prévia", () => {
@@ -585,5 +589,57 @@ describe("envio só no dia do vencimento", () => {
   test("aplica o vencimento e o dia de hoje que vieram da carga", () => {
     const result = { ok: true as const, month: november, charges: [saved()], waiting: [], nothingToCharge: [], dueDates: { c1: "2026-12-05" }, today: "2026-12-02" };
     expect(applyChargesLoad(initialCharges(november), result)).toMatchObject({ dueDates: { c1: "2026-12-05" }, today: "2026-12-02" });
+  });
+});
+
+describe("marcar como pago", () => {
+  const sentAt = "2026-12-05T13:00:00.000Z";
+  const paidAt = "2026-12-07T13:00:00.000Z";
+  const ready = { ...initialCharges(november), status: "ready" as const, charges: [saved({ sent_at: sentAt }), saved({ id: "c2", sent_at: sentAt })] };
+
+  test("cobrança nova ainda não foi paga", () => {
+    expect(isChargePaid(saved())).toBe(false);
+    expect(isChargePaid(saved({ paid_at: null }))).toBe(false);
+    expect(isChargePaid(saved({ paid_at: paidAt }))).toBe(true);
+  });
+
+  test("o toque guarda a cobrança como paga só naquele responsável", () => {
+    const saving = startSavingPayment({ ...ready, paymentMessage: chargeMessages.undoPaymentFailed }, "c1");
+    expect(saving).toMatchObject({ savingPayments: ["c1"], paymentMessage: null });
+    expect(startSavingPayment(saving, "c1").savingPayments).toEqual(["c1"]);
+    const paid = applyPaidSaved(saving, "c1", paidAt, true);
+    expect(paid.savingPayments).toEqual([]);
+    expect(paid.charges.map(isChargePaid)).toEqual([true, false]);
+    expect(paid.charges[0].paid_at).toBe(paidAt);
+  });
+
+  test("paga, a cobrança para os lembretes daquele responsável no mês", () => {
+    const paid = applyPaidSaved(ready, "c1", paidAt, true);
+    expect(paid.charges.map(awaitsReminders)).toEqual([false, true]);
+  });
+
+  test("cobrança ainda não enviada não espera lembrete", () => {
+    expect(awaitsReminders(saved())).toBe(false);
+  });
+
+  test("desfazer volta a cobrança para em aberto e os lembretes voltam", () => {
+    const paid = applyPaidSaved(ready, "c1", paidAt, true);
+    const undone = applyPaidSaved(startSavingPayment(paid, "c1"), "c1", null, true);
+    expect(undone.charges.map(isChargePaid)).toEqual([false, false]);
+    expect(undone.charges.map(awaitsReminders)).toEqual([true, true]);
+    expect(undone.savingPayments).toEqual([]);
+  });
+
+  test("se não deu para guardar o pagamento, avisa e a cobrança continua em aberto", () => {
+    const failed = applyPaidSaved(startSavingPayment(ready, "c1"), "c1", paidAt, false);
+    expect(failed).toMatchObject({ savingPayments: [], paymentMessage: chargeMessages.paymentFailed });
+    expect(isChargePaid(failed.charges[0])).toBe(false);
+  });
+
+  test("se não deu para desfazer, avisa e a cobrança continua paga", () => {
+    const paid = applyPaidSaved(ready, "c1", paidAt, true);
+    const failed = applyPaidSaved(startSavingPayment(paid, "c1"), "c1", null, false);
+    expect(failed.paymentMessage).toBe(chargeMessages.undoPaymentFailed);
+    expect(isChargePaid(failed.charges[0])).toBe(true);
   });
 });
