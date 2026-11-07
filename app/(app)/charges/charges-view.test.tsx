@@ -37,7 +37,7 @@ function ready(overrides: Partial<ChargesState> = {}): ChargesState {
 }
 
 function render(state: ChargesState) {
-  return renderToStaticMarkup(<ChargesView state={state} onRetry={vi.fn()} />);
+  return renderToStaticMarkup(<ChargesView state={state} onRetry={vi.fn()} onConfirmPreview={vi.fn()} />);
 }
 
 describe("tela de cobranças", () => {
@@ -55,6 +55,31 @@ describe("tela de cobranças", () => {
     expect(html).toContain("whitespace-pre-wrap");
     expect(html).toContain("Oi, Ana!\njoao@email.com");
     expect(html).not.toContain(chargeMessages.messageNeedsPayment);
+  });
+
+  test("na primeira vez pede para passar pela mensagem antes de enviar", () => {
+    const html = render(ready({ charges: [charge], messages: { c1: "Oi, Ana!" } }));
+    expect(html).toContain("Antes do primeiro envio, leia a mensagem");
+    expect(html).toContain(chargeMessages.confirmPreview);
+    expect(html).toContain("Oi, Ana!");
+  });
+
+  test("enquanto guarda, o botão espera", () => {
+    const html = render(ready({ charges: [charge], messages: { c1: "Oi, Ana!" }, confirmingPreview: true }));
+    expect(html).toContain(chargeMessages.confirmingPreview);
+    expect(html).toContain("disabled");
+  });
+
+  test("se não deu para guardar, avisa", () => {
+    const html = render(ready({ charges: [charge], messages: { c1: "Oi, Ana!" }, previewMessage: chargeMessages.confirmPreviewFailed }));
+    expect(html).toContain(chargeMessages.confirmPreviewFailed);
+  });
+
+  test("depois da primeira prévia, a mensagem continua à vista sem pedir de novo", () => {
+    const html = render(ready({ charges: [charge], messages: { c1: "Oi, Ana!" }, previewConfirmed: true }));
+    expect(html).toContain("Oi, Ana!");
+    expect(html).not.toContain(chargeMessages.confirmPreview);
+    expect(html).not.toContain("Antes do primeiro envio");
   });
 
   test("sem os dados de recebimento, leva para o Recebimento", () => {

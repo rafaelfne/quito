@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { accountPath } from "@/lib/account";
 import { formatCurrency } from "@/lib/billing";
-import { chargeMessages, describeMarkLessons, describeWaitingStudent, monthChargesTotal, waitsForBilling, waitsForMarks, type Charge, type ChargesState, type ChargeStudent, type WaitingGuardian } from "@/lib/charges";
+import { chargeMessages, describeMarkLessons, needsFirstPreview, describeWaitingStudent, monthChargesTotal, waitsForBilling, waitsForMarks, type Charge, type ChargesState, type ChargeStudent, type WaitingGuardian } from "@/lib/charges";
 import { closingMessages, closingPath, describeSignedAmount } from "@/lib/closing";
 import { describeMonth, lessonsPath, lessonsPathFor } from "@/lib/lessons";
 import { paymentSettingsPath } from "@/lib/payment-settings";
@@ -16,6 +16,12 @@ const shortcutClass = "inline-flex min-h-11 items-center rounded-sm border px-3 
 type ChargesViewProps = {
   state: ChargesState;
   onRetry: () => void;
+  onConfirmPreview: () => void;
+};
+
+type FirstPreview = {
+  confirming: boolean;
+  onConfirm: () => void;
 };
 
 function StudentAccount({ student }: { student: ChargeStudent }) {
@@ -46,7 +52,15 @@ function StudentAccount({ student }: { student: ChargeStudent }) {
   );
 }
 
-function ChargeMessage({ message }: { message: string | undefined }) {
+function ConfirmPreview({ confirming, onConfirm }: FirstPreview) {
+  return (
+    <button className={secondaryButtonClass} type="button" disabled={confirming} onClick={onConfirm}>
+      {confirming ? chargeMessages.confirmingPreview : chargeMessages.confirmPreview}
+    </button>
+  );
+}
+
+function ChargeMessage({ message, firstPreview }: { message: string | undefined; firstPreview: FirstPreview | null }) {
   if (message === undefined) {
     return (
       <div className="flex flex-col items-start gap-2 border-t pt-3 text-sm">
@@ -61,11 +75,12 @@ function ChargeMessage({ message }: { message: string | undefined }) {
     <div className="flex flex-col gap-2 border-t pt-3">
       <h3 className="font-medium">{chargeMessages.messageTitle}</h3>
       <p className="rounded-sm border p-3 text-sm break-words whitespace-pre-wrap">{message}</p>
+      {firstPreview ? <ConfirmPreview {...firstPreview} /> : null}
     </div>
   );
 }
 
-function ChargeCard({ charge, message }: { charge: Charge; message: string | undefined }) {
+function ChargeCard({ charge, message, firstPreview }: { charge: Charge; message: string | undefined; firstPreview: FirstPreview | null }) {
   return (
     <section className="flex flex-col gap-3 rounded-sm border p-3">
       <div className="flex flex-col gap-1">
@@ -81,7 +96,7 @@ function ChargeCard({ charge, message }: { charge: Charge; message: string | und
         <span>{chargeMessages.guardianTotal}</span>
         <span className="tabular-nums">{formatCurrency(charge.total_cents)}</span>
       </p>
-      {charge.total_cents === 0 ? <p className="text-sm">{chargeMessages.coveredByAdjustment}</p> : <ChargeMessage message={message} />}
+      {charge.total_cents === 0 ? <p className="text-sm">{chargeMessages.coveredByAdjustment}</p> : <ChargeMessage message={message} firstPreview={firstPreview} />}
     </section>
   );
 }
@@ -135,8 +150,9 @@ function WaitingCharges({ waiting, month }: { waiting: WaitingGuardian[]; month:
   );
 }
 
-function ChargesContent({ state }: { state: ChargesState }) {
+function ChargesContent({ state, onConfirmPreview }: { state: ChargesState; onConfirmPreview: () => void }) {
   const { month, charges, waiting, nothingToCharge, messages } = state;
+  const firstPreview = needsFirstPreview(state) ? { confirming: state.confirmingPreview, onConfirm: onConfirmPreview } : null;
   if (charges.length === 0 && waiting.length === 0 && nothingToCharge.length === 0) return <p className="text-sm">{chargeMessages.empty}</p>;
   return (
     <>
@@ -147,8 +163,14 @@ function ChargesContent({ state }: { state: ChargesState }) {
             <span className="tabular-nums">{formatCurrency(monthChargesTotal(charges))}</span>
           </p>
           <p className="text-sm">{chargeMessages.frozen}</p>
+          {firstPreview ? <p className="rounded-sm border p-3 text-sm">{chargeMessages.previewFirst}</p> : null}
+          {state.previewMessage ? (
+            <p className="text-sm" role="alert">
+              {state.previewMessage}
+            </p>
+          ) : null}
           {charges.map((charge) => (
-            <ChargeCard key={charge.id} charge={charge} message={messages[charge.id]} />
+            <ChargeCard key={charge.id} charge={charge} message={messages[charge.id]} firstPreview={firstPreview} />
           ))}
         </>
       ) : null}
@@ -158,7 +180,7 @@ function ChargesContent({ state }: { state: ChargesState }) {
   );
 }
 
-export function ChargesView({ state, onRetry }: ChargesViewProps) {
+export function ChargesView({ state, onRetry, onConfirmPreview }: ChargesViewProps) {
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-4 sm:p-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -196,7 +218,7 @@ export function ChargesView({ state, onRetry }: ChargesViewProps) {
           </button>
         </div>
       ) : null}
-      {state.status === "ready" ? <ChargesContent state={state} /> : null}
+      {state.status === "ready" ? <ChargesContent state={state} onConfirmPreview={onConfirmPreview} /> : null}
     </main>
   );
 }

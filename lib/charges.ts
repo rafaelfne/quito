@@ -2,6 +2,7 @@ import { pendingAdjustments, settleAdjustments, type PendingAdjustment, type Set
 import { composedMessagesFor, loadChargeMessageContext } from "@/lib/charge-message";
 import { buildMonthClosing, describeUnmarked, loadClosingMonth, type GuardianClosing, type MonthClosing, type StudentClosing } from "@/lib/closing";
 import { describeMonth, monthRange, shiftMonth, type LessonsClient } from "@/lib/lessons";
+import { loadMessagePreview } from "@/lib/message-preview";
 import { calendarMonthOf, type CalendarMonth } from "@/lib/schedule";
 import { requestTimeoutMs, withTimeout } from "@/lib/sign-in";
 
@@ -23,9 +24,9 @@ export type WaitingGuardian = { phone: string; guardianName: string; students: W
 
 export type ChargesPlan = { newCharges: NewCharge[]; waiting: WaitingGuardian[]; nothingToCharge: string[] };
 
-export type ChargesLoad = { ok: true; month: CalendarMonth; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages?: Record<string, string> } | { ok: false; month: CalendarMonth };
+export type ChargesLoad = { ok: true; month: CalendarMonth; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages?: Record<string, string>; previewConfirmed?: boolean } | { ok: false; month: CalendarMonth };
 
-export type ChargesState = { month: CalendarMonth; status: "loading" | "ready" | "failed"; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages: Record<string, string> };
+export type ChargesState = { month: CalendarMonth; status: "loading" | "ready" | "failed"; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages: Record<string, string>; previewConfirmed: boolean; confirmingPreview: boolean; previewMessage: string | null };
 
 export const chargesPath = "/charges";
 
@@ -43,6 +44,10 @@ export const chargeMessages = {
   messageTitle: "Mensagem para o responsável",
   messageNeedsPayment: "Para montar a mensagem, falta guardar a sua chave Pix e o seu nome.",
   fillPayment: "Preencher em Recebimento",
+  previewFirst: "Antes do primeiro envio, leia a mensagem como o responsável vai receber. Se estiver certa, toque em \"A mensagem está certa\". Depois disso, você pode enviar as cobranças.",
+  confirmPreview: "A mensagem está certa",
+  confirmingPreview: "Guardando...",
+  confirmPreviewFailed: "Não deu para guardar agora. Confira a internet e toque de novo.",
 };
 
 const table = "charges";
@@ -180,13 +185,13 @@ export async function syncMonthCharges(client: LessonsClient, month: CalendarMon
 }
 
 export async function syncChargesWithMessages(client: LessonsClient, month: CalendarMonth, today: string): Promise<ChargesLoad> {
-  const [result, context] = await Promise.all([syncMonthCharges(client, month, today), loadChargeMessageContext(client)]);
-  if (!result.ok || context === null) return { ok: false, month };
-  return { ...result, messages: composedMessagesFor(result.charges, context, today) };
+  const [result, context, preview] = await Promise.all([syncMonthCharges(client, month, today), loadChargeMessageContext(client), loadMessagePreview(client)]);
+  if (!result.ok || context === null || !preview.ok) return { ok: false, month };
+  return { ...result, messages: composedMessagesFor(result.charges, context, today), previewConfirmed: preview.confirmed };
 }
 
 export function initialCharges(month: CalendarMonth): ChargesState {
-  return { month, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {} };
+  return { month, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, previewConfirmed: false, confirmingPreview: false, previewMessage: null };
 }
 
 export function startReloadingCharges(state: ChargesState): ChargesState {
@@ -195,6 +200,23 @@ export function startReloadingCharges(state: ChargesState): ChargesState {
 
 export function applyChargesLoad(state: ChargesState, result: ChargesLoad): ChargesState {
   if (!result.ok) return { ...state, status: "failed" };
-  const { charges, waiting, nothingToCharge, messages = {} } = result;
-  return { ...state, status: "ready", charges, waiting, nothingToCharge, messages };
+  const { charges, waiting, nothingToCharge, messages = {}, previewConfirmed = false } = result;
+  return { ...state, status: "ready", charges, waiting, nothingToCharge, messages, previewConfirmed };
+}
+
+export function needsFirstPreview(state: ChargesState): boolean {
+  return !state.previewConfirmed && Object.keys(state.messages).length > 0;
+}
+
+export function canSendCharges(state: ChargesState): boolean {
+  return state.previewConfirmed;
+}
+
+export function startConfirmingPreview(state: ChargesState): ChargesState {
+  return { ...state, confirmingPreview: true, previewMessage: null };
+}
+
+export function applyPreviewConfirmation(state: ChargesState, saved: boolean): ChargesState {
+  if (!saved) return { ...state, confirmingPreview: false, previewMessage: chargeMessages.confirmPreviewFailed };
+  return { ...state, confirmingPreview: false, previewConfirmed: true, previewMessage: null };
 }

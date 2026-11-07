@@ -1,6 +1,8 @@
 import { describe, expect, test, vi } from "vitest";
 import {
   applyChargesLoad,
+  applyPreviewConfirmation,
+  canSendCharges,
   chargeMessages,
   chargesPath,
   describeMarkLessons,
@@ -12,7 +14,9 @@ import {
   loadEarlierCharges,
   loadMonthCharges,
   monthChargesTotal,
+  needsFirstPreview,
   planMonthCharges,
+  startConfirmingPreview,
   startReloadingCharges,
   syncMonthCharges,
   waitsForBilling,
@@ -434,7 +438,7 @@ const bia: WaitingGuardian = { phone: "11933334444", guardianName: "Bia", studen
 
 describe("estado da tela", () => {
   test("começa carregando o mês", () => {
-    expect(initialCharges(november)).toEqual({ month: november, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {} });
+    expect(initialCharges(november)).toEqual({ month: november, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, previewConfirmed: false, confirmingPreview: false, previewMessage: null });
   });
 
   test("recarregar mantém o que já estava na tela", () => {
@@ -444,11 +448,44 @@ describe("estado da tela", () => {
 
   test("aplica o resultado", () => {
     const result = { ok: true as const, month: november, charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"] };
-    expect(applyChargesLoad(initialCharges(november), result)).toEqual({ month: november, status: "ready", charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"], messages: {} });
+    expect(applyChargesLoad(initialCharges(november), result)).toEqual({ month: november, status: "ready", charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"], messages: {}, previewConfirmed: false, confirmingPreview: false, previewMessage: null });
+  });
+
+  test("traz se o professor já passou pela prévia", () => {
+    const result = { ok: true as const, month: november, charges: [saved()], waiting: [], nothingToCharge: [], messages: { c1: "Oi" }, previewConfirmed: true };
+    expect(applyChargesLoad(initialCharges(november), result).previewConfirmed).toBe(true);
   });
 
   test("falha marca a tela", () => {
     expect(applyChargesLoad(initialCharges(november), { ok: false, month: november }).status).toBe("failed");
+  });
+});
+
+describe("prévia antes do primeiro envio", () => {
+  const withMessage = { ...initialCharges(november), status: "ready" as const, charges: [saved()], messages: { c1: "Oi, Ana!" } };
+
+  test("na primeira vez o professor passa pela mensagem antes de enviar", () => {
+    expect(needsFirstPreview(withMessage)).toBe(true);
+    expect(canSendCharges(withMessage)).toBe(false);
+  });
+
+  test("sem mensagem montada não pede a prévia", () => {
+    expect(needsFirstPreview({ ...withMessage, messages: {} })).toBe(false);
+  });
+
+  test("depois de confirmar, libera o envio e não pede de novo", () => {
+    const confirming = startConfirmingPreview(withMessage);
+    expect(confirming).toMatchObject({ confirmingPreview: true, previewMessage: null });
+    const confirmed = applyPreviewConfirmation(confirming, true);
+    expect(confirmed).toMatchObject({ confirmingPreview: false, previewConfirmed: true, previewMessage: null });
+    expect(needsFirstPreview(confirmed)).toBe(false);
+    expect(canSendCharges(confirmed)).toBe(true);
+  });
+
+  test("se não deu para guardar, avisa e continua pedindo a prévia", () => {
+    const failed = applyPreviewConfirmation(startConfirmingPreview(withMessage), false);
+    expect(failed).toMatchObject({ confirmingPreview: false, previewConfirmed: false, previewMessage: chargeMessages.confirmPreviewFailed });
+    expect(canSendCharges(failed)).toBe(false);
   });
 });
 

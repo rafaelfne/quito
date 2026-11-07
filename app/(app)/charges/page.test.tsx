@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { ChargesState } from "@/lib/charges";
+import { chargeMessages, type ChargesState } from "@/lib/charges";
 import type { Student } from "@/lib/students";
 
-type ViewProps = { state: ChargesState; onRetry: () => void };
+type ViewProps = { state: ChargesState; onRetry: () => void; onConfirmPreview: () => void };
 
 const pedro: Student = { id: "p", name: "Pedro Lima", gender: "male", called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
 
@@ -12,11 +12,13 @@ const upsert = vi.fn(async (rows: Record<string, unknown>[]) => {
   stored.push(...rows.map((row) => ({ ...row, id: "c1" })));
   return { error: null };
 });
+const previewUpsert = vi.fn(async () => ({ error: null as { message: string } | null }));
 const marksChain = { order: () => marksChain, range: async () => ({ data: [], error: null }) };
 const from = vi.fn((table: string) => {
   if (table === "students") return { select: selectStudents };
   if (table === "teacher_rules" || table === "message_settings") return { select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) };
   if (table === "payment_settings") return { select: () => ({ maybeSingle: async () => ({ data: { pix_key: "joao@email.com", display_name: "João Silva", due_day: 5 }, error: null }) }) };
+  if (table === "message_previews") return { upsert: previewUpsert, select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) };
   if (table === "guardian_due_days") return { select: async () => ({ data: [], error: null }) };
   if (table === "charges") return { upsert, select: () => ({ lt: () => marksChain, eq: async () => ({ data: [...stored], error: null }) }) };
   return { select: () => ({ lte: () => marksChain }) };
@@ -81,6 +83,7 @@ beforeEach(() => {
   stored.length = 0;
   upsert.mockClear();
   selectStudents.mockClear();
+  previewUpsert.mockClear();
   vi.useFakeTimers({ toFake: ["Date"], now: new Date(2026, 11, 1, 12) });
   return () => vi.useRealTimers();
 });
@@ -96,6 +99,26 @@ describe("página de cobranças", () => {
     expect(upsert).toHaveBeenCalledTimes(1);
     expect(state.messages.c1).toContain("Segue a conta de novembro do Pedro Lima:");
     expect(state.messages.c1.split("\n")).toContain("joao@email.com");
+    expect(state.previewConfirmed).toBe(false);
+  });
+
+  test("confirmar a prévia guarda e libera o envio", async () => {
+    view();
+    await settle();
+    view().onConfirmPreview();
+    expect(view().state.confirmingPreview).toBe(true);
+    await settle();
+    expect(previewUpsert).toHaveBeenCalledTimes(1);
+    expect(view().state).toMatchObject({ confirmingPreview: false, previewConfirmed: true });
+  });
+
+  test("se não deu para guardar a prévia, avisa", async () => {
+    previewUpsert.mockResolvedValueOnce({ error: { message: "fora do ar" } });
+    view();
+    await settle();
+    view().onConfirmPreview();
+    await settle();
+    expect(view().state).toMatchObject({ previewConfirmed: false, previewMessage: chargeMessages.confirmPreviewFailed });
   });
 
   test("tentar de novo volta a carregar", async () => {

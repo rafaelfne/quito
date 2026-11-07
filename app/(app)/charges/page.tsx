@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ChargesView } from "@/app/(app)/charges/charges-view";
-import { applyChargesLoad, endedMonthOf, initialCharges, startReloadingCharges, syncChargesWithMessages } from "@/lib/charges";
+import { applyChargesLoad, applyPreviewConfirmation, endedMonthOf, initialCharges, startConfirmingPreview, startReloadingCharges, syncChargesWithMessages } from "@/lib/charges";
+import { confirmMessagePreview } from "@/lib/message-preview";
 import { dateKeyOf } from "@/lib/lessons";
 import { supabase } from "@/lib/supabase";
 
@@ -21,5 +22,10 @@ export default function ChargesPage() {
     load();
   }
 
-  return <ChargesView state={state} onRetry={retry} />;
+  function confirmPreview() {
+    setState(startConfirmingPreview);
+    void confirmMessagePreview(supabase).then((saved) => setState((current) => applyPreviewConfirmation(current, saved)));
+  }
+
+  return <ChargesView state={state} onRetry={retry} onConfirmPreview={confirmPreview} />;
 }
