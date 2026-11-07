@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { chargeMessages, type ChargesState } from "@/lib/charges";
 import type { Student } from "@/lib/students";
 
-type ViewProps = { state: ChargesState; onRetry: () => void; onConfirmPreview: () => void };
+type ViewProps = { state: ChargesState; onRetry: () => void; onConfirmPreview: () => void; onSend: (chargeId: string) => void; onUndoSend: (chargeId: string) => void };
 
 const pedro: Student = { id: "p", name: "Pedro Lima", gender: "male", called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
 
@@ -13,6 +13,8 @@ const upsert = vi.fn(async (rows: Record<string, unknown>[]) => {
   return { error: null };
 });
 const previewUpsert = vi.fn(async () => ({ error: null as { message: string } | null }));
+const sentEq = vi.fn(async () => ({ error: null as { message: string } | null }));
+const update = vi.fn(() => ({ eq: sentEq }));
 const marksChain = { order: () => marksChain, range: async () => ({ data: [], error: null }) };
 const from = vi.fn((table: string) => {
   if (table === "students") return { select: selectStudents };
@@ -20,7 +22,7 @@ const from = vi.fn((table: string) => {
   if (table === "payment_settings") return { select: () => ({ maybeSingle: async () => ({ data: { pix_key: "joao@email.com", display_name: "João Silva", due_day: 5 }, error: null }) }) };
   if (table === "message_previews") return { upsert: previewUpsert, select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) };
   if (table === "guardian_due_days") return { select: async () => ({ data: [], error: null }) };
-  if (table === "charges") return { upsert, select: () => ({ lt: () => marksChain, eq: async () => ({ data: [...stored], error: null }) }) };
+  if (table === "charges") return { upsert, update, select: () => ({ lt: () => marksChain, eq: async () => ({ data: [...stored], error: null }) }) };
   return { select: () => ({ lte: () => marksChain }) };
 });
 
@@ -84,6 +86,8 @@ beforeEach(() => {
   upsert.mockClear();
   selectStudents.mockClear();
   previewUpsert.mockClear();
+  update.mockClear();
+  sentEq.mockClear();
   vi.useFakeTimers({ toFake: ["Date"], now: new Date(2026, 11, 1, 12) });
   return () => vi.useRealTimers();
 });
@@ -121,6 +125,32 @@ describe("página de cobranças", () => {
     view().onConfirmPreview();
     await settle();
     expect(view().state).toMatchObject({ previewConfirmed: false, previewMessage: chargeMessages.confirmPreviewFailed });
+  });
+
+  test("o toque no WhatsApp guarda a cobrança como enviada e desfazer volta atrás", async () => {
+    view();
+    await settle();
+    view().onSend("c1");
+    expect(view().state.savingSends).toEqual(["c1"]);
+    await settle();
+    expect(update).toHaveBeenLastCalledWith({ sent_at: new Date(2026, 11, 1, 12).toISOString() });
+    expect(sentEq).toHaveBeenLastCalledWith("id", "c1");
+    expect(view().state.charges[0].sent_at).toBe(new Date(2026, 11, 1, 12).toISOString());
+    expect(view().state.savingSends).toEqual([]);
+    view().onUndoSend("c1");
+    await settle();
+    expect(update).toHaveBeenLastCalledWith({ sent_at: null });
+    expect(view().state.charges[0].sent_at).toBeNull();
+  });
+
+  test("se não deu para guardar o envio, avisa", async () => {
+    sentEq.mockResolvedValueOnce({ error: { message: "fora do ar" } });
+    view();
+    await settle();
+    view().onSend("c1");
+    await settle();
+    expect(view().state.sendMessage).toBe(chargeMessages.sendFailed);
+    expect(view().state.charges[0].sent_at).toBeUndefined();
   });
 
   test("tentar de novo volta a carregar", async () => {

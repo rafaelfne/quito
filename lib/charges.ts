@@ -16,7 +16,7 @@ export type NewCharge = {
   account: ChargeStudent[];
 };
 
-export type Charge = NewCharge & { id: string };
+export type Charge = NewCharge & { id: string; sent_at?: string | null };
 
 export type WaitingStudent = { studentId: string; studentName: string; unmarked: number; missingBilling: boolean };
 
@@ -26,7 +26,7 @@ export type ChargesPlan = { newCharges: NewCharge[]; waiting: WaitingGuardian[];
 
 export type ChargesLoad = { ok: true; month: CalendarMonth; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages?: Record<string, string>; dueDates?: Record<string, string>; today?: string; previewConfirmed?: boolean } | { ok: false; month: CalendarMonth };
 
-export type ChargesState = { month: CalendarMonth; status: "loading" | "ready" | "failed"; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages: Record<string, string>; dueDates: Record<string, string>; today: string; previewConfirmed: boolean; confirmingPreview: boolean; previewMessage: string | null };
+export type ChargesState = { month: CalendarMonth; status: "loading" | "ready" | "failed"; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages: Record<string, string>; dueDates: Record<string, string>; today: string; previewConfirmed: boolean; confirmingPreview: boolean; previewMessage: string | null; savingSends: string[]; sendMessage: string | null };
 
 export const chargesPath = "/charges";
 
@@ -49,14 +49,18 @@ export const chargeMessages = {
   confirmingPreview: "Guardando...",
   confirmPreviewFailed: "Não deu para guardar agora. Confira a internet e toque de novo.",
   sendOnDueDay: "O botão de enviar aparece no dia do vencimento.",
-  send: "Enviar pelo WhatsApp",
+  sendOnWhatsApp: "Enviar pelo WhatsApp",
+  savingSend: "Guardando...",
+  sent: "Enviada pelo WhatsApp.",
+  undoHint: "Se você desistiu e a mensagem não saiu, desfaça para a cobrança voltar a esperar o envio.",
+  undoSend: "Desfazer o envio",
+  sendFailed: "O Quitô não conseguiu guardar que a cobrança foi enviada. Confira a internet e toque de novo.",
+  undoFailed: "Não deu para desfazer o envio agora. Confira a internet e toque de novo.",
 };
-
-const whatsAppCountryCode = "55";
 
 const table = "charges";
 
-const columns = "id, charge_month, guardian_phone, guardian_name, total_cents, account";
+const columns = "id, charge_month, guardian_phone, guardian_name, total_cents, account, sent_at";
 
 const chargesPageSize = 1000;
 
@@ -195,7 +199,7 @@ export async function syncChargesWithMessages(client: LessonsClient, month: Cale
 }
 
 export function initialCharges(month: CalendarMonth): ChargesState {
-  return { month, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null };
+  return { month, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null };
 }
 
 export function startReloadingCharges(state: ChargesState): ChargesState {
@@ -229,10 +233,6 @@ export function describeReadyFor(due: string): string {
   return `Pronta para o dia ${Number(due.slice(8))}`;
 }
 
-export function whatsAppLinkFor(phone: string, message: string): string {
-  return `https://wa.me/${whatsAppCountryCode}${phone}?text=${encodeURIComponent(message)}`;
-}
-
 export function startConfirmingPreview(state: ChargesState): ChargesState {
   return { ...state, confirmingPreview: true, previewMessage: null };
 }
@@ -240,4 +240,18 @@ export function startConfirmingPreview(state: ChargesState): ChargesState {
 export function applyPreviewConfirmation(state: ChargesState, saved: boolean): ChargesState {
   if (!saved) return { ...state, confirmingPreview: false, previewMessage: chargeMessages.confirmPreviewFailed };
   return { ...state, confirmingPreview: false, previewConfirmed: true, previewMessage: null };
+}
+
+export function isChargeSent(charge: Charge): boolean {
+  return Boolean(charge.sent_at);
+}
+
+export function startSavingSend(state: ChargesState, chargeId: string): ChargesState {
+  return { ...state, savingSends: [...state.savingSends.filter((id) => id !== chargeId), chargeId], sendMessage: null };
+}
+
+export function applySendSaved(state: ChargesState, chargeId: string, sentAt: string | null, saved: boolean): ChargesState {
+  const savingSends = state.savingSends.filter((id) => id !== chargeId);
+  if (!saved) return { ...state, savingSends, sendMessage: sentAt ? chargeMessages.sendFailed : chargeMessages.undoFailed };
+  return { ...state, savingSends, charges: state.charges.map((charge) => (charge.id === chargeId ? { ...charge, sent_at: sentAt } : charge)) };
 }

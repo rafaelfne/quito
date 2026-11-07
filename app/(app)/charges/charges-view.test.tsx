@@ -3,6 +3,19 @@ import { describe, expect, test, vi } from "vitest";
 import { chargeMessages, initialCharges, type Charge, type ChargesState, type WaitingGuardian } from "@/lib/charges";
 import { ChargesView } from "./charges-view";
 
+function collect(node: unknown, found: { type: unknown; props: Record<string, unknown> }[] = []) {
+  if (Array.isArray(node)) node.forEach((child) => collect(child, found));
+  else if (node && typeof node === "object" && "props" in node) {
+    const element = node as { type: unknown; props: Record<string, unknown> };
+    if (typeof element.type === "function") collect((element.type as (props: unknown) => unknown)(element.props), found);
+    else {
+      found.push(element);
+      collect(element.props.children, found);
+    }
+  }
+  return found;
+}
+
 const november = { year: 2026, month: 11 };
 
 const charge: Charge = {
@@ -37,7 +50,7 @@ function ready(overrides: Partial<ChargesState> = {}): ChargesState {
 }
 
 function render(state: ChargesState) {
-  return renderToStaticMarkup(<ChargesView state={state} onRetry={vi.fn()} onConfirmPreview={vi.fn()} />);
+  return renderToStaticMarkup(<ChargesView state={state} onRetry={vi.fn()} onConfirmPreview={vi.fn()} onSend={vi.fn()} onUndoSend={vi.fn()} />);
 }
 
 describe("tela de cobranças", () => {
@@ -87,13 +100,13 @@ describe("tela de cobranças", () => {
     expect(html).toContain("Pronta para o dia 5");
     expect(html).toContain("Oi, Ana!");
     expect(html).toContain(chargeMessages.sendOnDueDay);
-    expect(html).not.toContain(chargeMessages.send);
+    expect(html).not.toContain(chargeMessages.sendOnWhatsApp);
     expect(html).not.toContain("wa.me");
   });
 
   test("no dia do vencimento, o botão abre o WhatsApp do responsável com a mensagem", () => {
     const html = render(ready({ charges: [charge], messages: { c1: "Oi, Ana!" }, dueDates: { c1: "2026-12-05" }, today: "2026-12-05", previewConfirmed: true }));
-    expect(html).toContain(chargeMessages.send);
+    expect(html).toContain(chargeMessages.sendOnWhatsApp);
     expect(html).toContain('href="https://wa.me/5511987654321?text=Oi%2C%20Ana!"');
     expect(html).not.toContain("Pronta para o dia");
     expect(html).not.toContain(chargeMessages.sendOnDueDay);
@@ -102,7 +115,7 @@ describe("tela de cobranças", () => {
   test("no dia, sem passar pela prévia, ainda não mostra o botão de enviar", () => {
     const html = render(ready({ charges: [charge], messages: { c1: "Oi, Ana!" }, dueDates: { c1: "2026-12-05" }, today: "2026-12-05" }));
     expect(html).toContain(chargeMessages.confirmPreview);
-    expect(html).not.toContain(chargeMessages.send);
+    expect(html).not.toContain(chargeMessages.sendOnWhatsApp);
   });
 
   test("sem os dados de recebimento, leva para o Recebimento", () => {
@@ -183,5 +196,59 @@ describe("tela de cobranças", () => {
     const html = render(ready({ nothingToCharge: ["Caio Melo"] }));
     expect(html).toContain(chargeMessages.nothingToChargeTitle);
     expect(html).toContain("Caio Melo");
+  });
+});
+
+describe("envio pelo WhatsApp", () => {
+  const confirmed = { charges: [charge], messages: { c1: "Oi, Ana!\njoao@email.com" }, dueDates: { c1: "2026-12-05" }, today: "2026-12-05", previewConfirmed: true };
+
+  test("antes de passar pela prévia, ainda não mostra o envio", () => {
+    const html = render(ready({ charges: [charge], messages: { c1: "Oi, Ana!" } }));
+    expect(html).not.toContain(chargeMessages.sendOnWhatsApp);
+    expect(html).not.toContain("wa.me");
+  });
+
+  test("depois da prévia, o toque abre o WhatsApp do responsável com a mensagem escrita", () => {
+    const html = render(ready(confirmed));
+    expect(html).toContain(chargeMessages.sendOnWhatsApp);
+    expect(html).toContain(`href="https://wa.me/5511987654321?text=${encodeURIComponent("Oi, Ana!\njoao@email.com")}"`);
+    expect(html).toContain('target="_blank"');
+    expect(html).not.toContain(chargeMessages.sent);
+  });
+
+  test("tocar em enviar e em desfazer avisam a página com a cobrança certa", () => {
+    const onSend = vi.fn();
+    const onUndoSend = vi.fn();
+    const props = { onRetry: vi.fn(), onConfirmPreview: vi.fn(), onSend, onUndoSend };
+    const link = collect(ChargesView({ state: ready(confirmed), ...props })).find((element) => element.type === "a" && String(element.props.href).startsWith("https://wa.me/"));
+    (link?.props.onClick as () => void)();
+    expect(onSend).toHaveBeenCalledWith("c1");
+    const undo = collect(ChargesView({ state: ready({ ...confirmed, charges: [{ ...charge, sent_at: "2026-12-05T13:00:00.000Z" }] }), ...props })).find((element) => element.type === "button" && element.props.children === chargeMessages.undoSend);
+    (undo?.props.onClick as () => void)();
+    expect(onUndoSend).toHaveBeenCalledWith("c1");
+  });
+
+  test("enquanto guarda o envio, o botão espera", () => {
+    const html = render(ready({ ...confirmed, savingSends: ["c1"] }));
+    expect(html).toContain(chargeMessages.savingSend);
+    expect(html).toContain('aria-disabled="true"');
+  });
+
+  test("cobrança enviada diz que saiu e oferece desfazer", () => {
+    const html = render(ready({ ...confirmed, charges: [{ ...charge, sent_at: "2026-12-05T13:00:00.000Z" }] }));
+    expect(html).toContain(chargeMessages.sent);
+    expect(html).toContain(chargeMessages.undoHint);
+    expect(html).toContain(chargeMessages.undoSend);
+    expect(html).not.toContain(chargeMessages.sendOnWhatsApp);
+  });
+
+  test("enquanto desfaz, o botão espera", () => {
+    const html = render(ready({ ...confirmed, charges: [{ ...charge, sent_at: "2026-12-05T13:00:00.000Z" }], savingSends: ["c1"] }));
+    expect(html).toContain(chargeMessages.savingSend);
+    expect(html).toContain("disabled");
+  });
+
+  test("se não deu para guardar o envio, avisa", () => {
+    expect(render(ready({ ...confirmed, sendMessage: chargeMessages.sendFailed }))).toContain(chargeMessages.sendFailed);
   });
 });
