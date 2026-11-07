@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import type { FirstChargeNotice } from "@/lib/first-charge";
 import type { GettingStartedState } from "@/lib/getting-started";
 
-type ViewProps = { state: GettingStartedState; onRetry: () => void; baselineDelayDays: number | null; onSaveBaselineDelay: (days: number) => Promise<void> };
+type ViewProps = { state: GettingStartedState; onRetry: () => void; baselineDelayDays: number | null; onSaveBaselineDelay: (days: number) => Promise<void>; firstCharge: FirstChargeNotice | null };
 
 const maybeSingle = vi.fn(async () => ({ data: { finished_at: null, baseline_delay_days: null } as { finished_at: string | null; baseline_delay_days: number | null } | null, error: null as { message: string } | null }));
 const upsert = vi.fn(async () => ({ error: null as { message: string } | null }));
@@ -113,5 +114,20 @@ describe("página de primeiros passos", () => {
     await view().onSaveBaselineDelay(12);
     expect(view().baselineDelayDays).toBeNull();
     expect(maybeSingle).toHaveBeenCalledTimes(1);
+  });
+
+  test("depois de abrir, mostra quando começa a cobrança", async () => {
+    view();
+    await settle();
+    await settle();
+    expect(view().firstCharge?.missing).toBe("students");
+  });
+
+  test("se os passos não abrem, não procura o aviso da cobrança", async () => {
+    maybeSingle.mockResolvedValueOnce({ data: null, error: { message: "sem rede" } });
+    view();
+    await settle();
+    await settle();
+    expect(view().firstCharge).toBeNull();
   });
 });

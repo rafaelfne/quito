@@ -20,7 +20,7 @@ type StepDefinition = {
 
 export type GettingStartedStep = Omit<StepDefinition, "isDone"> & { done: boolean };
 
-export type GettingStartedProgress = { started: boolean; finished: boolean; baselineDelayDays: number | null; steps: GettingStartedStep[] };
+export type GettingStartedProgress = { started: boolean; startedAt?: string | null; finished: boolean; baselineDelayDays: number | null; steps: GettingStartedStep[] };
 
 export type GettingStartedLoad = { ok: true; progress: GettingStartedProgress } | { ok: false };
 
@@ -99,16 +99,17 @@ export function describeRemaining(steps: GettingStartedStep[]): string {
 
 export async function loadGettingStarted(client: GettingStartedClient): Promise<GettingStartedLoad> {
   try {
-    const { data, error } = await withTimeout(Promise.resolve(client.from(table).select("finished_at, baseline_delay_days").maybeSingle()), requestTimeoutMs);
+    const { data, error } = await withTimeout(Promise.resolve(client.from(table).select("started_at, finished_at, baseline_delay_days").maybeSingle()), requestTimeoutMs);
     if (error) return { ok: false };
-    const record = data as { finished_at: string | null; baseline_delay_days: number | null } | null;
+    const record = data as { started_at?: string | null; finished_at: string | null; baseline_delay_days: number | null } | null;
     const started = record !== null;
+    const startedAt = record?.started_at ?? null;
     const baselineDelayDays = record?.baseline_delay_days ?? null;
-    if (record?.finished_at) return { ok: true, progress: { started, finished: true, baselineDelayDays, steps: stepsFrom(() => true) } };
+    if (record?.finished_at) return { ok: true, progress: { started, startedAt, finished: true, baselineDelayDays, steps: stepsFrom(() => true) } };
     const [students, payment] = await Promise.all([loadStudents(client), loadPaymentSettings(client)]);
     if (!students.ok || !payment.ok) return { ok: false };
     const facts: StepFacts = { students: students.students, baselineDelayDays, hasPaymentSettings: payment.settings !== null };
-    return { ok: true, progress: { started, finished: false, baselineDelayDays, steps: stepsFrom(({ isDone }) => isDone(facts)) } };
+    return { ok: true, progress: { started, startedAt, finished: false, baselineDelayDays, steps: stepsFrom(({ isDone }) => isDone(facts)) } };
   } catch {
     return { ok: false };
   }

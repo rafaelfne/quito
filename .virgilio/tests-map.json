@@ -102,10 +102,11 @@
     {
       "id": "primeiros-passos",
       "name": "Primeiros passos",
-      "description": "O caminho guiado depois da primeira entrada: mostra os passos e quanto falta, guarda onde o professor parou e lembra o que ficou pendente até ele terminar",
+      "description": "O caminho guiado depois da primeira entrada: mostra os passos e quanto falta, guarda onde o professor parou, lembra o que ficou pendente até ele terminar e avisa o primeiro mês cobrado e o dia da primeira cobrança de cada responsável",
       "paths": [
         "app/(app)/getting-started",
-        "lib/getting-started.ts"
+        "lib/getting-started.ts",
+        "lib/first-charge.ts"
       ],
       "sensitive": "personal"
     },
@@ -174,7 +175,7 @@
     "app/(app)/closing/page.tsx": "Tela de fechamento do mês",
     "app/(app)/closing/closing-view.tsx": "Conta aberta de cada responsável na tela",
     "app/(app)/getting-started/page.tsx": "Tela dos primeiros passos",
-    "app/(app)/getting-started/getting-started-view.tsx": "Passos e quanto falta na tela",
+    "app/(app)/getting-started/getting-started-view.tsx": "Passos, quanto falta e quando começa a cobrança na tela",
     "app/(app)/getting-started/reminder.tsx": "Confere o progresso e leva para a sequência na primeira entrada",
     "app/(app)/getting-started/reminder-view.tsx": "Lembrete do que ficou pendente na tela",
     "app/(app)/charges/page.tsx": "Tela de cobranças do mês que terminou",
@@ -199,6 +200,7 @@
     "lib/makeups.ts": "Regras do crédito de reposição: quando nasce, quando vence e quando é usado",
     "lib/closing.ts": "Regras do fechamento: quanto cada aluno e cada responsável deve no mês",
     "lib/getting-started.ts": "Regras dos passos, de quanto falta e de quando lembrar o professor",
+    "lib/first-charge.ts": "Regras do primeiro mês cobrado, o seguinte ao da entrada, e do dia da primeira cobrança de cada responsável",
     "lib/charges.ts": "Regras da cobrança do mês: quando fica pronta e como guarda o valor e a conta aberta",
     "lib/charge-message.ts": "Monta a mensagem de cada cobrança: nomes, mês, conta aberta, total, vencimento e chave Pix no tom escolhido",
     "lib/charge-adjustments.ts": "Regras do acerto: a diferença de uma aula corrigida em mês já cobrado e como ela entra na próxima cobrança",

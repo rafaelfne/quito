@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
+import { firstChargeMessages, type FirstChargeNotice } from "@/lib/first-charge";
 import { gettingStartedMessages, initialGettingStarted, type GettingStartedStep } from "@/lib/getting-started";
 import { GettingStartedView, StepAction } from "./getting-started-view";
 
@@ -77,5 +78,31 @@ describe("tela de primeiros passos", () => {
     const failure = main.props.children[2];
     failure.props.children[1].props.onClick();
     expect(onRetry).toHaveBeenCalledOnce();
+  });
+
+  test("mostra o primeiro mês cobrado e o dia da primeira cobrança de cada responsável", () => {
+    const firstCharge: FirstChargeNotice = {
+      entryMonth: { year: 2026, month: 11 },
+      firstMonth: { year: 2026, month: 12 },
+      missing: null,
+      guardians: [
+        { phone: "11987654321", guardianName: "Ana Lima", studentNames: ["Bia Lima", "Pedro Lima"], dueDate: "2027-01-05" },
+        { phone: "11912345678", guardianName: "Rita Souza", studentNames: ["Caio Souza"], dueDate: "2027-01-20" },
+      ],
+    };
+    const html = renderToStaticMarkup(<GettingStartedView state={{ status: "ready", steps }} onRetry={vi.fn()} firstCharge={firstCharge} />);
+    expect(html).toContain(firstChargeMessages.title);
+    expect(html).toContain("O primeiro mês cobrado pelo Quitô é dezembro de 2026");
+    expect(html).toContain("A cobrança de dezembro sai em janeiro de 2027");
+    expect(html).toContain("Ana Lima (Bia Lima, Pedro Lima): primeira cobrança em 5 de janeiro.");
+    expect(html).toContain("Rita Souza (Caio Souza): primeira cobrança em 20 de janeiro.");
+  });
+
+  test("sem dia de vencimento, leva para o recebimento; sem aviso, não mostra a seção", () => {
+    const firstCharge: FirstChargeNotice = { entryMonth: { year: 2026, month: 11 }, firstMonth: { year: 2026, month: 12 }, missing: "payment", guardians: [] };
+    const html = renderToStaticMarkup(<GettingStartedView state={{ status: "ready", steps }} onRetry={vi.fn()} firstCharge={firstCharge} />);
+    expect(html).toMatch(new RegExp(`href="/payment"[^>]*>${firstChargeMessages.missingPayment}<`));
+    expect(html).not.toContain("primeira cobrança em");
+    expect(render({ status: "ready", steps })).not.toContain(firstChargeMessages.title);
   });
 });

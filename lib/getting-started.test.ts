@@ -24,7 +24,7 @@ import {
 import type { Student } from "./students";
 
 type Failure = { message: string } | null;
-type RecordResult = { data: { finished_at: string | null; baseline_delay_days: number | null } | null; error: Failure };
+type RecordResult = { data: { started_at?: string | null; finished_at: string | null; baseline_delay_days: number | null } | null; error: Failure };
 type StudentsResult = { data: Student[] | null; error: Failure };
 type PaymentResult = { data: { pix_key: string; display_name: string; due_day: number } | null; error: Failure };
 
@@ -127,6 +127,15 @@ describe("loadGettingStarted", () => {
     expect(progress.finished).toBe(true);
     expect(remainingSteps(progress.steps)).toBe(0);
     expect(students).not.toHaveBeenCalled();
+  });
+
+  test("traz o dia em que o professor começou, para avisar o primeiro mês cobrado", async () => {
+    const { client } = fakeClient({ record: async () => ({ data: { started_at: "2026-11-04T10:00:00Z", finished_at: null, baseline_delay_days: null }, error: null }) });
+    expect((await progressOf(loadGettingStarted(client))).startedAt).toBe("2026-11-04T10:00:00Z");
+    const finished = fakeClient({ record: async () => ({ data: { started_at: "2026-11-04T10:00:00Z", finished_at: "2026-11-05T10:00:00Z", baseline_delay_days: null }, error: null }) });
+    expect((await progressOf(loadGettingStarted(finished.client))).startedAt).toBe("2026-11-04T10:00:00Z");
+    const fresh = fakeClient({ record: async () => ({ data: null, error: null }) });
+    expect((await progressOf(loadGettingStarted(fresh.client))).startedAt).toBeNull();
   });
 
   test("a resposta de partida fica disponível e marca a pergunta como feita", async () => {

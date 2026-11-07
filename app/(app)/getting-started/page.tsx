@@ -2,17 +2,21 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { GettingStartedView } from "@/app/(app)/getting-started/getting-started-view";
+import { loadFirstChargeNotice, type FirstChargeNotice } from "@/lib/first-charge";
 import { applyGettingStartedLoad, initialGettingStarted, openGettingStarted, saveBaselineDelay, startReloadingGettingStarted } from "@/lib/getting-started";
 import { supabase } from "@/lib/supabase";
 
 export default function GettingStartedPage() {
   const [state, setState] = useState(initialGettingStarted);
   const [baselineDelayDays, setBaselineDelayDays] = useState<number | null>(null);
+  const [firstCharge, setFirstCharge] = useState<FirstChargeNotice | null>(null);
 
   const load = useCallback(() => {
     void openGettingStarted(supabase).then((result) => {
       setState((current) => applyGettingStartedLoad(current, result));
-      if (result.ok) setBaselineDelayDays(result.progress.baselineDelayDays);
+      if (!result.ok) return;
+      setBaselineDelayDays(result.progress.baselineDelayDays);
+      void loadFirstChargeNotice(supabase, result.progress.startedAt ?? null).then(setFirstCharge);
     });
   }, []);
 
@@ -29,5 +33,5 @@ export default function GettingStartedPage() {
     load();
   }
 
-  return <GettingStartedView state={state} onRetry={retry} baselineDelayDays={baselineDelayDays} onSaveBaselineDelay={saveBaseline} />;
+  return <GettingStartedView state={state} onRetry={retry} baselineDelayDays={baselineDelayDays} onSaveBaselineDelay={saveBaseline} firstCharge={firstCharge} />;
 }

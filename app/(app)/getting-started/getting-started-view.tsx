@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { describeFirstChargeGuardian, describeFirstChargeTiming, describeFirstMonth, firstChargeMessages, firstChargeMissingMessage, firstChargeMissingPaths, type FirstChargeNotice } from "@/lib/first-charge";
 import { currentStep, describeRemaining, gettingStartedMessages, remainingSteps, type GettingStartedState, type GettingStartedStep } from "@/lib/getting-started";
 import { afterSignInPath } from "@/lib/session";
 
@@ -44,6 +45,33 @@ function StepList({ steps, baselineDelayDays, onSaveBaselineDelay }: { steps: Ge
   );
 }
 
+export function FirstChargeSection({ notice }: { notice: FirstChargeNotice }) {
+  return (
+    <section className="flex flex-col gap-2 rounded-sm border p-3" aria-labelledby="first-charge-title">
+      <h2 className="font-medium" id="first-charge-title">
+        {firstChargeMessages.title}
+      </h2>
+      <p className="text-sm">{describeFirstMonth(notice)}</p>
+      {notice.missing === null ? (
+        <>
+          <p className="text-sm">{describeFirstChargeTiming(notice)}</p>
+          <ul className="flex flex-col gap-1 text-sm">
+            {notice.guardians.map((guardian) => (
+              <li key={guardian.phone}>{describeFirstChargeGuardian(guardian)}</li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p className="text-sm">
+          <Link className="underline" href={firstChargeMissingPaths[notice.missing]}>
+            {firstChargeMissingMessage(notice.missing)}
+          </Link>
+        </p>
+      )}
+    </section>
+  );
+}
+
 function Progress({ steps }: { steps: GettingStartedStep[] }) {
   const remaining = remainingSteps(steps);
   if (remaining === 0) {
@@ -68,7 +96,7 @@ function Progress({ steps }: { steps: GettingStartedStep[] }) {
   );
 }
 
-export function GettingStartedView({ state, onRetry, baselineDelayDays = null, onSaveBaselineDelay = () => undefined }: { state: GettingStartedState; onRetry: () => void; baselineDelayDays?: number | null; onSaveBaselineDelay?: (days: number) => void }) {
+export function GettingStartedView({ state, onRetry, baselineDelayDays = null, onSaveBaselineDelay = () => undefined, firstCharge = null }: { state: GettingStartedState; onRetry: () => void; baselineDelayDays?: number | null; onSaveBaselineDelay?: (days: number) => void; firstCharge?: FirstChargeNotice | null }) {
   const unfinished = state.status === "ready" && remainingSteps(state.steps) > 0;
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-4 sm:p-8">
@@ -91,6 +119,7 @@ export function GettingStartedView({ state, onRetry, baselineDelayDays = null, o
         <>
           <Progress steps={state.steps} />
           <StepList steps={state.steps} baselineDelayDays={baselineDelayDays} onSaveBaselineDelay={onSaveBaselineDelay} />
+          {firstCharge ? <FirstChargeSection notice={firstCharge} /> : null}
         </>
       ) : null}
       {state.status !== "ready" || unfinished ? (
