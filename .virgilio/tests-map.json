@@ -43,10 +43,11 @@
     {
       "id": "alunos",
       "name": "Alunos",
-      "description": "Onde o professor cadastra e corrige os alunos, com o responsável, o WhatsApp dele, a forma de cobrança e o horário fixo, e vê as aulas previstas do mês",
+      "description": "Onde o professor cadastra, importa colando uma lista e corrige os alunos, com o responsável, o WhatsApp dele, a forma de cobrança e o horário fixo, e vê as aulas previstas do mês",
       "paths": [
         "app/(app)/students",
         "lib/students.ts",
+        "lib/student-import.ts",
         "lib/billing.ts",
         "lib/schedule.ts"
       ],
@@ -132,6 +133,8 @@
     "app/(app)/notes/page.tsx": "Tela de notas",
     "app/(app)/students/page.tsx": "Tela de alunos",
     "app/(app)/students/students-view.tsx": "Formulário e lista de alunos na tela",
+    "app/(app)/students/import/page.tsx": "Tela de colar uma lista de alunos",
+    "app/(app)/students/import/import-view.tsx": "Caixa da lista colada e como cada linha foi separada na tela",
     "app/(app)/rules/page.tsx": "Tela de regras do professor",
     "app/(app)/rules/rules-view.tsx": "Formulário das regras do professor na tela",
     "app/(app)/lessons/page.tsx": "Tela de marcar as aulas do mês",
@@ -149,6 +152,7 @@
     "lib/account.ts": "Regras de mostrar e apagar a conta",
     "lib/notes.ts": "Regras do texto de uma nota",
     "lib/students.ts": "Regras do cadastro de aluno e do telefone do responsável",
+    "lib/student-import.ts": "Regras de separar nome, responsável e telefone de cada linha colada e de marcar as repetidas",
     "lib/billing.ts": "Regras da forma de cobrança e do valor em reais",
     "lib/schedule.ts": "Regras do horário fixo semanal e das aulas previstas do mês",
     "lib/teacher-rules.ts": "Regras da antecedência da falta, do prazo de reposição e do mês com 5 semanas",

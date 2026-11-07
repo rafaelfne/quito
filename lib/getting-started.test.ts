@@ -78,6 +78,12 @@ describe("loadGettingStarted", () => {
     }
   });
 
+  test("o passo de cadastrar alunos lembra que dá para colar a lista", async () => {
+    const { client } = fakeClient();
+    const progress = await progressOf(loadGettingStarted(client));
+    expect(progress.steps.find((item) => item.id === "students")?.hint).toContain("colar a lista");
+  });
+
   test("todos os alunos completos fecham os dois passos", async () => {
     const { client } = fakeClient({ students: async () => ({ data: [complete], error: null }) });
     const progress = await progressOf(loadGettingStarted(client));

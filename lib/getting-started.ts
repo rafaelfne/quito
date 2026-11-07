@@ -58,7 +58,7 @@ const stepDefinitions: StepDefinition[] = [
   {
     id: "students",
     title: "Cadastre seus alunos",
-    hint: "Nome do aluno, nome do responsável e WhatsApp.",
+    hint: "Nome do aluno, nome do responsável e WhatsApp. Dá para colar a lista que você já tem.",
     path: studentsPath,
     isDone: ({ students }) => students.length > 0,
   },

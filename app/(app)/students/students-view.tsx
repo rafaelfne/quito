@@ -5,6 +5,7 @@ import { lessonsPath } from "@/lib/lessons";
 import { billingKinds, billingOptions, describeBilling, isBillingKind, packageRolloverHint } from "@/lib/billing";
 import { describePlannedLessons, describeSchedule, weekdayOptions, type CalendarMonth } from "@/lib/schedule";
 import { afterSignInPath } from "@/lib/session";
+import { studentImportPath } from "@/lib/student-import";
 import { currentDraft, formatPhone, groupStudentsByGuardian, studentMessages, type Student, type StudentField, type StudentsState } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
 
@@ -259,6 +260,9 @@ export function StudentsView(props: StudentsViewProps) {
       {state.editing ? null : (
         <section className="flex flex-col gap-4">
           <h2 className="font-semibold">Novo aluno</h2>
+          <Link className={`${secondaryButtonClass} text-center`} href={studentImportPath}>
+            Colar uma lista de alunos
+          </Link>
           <StudentForm state={state} busy={busy || loading} submitLabel="Guardar aluno" onChange={onChange} onSubmit={onSubmit} />
         </section>
       )}

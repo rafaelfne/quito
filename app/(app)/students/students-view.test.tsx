@@ -88,6 +88,12 @@ describe("tela de alunos", () => {
     expect(html).toContain('href="/account"');
   });
 
+  test("oferece colar uma lista no lugar de cadastrar um por um, mas não enquanto corrige um aluno", () => {
+    expect(render(ready)).toContain('href="/students/import"');
+    expect(render(ready)).toContain("Colar uma lista de alunos");
+    expect(render(startEditing(ready, pedro))).not.toContain('href="/students/import"');
+  });
+
   test("o campo de telefone abre o teclado de telefone e explica para que serve", () => {
     const html = render(ready);
     expect(html).toContain('type="tel"');
