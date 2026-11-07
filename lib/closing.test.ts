@@ -143,6 +143,26 @@ describe("pacote", () => {
     expect(chargedLessonsBefore(marks, "p", "2026-12-01")).toBe(3);
     expect(packageUsage(marks, "p", 2, november)).toEqual({ bought: 1, carriedIn: 0, used: 1, carriedOut: 1 });
   });
+
+  test("depois do acerto do saldo, a contagem parte do valor confirmado e ignora o treino", () => {
+    const confirmed: Student = { ...packaged, package_balance: 4, opening_balance_on: "2026-12-01", opening_package_balance: 1, opening_makeup_credits: 0 };
+    const marks = [...lessons(4), mark("p", "2026-12-07", "given"), mark("p", "2026-12-14", "given")];
+    const december = only({ students: [confirmed], marks }, { year: 2026, month: 12 }, "2026-12-31");
+    expect(december.lines).toEqual([{ label: "1 pacote de 4 aulas × R$ 300,00", cents: 30000 }]);
+    expect(december.packageBalance).toBe("Saldo do mês anterior: 1 aula. Usadas neste mês: 2. Passam para o mês seguinte: 3.");
+    expect(only({ students: [confirmed], marks }).packageBalance).toBe("Saldo do mês anterior: 4 aulas. Usadas neste mês: 4. Passam para o mês seguinte: 0.");
+  });
+
+  test("a contagem desde o acerto só soma aulas e reposições a partir dele", () => {
+    const marks = [mark("p", "2026-11-23", "given"), mark("p", "2026-11-30", "notified_absence", "2026-12-02"), mark("p", "2026-12-07", "unnotified_absence")];
+    expect(chargedLessonsBefore(marks, "p", "2027-01-01", "2026-12-01")).toBe(2);
+    expect(packageUsage(marks, "p", 4, { year: 2026, month: 12 }, 0, "2026-12-01")).toEqual({ bought: 1, carriedIn: 0, used: 2, carriedOut: 2 });
+  });
+
+  test("saldo inicial cobre aulas antes de comprar o próximo pacote", () => {
+    expect(packageUsage([], "p", 4, november, 2)).toEqual({ bought: 0, carriedIn: 2, used: 0, carriedOut: 2 });
+    expect(packageUsage([mark("p", "2026-11-02", "given"), mark("p", "2026-11-09", "given"), mark("p", "2026-11-16", "given")], "p", 4, november, 2)).toEqual({ bought: 1, carriedIn: 2, used: 3, carriedOut: 3 });
+  });
 });
 
 describe("desconto e agrupamento", () => {
@@ -241,6 +261,22 @@ describe("créditos de reposição", () => {
 
   test("mais de um crédito do mesmo aluno entram juntos", () => {
     expect(only({ marks: [credit, mark("m", "2026-11-09", "teacher_absence")] }).credits).toHaveLength(2);
+  });
+
+  test("depois do acerto do saldo, os créditos confirmados contam do início do mês cobrado", () => {
+    const student: Student = { ...monthly, created_at: "2026-11-07T12:00:00Z", makeup_credits: 2, opening_balance_on: "2026-12-01", opening_package_balance: null, opening_makeup_credits: 1 };
+    const withDeadline: ClosingRules = { ...rules, makeup_deadline_days: 30 };
+    const marks = [credit];
+    expect(only({ students: [student], marks, rules: withDeadline }, { year: 2026, month: 12 }, "2026-12-10").credits).toEqual(["1 crédito do acerto do saldo, vale até 31 de dezembro"]);
+    expect(only({ students: [student], marks, rules: withDeadline }, november, "2026-11-30").credits).toEqual(["Falta avisada de 2 de novembro, vale até 2 de dezembro", "2 créditos iniciais, valem até 7 de dezembro"]);
+    expect(only({ students: [{ ...student, opening_makeup_credits: 0 }], marks, rules: withDeadline }, { year: 2026, month: 12 }, "2026-12-10").credits).toEqual([]);
+  });
+
+  test("saldo inicial usa a data do cadastro para calcular o prazo", () => {
+    const student = { ...monthly, created_at: "2026-11-07T12:00:00Z", makeup_credits: 2 };
+    const withDeadline: ClosingRules = { ...rules, makeup_deadline_days: 30 };
+    expect(only({ students: [student], rules: withDeadline }, november, "2026-12-06").credits).toEqual(["2 créditos iniciais, valem até 7 de dezembro"]);
+    expect(only({ students: [student], rules: withDeadline }, { year: 2026, month: 12 }, "2026-12-08").credits).toEqual([]);
   });
 });
 

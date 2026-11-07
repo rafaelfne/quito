@@ -2,13 +2,15 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { ClosingState } from "@/lib/closing";
 import type { Student } from "@/lib/students";
 
-type ViewProps = { state: ClosingState; today: string; onChangeMonth: (delta: number) => void; onRetry: () => void };
+type ViewProps = { state: ClosingState; today: string; onChangeMonth: (delta: number) => void; onRetry: () => void; trainingMonth: { year: number; month: number } | null };
 
 const pedro: Student = { id: "p", name: "Pedro Lima", gender: "male", called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
 
 const selectStudents = vi.fn(async (columns: string) => (columns === "id, created_at" ? { data: [], error: null as { message: string } | null } : { data: [pedro] as Student[] | null, error: null as { message: string } | null }));
 const marksChain = { order: () => marksChain, range: async () => ({ data: [], error: null }) };
+const gettingStarted = vi.fn(async () => ({ data: { started_at: "2026-11-03T12:00:00" } as { started_at: string | null } | null, error: null as { message: string } | null }));
 const from = vi.fn((table: string) => {
+  if (table === "getting_started") return { select: () => ({ maybeSingle: gettingStarted }) };
   if (table === "students") return { select: selectStudents };
   if (table === "teacher_rules") return { select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) };
   return { select: () => ({ lte: () => marksChain }) };
@@ -82,6 +84,26 @@ describe("página de fechamento", () => {
     await settle();
     expect(view().state.status).toBe("ready");
     expect(view().state.data?.students).toEqual([pedro]);
+  });
+
+  test("sabe o mês de treino do professor para mostrar a prévia do treino", async () => {
+    expect(view().trainingMonth).toBeNull();
+    await settle();
+    expect(view().trainingMonth).toEqual(november());
+  });
+
+  test("sem entrada guardada, o fechamento abre sem mês de treino", async () => {
+    gettingStarted.mockResolvedValueOnce({ data: null, error: null });
+    view();
+    await settle();
+    expect(view().trainingMonth).toBeNull();
+  });
+
+  test("se o banco não diz o mês de treino, o fechamento abre sem ele", async () => {
+    gettingStarted.mockResolvedValueOnce({ data: null, error: { message: "falhou" } });
+    view();
+    await settle();
+    expect(view().trainingMonth).toBeNull();
   });
 
   test("trocar de mês busca o novo mês", async () => {

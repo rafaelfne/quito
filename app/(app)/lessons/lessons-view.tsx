@@ -4,14 +4,15 @@ import { accountPath } from "@/lib/account";
 import { chargesPath } from "@/lib/charges";
 import { closingPath } from "@/lib/closing";
 import {
-  chargeLabel,
   describeDay,
   describeMonth,
   describeNoticeRule,
   describeShortDay,
-  describeSummary,
+  describeMonthSummary,
   describeUnscheduled,
   groupByDay,
+  isTrainingState,
+  lessonChargeLabel,
   lessonKey,
   lessonStatusLabels,
   lessonStatuses,
@@ -35,9 +36,11 @@ import {
   type LessonCredit,
   type MakeupTarget,
 } from "@/lib/makeups";
+import { needsOpeningBalance, openingBalanceMessages, openingBalancePath } from "@/lib/opening-balance";
 import { paymentSettingsPath } from "@/lib/payment-settings";
 import { studentsPath } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
+import { describeTrainingNotice, trainingMessages } from "@/lib/training";
 
 type LessonsViewProps = {
   state: LessonsState;
@@ -84,7 +87,7 @@ function LessonRow({ lesson, state, today, onMark }: { lesson: MonthLesson; stat
           </Button>
         ))}
       </div>
-      <p className="text-sm">{chargeLabel(lesson.status)}</p>
+      <p className="text-sm">{lessonChargeLabel(lesson.status, isTrainingState(state))}</p>
       {creditText ? <p className="text-sm">{creditText}</p> : null}
       {state.failedLesson === key ? (
         <p className="text-sm" role="alert">
@@ -100,7 +103,9 @@ function MakeupRow({ makeup, state, onUndoMakeup }: { makeup: MakeupLesson; stat
   return (
     <li className="flex flex-col gap-2 rounded-sm border p-3">
       <span className="min-w-0 font-medium break-words">{makeup.studentName}</span>
-      <p className="text-sm">Reposição da falta de {describeShortDay(makeup.absenceDate)}. Cobrada.</p>
+      <p className="text-sm">
+        Reposição da falta de {describeShortDay(makeup.absenceDate)}. {isTrainingState(state) ? trainingMessages.makeup : "Cobrada."}
+      </p>
       <Button variant="outline" type="button" disabled={state.pending.includes(key)} onClick={() => onUndoMakeup(makeup)}>
         Desfazer reposição
       </Button>
@@ -156,8 +161,22 @@ function LessonsList({ state, today, onMark, onChangeMakeupDate, onMakeUp, onUnd
   const unscheduled = describeUnscheduled(state.students);
   const days = groupByDay(lessons, makeups);
   const anchor = todayAnchorDate(days, state.month, today);
+  const training = isTrainingState(state);
   return (
     <>
+      {training && state.trainingMonth ? (
+        <p className="rounded-sm border p-3 text-sm font-medium" role="status">
+          {describeTrainingNotice(state.trainingMonth)}
+        </p>
+      ) : null}
+      {needsOpeningBalance(state.students, state.trainingMonth, today) ? (
+        <p className="rounded-sm border p-3 text-sm font-medium" role="status">
+          {openingBalanceMessages.lessonsNotice}{" "}
+          <Link className="underline" href={openingBalancePath}>
+            {openingBalanceMessages.lessonsLink}
+          </Link>
+        </p>
+      ) : null}
       {state.noticeHours === null ? null : (
         <p className="text-sm">
           {lessonsMessages.chargeRule} {describeNoticeRule(state.noticeHours)} {lessonsMessages.undoHint}
@@ -171,7 +190,7 @@ function LessonsList({ state, today, onMark, onChangeMakeupDate, onMakeUp, onUnd
           </Link>
         </p>
       ) : null}
-      {days.length === 0 ? <p className="text-sm">{lessonsMessages.noLessons}</p> : <p className="text-sm font-medium">{describeSummary(summarizeLessons(lessons, makeups))}</p>}
+      {days.length === 0 ? <p className="text-sm">{lessonsMessages.noLessons}</p> : <p className="text-sm font-medium">{describeMonthSummary(summarizeLessons(lessons, makeups), training)}</p>}
       <CreditsSection state={state} today={today} onChangeMakeupDate={onChangeMakeupDate} onMakeUp={onMakeUp} />
       {anchor ? (
         <a className="text-sm underline" href="#hoje">

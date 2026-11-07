@@ -137,6 +137,12 @@ describe("tela de cobranças", () => {
     expect(html).toContain("Tentar de novo");
   });
 
+  test("no mês de treino, explica que não há cobrança e quando ela começa", () => {
+    const html = render(ready({ trainingMonth: november }));
+    expect(html).toContain("As aulas até novembro de 2026 são de treino e não geram cobrança. A primeira cobrança pelo Quitô é de dezembro de 2026.");
+    expect(html).not.toContain(chargeMessages.empty);
+  });
+
   test("sem cobrança nenhuma explica quando elas aparecem", () => {
     expect(render(ready())).toContain(chargeMessages.empty);
   });

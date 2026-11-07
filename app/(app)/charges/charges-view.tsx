@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { accountPath } from "@/lib/account";
 import { formatCurrency } from "@/lib/billing";
-import { canSendCharge, chargeMessages, describeMarkLessons, describeOpenFor, describeReadyFor, groupCharges, isChargePaid, isChargeSent, isDueToSend, isReminderDue, needsFirstPreview, describeWaitingStudent, monthChargesTotal, reminderMessageOf, reminderProgressOf, remindersSentOf, waitsForBilling, waitsForMarks, type Charge, type ChargesState, type ChargeStudent, type WaitingGuardian } from "@/lib/charges";
+import { canSendCharge, chargeMessages, describeMarkLessons, describeOpenFor, describeReadyFor, groupCharges, isChargePaid, isChargeSent, isDueToSend, isReminderDue, isTrainingCharges, needsFirstPreview, describeWaitingStudent, monthChargesTotal, reminderMessageOf, reminderProgressOf, remindersSentOf, waitsForBilling, waitsForMarks, type Charge, type ChargesState, type ChargeStudent, type WaitingGuardian } from "@/lib/charges";
 import { closingMessages, closingPath, describeSignedAmount } from "@/lib/closing";
 import { describeMonth, lessonsPath, lessonsPathFor } from "@/lib/lessons";
 import { whatsAppLinkFor } from "@/lib/charge-sending";
@@ -11,6 +11,7 @@ import { describeReminderDay, describeReminderName, type ReminderProgress } from
 import type { CalendarMonth } from "@/lib/schedule";
 import { formatPhone, studentsPath } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
+import { describeTrainingCharges } from "@/lib/training";
 
 const secondaryButtonClass = "min-h-11 rounded-sm border px-3 py-2 disabled:opacity-50";
 
@@ -315,6 +316,7 @@ function ChargeGroup({ title, total, children }: { title: string; total: number 
 function ChargesContent({ state, onConfirmPreview, onSend, onUndoSend, onMarkPaid, onUndoPaid, onSendReminder, onUndoReminder }: ChargesContentProps) {
   const { month, charges, waiting, nothingToCharge, messages } = state;
   const firstPreview = needsFirstPreview(state) ? { confirming: state.confirmingPreview, onConfirm: onConfirmPreview } : null;
+  if (isTrainingCharges(state) && state.trainingMonth) return <p className="text-sm">{describeTrainingCharges(state.trainingMonth)}</p>;
   if (charges.length === 0 && waiting.length === 0 && nothingToCharge.length === 0) return <p className="text-sm">{chargeMessages.empty}</p>;
   const groups = groupCharges(state);
   const card = (charge: Charge) => (

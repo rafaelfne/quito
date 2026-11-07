@@ -31,10 +31,13 @@ export function creditExpiresOn(absenceDate: string, deadlineDays: number | null
 
 export function openCredits(students: Student[], marks: LessonMark[], deadlineDays: number | null, asOf: string): LessonCredit[] {
   const nameById = new Map(students.map((student) => [student.id, student.name]));
+  const openingById = new Map(students.map((student) => [student.id, student.opening_balance_on ?? null]));
   const credits: LessonCredit[] = [];
   for (const mark of marks) {
     const studentName = nameById.get(mark.student_id);
     if (studentName === undefined || !isCreditStatus(mark.status) || mark.makeup_date !== null) continue;
+    const openingOn = openingById.get(mark.student_id) ?? null;
+    if (openingOn !== null && asOf >= openingOn && mark.lesson_date < openingOn) continue;
     const expiresOn = creditExpiresOn(mark.lesson_date, deadlineDays);
     if (expiresOn !== null && asOf > expiresOn) continue;
     credits.push({ studentId: mark.student_id, studentName, absenceDate: mark.lesson_date, status: mark.status, expiresOn });

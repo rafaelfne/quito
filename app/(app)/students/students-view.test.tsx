@@ -90,6 +90,19 @@ describe("tela de alunos", () => {
     expect(html).toContain('href="/account"');
   });
 
+  test("oferece colar uma lista no lugar de cadastrar um por um, mas não enquanto corrige um aluno", () => {
+    expect(render(ready)).toContain('href="/students/import"');
+    expect(render(ready)).toContain("Colar uma lista de alunos");
+    expect(render(startEditing(ready, pedro))).not.toContain('href="/students/import"');
+  });
+
+  test("com mais de um aluno, leva para a cobrança e o horário em grupo, mas não enquanto corrige um aluno", () => {
+    expect(render(ready)).toContain('href="/students/setup"');
+    expect(render(ready)).toContain("Cobrança e horário em grupo");
+    expect(render({ ...ready, students: [pedro] })).not.toContain('href="/students/setup"');
+    expect(render(startEditing(ready, pedro))).not.toContain('href="/students/setup"');
+  });
+
   test("o campo de telefone abre o teclado de telefone e explica para que serve", () => {
     const html = render(ready);
     expect(html).toContain('type="tel"');
@@ -175,6 +188,8 @@ describe("forma de cobrança na tela de alunos", () => {
   ])("com %s, pede só o valor", (kind, label) => {
     const html = render(choosing(kind));
     expect(html).toContain(label);
+    expect(html).toContain("Quantos créditos de reposição o aluno já tem");
+    expect(html).toContain("contado de hoje");
     expect(html).toContain('inputMode="decimal"');
     expect(html).not.toContain("Quantas aulas tem o pacote");
     expect(html).toContain("checked");
@@ -183,6 +198,8 @@ describe("forma de cobrança na tela de alunos", () => {
   test("no pacote, pede as aulas e o valor e avisa que as aulas não vencem", () => {
     const html = render(choosing("package"));
     expect(html).toContain("Quantas aulas tem o pacote");
+    expect(html).toContain("Quantas aulas ainda restam no pacote");
+    expect(html).toContain("Quantos créditos de reposição o aluno já tem");
     expect(html).toContain('inputMode="numeric"');
     expect(html).toContain("Valor do pacote inteiro, em reais");
     expect(html).toContain(packageRolloverHint);

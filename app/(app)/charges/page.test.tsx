@@ -18,7 +18,7 @@ const update = vi.fn(() => ({ eq: sentEq }));
 const marksChain = { order: () => marksChain, range: async () => ({ data: [], error: null }) };
 const from = vi.fn((table: string) => {
   if (table === "students") return { select: selectStudents };
-  if (table === "teacher_rules" || table === "message_settings") return { select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) };
+  if (table === "teacher_rules" || table === "message_settings" || table === "getting_started") return { select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) };
   if (table === "payment_settings") return { select: () => ({ maybeSingle: async () => ({ data: { pix_key: "joao@email.com", display_name: "João Silva", due_day: 5 }, error: null }) }) };
   if (table === "message_previews") return { upsert: previewUpsert, select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) };
   if (table === "guardian_due_days") return { select: async () => ({ data: [], error: null }) };

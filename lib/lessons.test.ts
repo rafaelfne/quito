@@ -10,6 +10,9 @@ import {
   describeMonth,
   describeNoticeRule,
   describeSummary,
+  describeMonthSummary,
+  isTrainingState,
+  lessonChargeLabel,
   lessonsPathFor,
   parseMonthParam,
   describeUnscheduled,
@@ -55,7 +58,7 @@ function ready(overrides: Partial<LessonsState> = {}): LessonsState {
 
 type Result = { data?: unknown; error: { message: string } | null };
 
-function fakeClient(results: Partial<Record<"students" | "lesson_marks" | "credit_marks" | "teacher_rules", Result>> = {}) {
+function fakeClient(results: Partial<Record<"students" | "lesson_marks" | "credit_marks" | "teacher_rules" | "getting_started", Result>> = {}) {
   const marksQuery = {
     gte: vi.fn(() => marksQuery),
     lte: vi.fn(async () => results.lesson_marks ?? { data: [], error: null }),
@@ -69,6 +72,7 @@ function fakeClient(results: Partial<Record<"students" | "lesson_marks" | "credi
   const from = vi.fn((table: string) => {
     if (table === "students") return { select: async () => results.students ?? { data: [], error: null } };
     if (table === "teacher_rules") return { select: () => ({ maybeSingle: async () => results.teacher_rules ?? { data: null, error: null } }) };
+    if (table === "getting_started") return { select: () => ({ maybeSingle: async () => results.getting_started ?? { data: null, error: null } }) };
     return { select: () => marksQuery, upsert, delete: remove };
   });
   return { client: { from } as unknown as LessonsClient, from, marksQuery, upsert, remove, removal };
@@ -93,6 +97,20 @@ describe("o que é cobrado", () => {
     expect(chargeLabel(null)).toBe("Ainda sem marcar");
     expect(chargeLabel("given")).toBe("Cobrada");
     expect(chargeLabel("teacher_absence")).toBe("Sem cobrança");
+  });
+
+  test("no treino, cada aula diz que não gera cobrança", () => {
+    expect(lessonChargeLabel("given", true)).toBe("Treino: num mês cobrado, seria cobrada. Agora não gera cobrança.");
+    expect(lessonChargeLabel("unnotified_absence", true)).toBe("Treino: num mês cobrado, seria cobrada. Agora não gera cobrança.");
+    expect(lessonChargeLabel("notified_absence", true)).toBe("Treino: sem cobrança.");
+    expect(lessonChargeLabel(null, true)).toBe("Ainda sem marcar");
+    expect(lessonChargeLabel("given", false)).toBe("Cobrada");
+  });
+
+  test("o mês aberto é de treino até o fim do mês da entrada", () => {
+    expect(isTrainingState({ month: november2026, trainingMonth: november2026 })).toBe(true);
+    expect(isTrainingState({ month: { year: 2026, month: 12 }, trainingMonth: november2026 })).toBe(false);
+    expect(isTrainingState({ month: november2026, trainingMonth: null })).toBe(false);
   });
 
   test("as quatro opções são as que o banco aceita", () => {
@@ -146,6 +164,8 @@ describe("textos", () => {
   test("o resumo acerta o singular", () => {
     expect(describeSummary({ charged: 1, free: 2, unmarked: 3 })).toBe("1 aula cobrada, 2 sem cobrança e 3 para marcar.");
     expect(describeSummary({ charged: 2, free: 0, unmarked: 0 })).toBe("2 aulas cobradas, 0 sem cobrança e 0 para marcar.");
+    expect(describeMonthSummary({ charged: 2, free: 0, unmarked: 0 }, false)).toBe("2 aulas cobradas, 0 sem cobrança e 0 para marcar.");
+    expect(describeMonthSummary({ charged: 2, free: 0, unmarked: 0 }, true)).toBe("Treino: 2 aulas seriam cobradas, 0 sem cobrança e 0 para marcar. Nenhuma gera cobrança.");
   });
 
   test("avisa de quem está sem horário fixo", () => {
@@ -302,7 +322,12 @@ describe("loadLessonsMonth", () => {
       lesson_marks: { data: [givenMark], error: null },
       teacher_rules: { data: { notice_hours: 48, makeup_deadline_days: null }, error: null },
     });
-    expect(await loadLessonsMonth(client, november2026)).toEqual({ ok: true, month: november2026, students: [pedro], marks: [givenMark], noticeHours: 48, makeupDeadlineDays: null });
+    expect(await loadLessonsMonth(client, november2026)).toEqual({ ok: true, month: november2026, students: [pedro], marks: [givenMark], noticeHours: 48, makeupDeadlineDays: null, trainingMonth: null });
+  });
+
+  test("traz o mês de treino, que é o mês da entrada do professor", async () => {
+    const { client } = fakeClient({ getting_started: { data: { started_at: "2026-11-07T15:00:00" }, error: null } });
+    expect(await loadLessonsMonth(client, november2026)).toMatchObject({ ok: true, trainingMonth: november2026 });
   });
 
   test("junta as faltas de outros meses sem repetir as do mês aberto", async () => {
@@ -321,7 +346,7 @@ describe("loadLessonsMonth", () => {
     expect(result).toMatchObject({ ok: true, noticeHours: 24 });
   });
 
-  test.each(["students", "lesson_marks", "credit_marks", "teacher_rules"] as const)("falha ao buscar %s vira falha", async (table) => {
+  test.each(["students", "lesson_marks", "credit_marks", "teacher_rules", "getting_started"] as const)("falha ao buscar %s vira falha", async (table) => {
     const result = await loadLessonsMonth(fakeClient({ [table]: { error: { message: "x" } } }).client, november2026);
     expect(result).toEqual({ ok: false, month: november2026 });
   });
@@ -372,8 +397,8 @@ describe("estado da tela", () => {
   });
 
   test("resposta que chega aplica alunos, marcações e regra", () => {
-    const next = applyLessonsLoad(initialLessons(november2026), { ok: true, month: november2026, students: [pedro], marks: [givenMark], noticeHours: 12, makeupDeadlineDays: 30 });
-    expect(next).toMatchObject({ status: "ready", students: [pedro], marks: [givenMark], noticeHours: 12, makeupDeadlineDays: 30 });
+    const next = applyLessonsLoad(initialLessons(november2026), { ok: true, month: november2026, students: [pedro], marks: [givenMark], noticeHours: 12, makeupDeadlineDays: 30, trainingMonth: november2026 });
+    expect(next).toMatchObject({ status: "ready", students: [pedro], marks: [givenMark], noticeHours: 12, makeupDeadlineDays: 30, trainingMonth: november2026 });
   });
 
   test("falha ao carregar aparece como falha", () => {
