@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { describeTrainingCharges, describeTrainingNotice, describeTrainingSummary, firstChargedMonth, isTrainingMonth, loadTrainingMonth, type TrainingClient } from "./training";
+import { describeTrainingCharges, describeTrainingClosing, describeTrainingNotice, describeTrainingSummary, firstChargedMonth, isTrainingMonth, loadTrainingMonth, type TrainingClient } from "./training";
 
 const november = { year: 2026, month: 11 };
 
@@ -8,6 +8,12 @@ function fakeClient(result: () => Promise<{ data: unknown; error: { message: str
   const from = vi.fn(() => ({ select }));
   return { client: { from } as unknown as TrainingClient, from, select };
 }
+
+describe("prévia do fechamento no treino", () => {
+  test("avisa que a conta é só prévia, sem cobrança nem lembrete, e qual é a primeira cobrança", () => {
+    expect(describeTrainingClosing(november)).toBe("Mês de treino: até o fim de novembro de 2026, a conta abaixo é só uma prévia com as aulas marcadas. Ela não vira cobrança nem lembrete e não é enviada aos responsáveis. A primeira cobrança pelo Quitô é de dezembro de 2026.");
+  });
+});
 
 describe("mês de treino", () => {
   test("vai da entrada até o fim do mês, e os meses antes dele também não são cobrados", () => {

@@ -93,10 +93,11 @@
     {
       "id": "fechamento",
       "name": "Fechamento do mês",
-      "description": "Onde o professor vê quanto cada responsável deve no mês, com a conta aberta de cada aluno: aulas, faltas, reposições, saldo inicial do pacote, pacotes novos, créditos com prazo e descontos",
+      "description": "Onde o professor vê quanto cada responsável deve no mês, com a conta aberta de cada aluno: aulas, faltas, reposições, saldo inicial do pacote, pacotes novos, créditos com prazo e descontos, e a prévia do mês de treino, que não vira cobrança nem lembrete",
       "paths": [
         "app/(app)/closing",
-        "lib/closing.ts"
+        "lib/closing.ts",
+        "lib/training.ts"
       ],
       "sensitive": "personal"
     },
@@ -199,7 +200,7 @@
     "lib/message-templates.ts": "Textos dos três tons da mensagem de cobrança e como as partes entram neles",
     "lib/lessons.ts": "Regras de marcar a aula e de quais aulas são cobradas",
     "lib/makeups.ts": "Regras do crédito de reposição: quando nasce, quando vence e quando é usado",
-    "lib/training.ts": "Regras do mês de treino: vai da entrada até o fim do mês e não gera cobrança",
+    "lib/training.ts": "Regras do mês de treino: vai da entrada até o fim do mês, não gera cobrança e o fechamento dele é só prévia",
     "lib/closing.ts": "Regras do fechamento: quanto cada aluno e cada responsável deve no mês",
     "lib/getting-started.ts": "Regras dos passos, de quanto falta e de quando lembrar o professor",
     "lib/first-charge.ts": "Regras do primeiro mês cobrado, o seguinte ao da entrada, e do dia da primeira cobrança de cada responsável",

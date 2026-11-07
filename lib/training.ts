@@ -36,10 +36,17 @@ export function describeTrainingSummary({ charged, free, unmarked }: { charged: 
   return `Treino: ${charged} ${charged === 1 ? "aula seria cobrada" : "aulas seriam cobradas"}, ${free} sem cobrança e ${unmarked} para marcar. Nenhuma gera cobrança.`;
 }
 
+export function describeTrainingClosing(trainingMonth: CalendarMonth): string {
+  return `Mês de treino: até o fim de ${monthName(trainingMonth)}, a conta abaixo é só uma prévia com as aulas marcadas. Ela não vira cobrança nem lembrete e não é enviada aos responsáveis. A primeira cobrança pelo Quitô é de ${monthName(firstChargedMonth(trainingMonth))}.`;
+}
+
 export const trainingMessages = {
   wouldCharge: "Treino: num mês cobrado, seria cobrada. Agora não gera cobrança.",
   free: "Treino: sem cobrança.",
   makeup: "Treino: não gera cobrança.",
+  badge: "Treino",
+  monthTotal: "Total do treino",
+  guardianTotal: "Prévia do treino",
 };
 
 export async function loadTrainingMonth(client: TrainingClient): Promise<TrainingMonthLoad> {
