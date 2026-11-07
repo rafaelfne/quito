@@ -43,7 +43,7 @@
     {
       "id": "alunos",
       "name": "Alunos",
-      "description": "Onde o professor cadastra, importa colando uma lista ou escolhendo dos contatos do celular e corrige os alunos, com o responsável, o WhatsApp dele, a forma de cobrança e o horário fixo, aplica a mesma forma de cobrança a vários alunos de uma vez e acerta o horário de cada um, e vê as aulas previstas do mês",
+      "description": "Onde o professor cadastra, importa colando uma lista ou escolhendo dos contatos do celular e corrige os alunos, com o responsável, o WhatsApp dele, a forma de cobrança, o saldo inicial do pacote, os créditos de reposição e o horário fixo, aplica a mesma forma de cobrança a vários alunos de uma vez e acerta o horário de cada um, e vê as aulas previstas do mês",
       "paths": [
         "app/(app)/students",
         "lib/students.ts",
@@ -92,7 +92,7 @@
     {
       "id": "fechamento",
       "name": "Fechamento do mês",
-      "description": "Onde o professor vê quanto cada responsável deve no mês, com a conta aberta de cada aluno: aulas, faltas, reposições, pacotes, créditos e descontos",
+      "description": "Onde o professor vê quanto cada responsável deve no mês, com a conta aberta de cada aluno: aulas, faltas, reposições, saldo inicial do pacote, pacotes novos, créditos com prazo e descontos",
       "paths": [
         "app/(app)/closing",
         "lib/closing.ts"

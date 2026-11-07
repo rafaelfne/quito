@@ -188,6 +188,8 @@ describe("forma de cobrança na tela de alunos", () => {
   ])("com %s, pede só o valor", (kind, label) => {
     const html = render(choosing(kind));
     expect(html).toContain(label);
+    expect(html).toContain("Quantos créditos de reposição o aluno já tem");
+    expect(html).toContain("contado de hoje");
     expect(html).toContain('inputMode="decimal"');
     expect(html).not.toContain("Quantas aulas tem o pacote");
     expect(html).toContain("checked");
@@ -196,6 +198,8 @@ describe("forma de cobrança na tela de alunos", () => {
   test("no pacote, pede as aulas e o valor e avisa que as aulas não vencem", () => {
     const html = render(choosing("package"));
     expect(html).toContain("Quantas aulas tem o pacote");
+    expect(html).toContain("Quantas aulas ainda restam no pacote");
+    expect(html).toContain("Quantos créditos de reposição o aluno já tem");
     expect(html).toContain('inputMode="numeric"');
     expect(html).toContain("Valor do pacote inteiro, em reais");
     expect(html).toContain(packageRolloverHint);

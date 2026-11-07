@@ -9,11 +9,11 @@ export type StudentGender = "male" | "female" | "other";
 
 type StudentContact = { name: string; guardian_name: string; guardian_phone: string };
 
-export type StudentRow = StudentContact & BillingRow & ScheduleRow & { gender: StudentGender; called_as: string | null };
+export type StudentRow = StudentContact & BillingRow & ScheduleRow & { gender: StudentGender; called_as: string | null; package_balance: number; makeup_credits: number };
 
-export type Student = StudentContact & SavedBilling & SavedSchedule & { id: string; gender: StudentGender | null; called_as: string | null };
+export type Student = StudentContact & SavedBilling & SavedSchedule & { id: string; gender: StudentGender | null; called_as: string | null; package_balance?: number | null; makeup_credits?: number; created_at?: string };
 
-export type StudentDraft = BillingDraft & ScheduleDraft & { name: string; gender: string; calledAs: string; guardianName: string; guardianPhone: string };
+export type StudentDraft = BillingDraft & ScheduleDraft & { name: string; gender: string; calledAs: string; guardianName: string; guardianPhone: string; packageBalance: string; makeupCredits: string };
 
 export type StudentField = keyof StudentDraft;
 
@@ -54,19 +54,30 @@ export const studentMessages = {
   guardianMissing: "Escreva o nome do responsável.",
   guardianTooLong: `O nome do responsável passou do limite de ${studentNameLimit} caracteres. Encurte o texto e toque em Guardar de novo.`,
   phoneInvalid: "Confira o telefone: ele precisa ter o DDD e o número, como (11) 98765-4321.",
+  packageBalanceInvalid: "Escreva quantas aulas ainda restam no pacote.",
+  makeupCreditsInvalid: "Escreva quantos créditos de reposição o aluno já tem.",
   loadFailed: "Não deu para atualizar a lista de alunos agora. Confira a internet e tente de novo.",
   saveFailed: "Não deu para guardar o cadastro agora. Confira a internet e toque em Guardar de novo.",
 };
 
 const table = "students";
 
-const columns = "id, name, gender, called_as, guardian_name, guardian_phone, billing_kind, billing_amount_cents, package_lessons, lesson_weekday, lesson_time";
+const columns = "id, name, gender, called_as, guardian_name, guardian_phone, billing_kind, billing_amount_cents, package_lessons, package_balance, makeup_credits, created_at, lesson_weekday, lesson_time";
 
 const nationalPhonePattern = /^[1-9]{2}(9\d{8}|[2-9]\d{7})$/;
 
 const countryCodePattern = /^55\d{10,11}$/;
 
-const emptyDraft: StudentDraft = { name: "", gender: "", calledAs: "", guardianName: "", guardianPhone: "", ...emptyBillingDraft, ...emptyScheduleDraft };
+const emptyDraft: StudentDraft = { name: "", gender: "", calledAs: "", guardianName: "", guardianPhone: "", packageBalance: "", makeupCredits: "0", ...emptyBillingDraft, ...emptyScheduleDraft };
+
+const balanceLimit = 100;
+
+function parseBalance(raw: string, limit: number): number | null {
+  const value = raw.trim();
+  if (!/^\d+$/.test(value)) return null;
+  const number = Number(value);
+  return number >= 0 && number <= limit ? number : null;
+}
 
 export const initialStudents: StudentsState = {
   students: [],
@@ -109,6 +120,10 @@ export function validateStudent(draft: StudentDraft): StudentValidation {
   const billing = validateBilling(draft);
   const schedule = validateSchedule(draft);
   const errors: StudentErrors = { ...(billing.ok ? {} : billing.errors), ...(schedule.ok ? {} : schedule.errors) };
+  const packageBalance = draft.billingKind === "package" ? parseBalance(draft.packageBalance, balanceLimit) : null;
+  const makeupCredits = parseBalance(draft.makeupCredits, balanceLimit);
+  if (draft.billingKind === "package" && (packageBalance === null || billing.ok && packageBalance > (billing.row.package_lessons ?? 0))) errors.packageBalance = studentMessages.packageBalanceInvalid;
+  if (makeupCredits === null) errors.makeupCredits = studentMessages.makeupCreditsInvalid;
   const nameProblem = nameError(name, studentMessages.nameMissing, studentMessages.nameTooLong);
   const guardianProblem = nameError(guardianName, studentMessages.guardianMissing, studentMessages.guardianTooLong);
   if (nameProblem) errors.name = nameProblem;
@@ -117,8 +132,8 @@ export function validateStudent(draft: StudentDraft): StudentValidation {
   if (calledAsProblem) errors.calledAs = calledAsProblem;
   if (guardianProblem) errors.guardianName = guardianProblem;
   if (!phone) errors.guardianPhone = studentMessages.phoneInvalid;
-  if (!phone || !billing.ok || !schedule.ok || !isStudentGender(draft.gender) || Object.keys(errors).length > 0) return { ok: false, errors };
-  return { ok: true, row: { name, gender: draft.gender, called_as: calledAs, guardian_name: guardianName, guardian_phone: phone, ...billing.row, ...schedule.row } };
+  if (!phone || !billing.ok || !schedule.ok || draft.billingKind === "package" && (packageBalance === null || packageBalance > (billing.row.package_lessons ?? 0)) || makeupCredits === null || !isStudentGender(draft.gender) || Object.keys(errors).length > 0) return { ok: false, errors };
+  return { ok: true, row: { name, gender: draft.gender, called_as: calledAs, guardian_name: guardianName, guardian_phone: phone, ...billing.row, ...schedule.row, package_balance: packageBalance ?? 0, makeup_credits: makeupCredits } };
 }
 
 export function sortStudents(students: Student[]): Student[] {
@@ -168,7 +183,7 @@ export function changeDraft(state: StudentsState, field: StudentField, value: st
 }
 
 export function startEditing(state: StudentsState, student: Student): StudentsState {
-  const draft = { name: student.name, gender: student.gender ?? "", calledAs: student.called_as ?? "", guardianName: student.guardian_name, guardianPhone: formatPhone(student.guardian_phone), ...billingDraftFrom(student), ...scheduleDraftFrom(student) };
+  const draft = { name: student.name, gender: student.gender ?? "", calledAs: student.called_as ?? "", guardianName: student.guardian_name, guardianPhone: formatPhone(student.guardian_phone), packageBalance: student.package_balance === null || student.package_balance === undefined ? String(student.package_lessons ?? "") : String(student.package_balance), makeupCredits: String(student.makeup_credits ?? 0), ...billingDraftFrom(student), ...scheduleDraftFrom(student) };
   return { ...state, editing: { id: student.id, draft }, errors: {}, message: null, notice: null };
 }
 

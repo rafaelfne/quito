@@ -50,6 +50,8 @@ const guardianFields: TextFieldConfig[] = [
 ];
 
 const packageLessonsField: TextFieldConfig = { field: "packageLessons", id: "student-package-lessons", label: "Quantas aulas tem o pacote", inputMode: "numeric", hint: packageRolloverHint };
+const packageBalanceField: TextFieldConfig = { field: "packageBalance", id: "student-package-balance", label: "Quantas aulas ainda restam no pacote", inputMode: "numeric" };
+const makeupCreditsField: TextFieldConfig = { field: "makeupCredits", id: "student-makeup-credits", label: "Quantos créditos de reposição o aluno já tem", inputMode: "numeric", hint: "Eles vencem conforme o prazo de reposição, contado de hoje." };
 
 const lessonTimeField: TextFieldConfig = { field: "lessonTime", id: "student-lesson-time", label: "Horário da aula", type: "time" };
 
@@ -130,7 +132,8 @@ function BillingFields({ state, onChange }: { state: StudentsState; onChange: Fo
           </span>
         ) : null}
       </fieldset>
-      {selected === "package" ? <TextField config={packageLessonsField} state={state} onChange={onChange} /> : null}
+      {selected === "package" ? <><TextField config={packageLessonsField} state={state} onChange={onChange} /><TextField config={packageBalanceField} state={state} onChange={onChange} /></> : null}
+      {isBillingKind(selected) ? <TextField config={makeupCreditsField} state={state} onChange={onChange} /> : null}
       {isBillingKind(selected) ? <TextField config={amountField(billingOptions[selected].amountLabel)} state={state} onChange={onChange} /> : null}
     </>
   );

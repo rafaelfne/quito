@@ -1,6 +1,6 @@
 import { discountAmount, formatCurrency, type BillingKind } from "@/lib/billing";
-import { dateKeyOf, isCharged, lessonMarksTable, monthLessons, monthRange, shiftMonth, type LessonMark, type LessonStatus, type LessonsClient, type MonthLesson } from "@/lib/lessons";
-import { describeCredit, monthMakeups, openCredits } from "@/lib/makeups";
+import { dateKeyOf, describeShortDay, isCharged, lessonMarksTable, monthLessons, monthRange, shiftMonth, type LessonMark, type LessonStatus, type LessonsClient, type MonthLesson } from "@/lib/lessons";
+import { creditExpiresOn, describeCredit, monthMakeups, openCredits } from "@/lib/makeups";
 import { plannedLessons, type CalendarMonth } from "@/lib/schedule";
 import { requestTimeoutMs, withTimeout } from "@/lib/sign-in";
 import { groupStudentsByGuardian, loadStudents, type Student } from "@/lib/students";
@@ -121,16 +121,16 @@ export function chargedLessonsBefore(marks: LessonMark[], studentId: string, lim
   }, 0);
 }
 
-export function packageUsage(marks: LessonMark[], studentId: string, packageLessons: number, month: CalendarMonth) {
+export function packageUsage(marks: LessonMark[], studentId: string, packageLessons: number, month: CalendarMonth, packageBalance = 0) {
   const usedBefore = chargedLessonsBefore(marks, studentId, monthRange(month).first);
   const usedThrough = chargedLessonsBefore(marks, studentId, monthRange(shiftMonth(month, 1)).first);
-  const packagesBefore = Math.ceil(usedBefore / packageLessons);
-  const packagesThrough = Math.ceil(usedThrough / packageLessons);
+  const packagesBefore = Math.ceil(Math.max(0, usedBefore - packageBalance) / packageLessons);
+  const packagesThrough = Math.ceil(Math.max(0, usedThrough - packageBalance) / packageLessons);
   return {
     bought: packagesThrough - packagesBefore,
-    carriedIn: packagesBefore * packageLessons - usedBefore,
+    carriedIn: packageBalance + packagesBefore * packageLessons - usedBefore,
     used: usedThrough - usedBefore,
-    carriedOut: packagesThrough * packageLessons - usedThrough,
+    carriedOut: packageBalance + packagesThrough * packageLessons - usedThrough,
   };
 }
 
@@ -169,7 +169,7 @@ function chargeOf(student: Student, counts: AttendanceCounts, data: ClosingData,
   if (billingKind === "monthly") return { ...terms, lines: monthlyLines(student, amountCents, month, data.rules), packageBalance: null };
   if (billingKind === "per_class") return { ...terms, lines: perClassLines(amountCents, counts), packageBalance: null };
   if (packageLessons === null) return null;
-  const usage = packageUsage(data.marks, student.id, packageLessons, month);
+  const usage = packageUsage(data.marks, student.id, packageLessons, month, student.package_balance ?? 0);
   return { ...terms, lines: packageLines(amountCents, packageLessons, usage.bought), packageBalance: describePackageBalance(usage) };
 }
 
@@ -207,6 +207,14 @@ function creditsByStudent(students: Student[], { marks, rules }: ClosingData, mo
   const marksAtMonthEnd = marks.filter((mark) => mark.lesson_date <= last).map((mark) => (mark.makeup_date !== null && mark.makeup_date > last ? { ...mark, makeup_date: null } : mark));
   const credits = new Map<string, string[]>();
   for (const credit of openCredits(students, marksAtMonthEnd, rules.makeup_deadline_days, asOf)) credits.set(credit.studentId, [...(credits.get(credit.studentId) ?? []), describeCredit(credit)]);
+  for (const student of students) {
+    const count = student.makeup_credits ?? 0;
+    const start = student.created_at === undefined ? undefined : dateKeyOf(new Date(student.created_at));
+    if (count === 0 || start === undefined || start > last) continue;
+    const expiresOn = creditExpiresOn(start, rules.makeup_deadline_days);
+    if (expiresOn !== null && asOf > expiresOn) continue;
+    credits.set(student.id, [...(credits.get(student.id) ?? []), `${counted(count, "crédito inicial", "créditos iniciais")}${expiresOn === null ? ", sem prazo" : `, valem até ${describeShortDay(expiresOn)}`}`]);
+  }
   return credits;
 }
 

@@ -143,6 +143,11 @@ describe("pacote", () => {
     expect(chargedLessonsBefore(marks, "p", "2026-12-01")).toBe(3);
     expect(packageUsage(marks, "p", 2, november)).toEqual({ bought: 1, carriedIn: 0, used: 1, carriedOut: 1 });
   });
+
+  test("saldo inicial cobre aulas antes de comprar o próximo pacote", () => {
+    expect(packageUsage([], "p", 4, november, 2)).toEqual({ bought: 0, carriedIn: 2, used: 0, carriedOut: 2 });
+    expect(packageUsage([mark("p", "2026-11-02", "given"), mark("p", "2026-11-09", "given"), mark("p", "2026-11-16", "given")], "p", 4, november, 2)).toEqual({ bought: 1, carriedIn: 2, used: 3, carriedOut: 3 });
+  });
 });
 
 describe("desconto e agrupamento", () => {
@@ -241,6 +246,13 @@ describe("créditos de reposição", () => {
 
   test("mais de um crédito do mesmo aluno entram juntos", () => {
     expect(only({ marks: [credit, mark("m", "2026-11-09", "teacher_absence")] }).credits).toHaveLength(2);
+  });
+
+  test("saldo inicial usa a data do cadastro para calcular o prazo", () => {
+    const student = { ...monthly, created_at: "2026-11-07T12:00:00Z", makeup_credits: 2 };
+    const withDeadline: ClosingRules = { ...rules, makeup_deadline_days: 30 };
+    expect(only({ students: [student], rules: withDeadline }, november, "2026-12-06").credits).toEqual(["2 créditos iniciais, valem até 7 de dezembro"]);
+    expect(only({ students: [student], rules: withDeadline }, { year: 2026, month: 12 }, "2026-12-08").credits).toEqual([]);
   });
 });
 
