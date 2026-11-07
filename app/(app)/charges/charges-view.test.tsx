@@ -310,4 +310,47 @@ describe("marcar como pago", () => {
   test("se não deu para guardar o pagamento, avisa", () => {
     expect(render(ready({ ...confirmed, paymentMessage: chargeMessages.paymentFailed }))).toContain(chargeMessages.paymentFailed);
   });
+
+  test("abre com o que enviar hoje no topo, depois o que falta, quem está em aberto e quem pagou", () => {
+    const today = { ...charge, id: "t", guardian_name: "Hoje Souza" };
+    const open = { ...charge, id: "o", guardian_name: "Aberta Reis", sent_at: "2026-12-05T12:00:00Z" };
+    const paid = { ...charge, id: "p", guardian_name: "Paga Lopes", total_cents: 30000, sent_at: "2026-12-05T12:00:00Z", paid_at: "2026-12-06T12:00:00Z" };
+    const html = render(
+      ready({
+        charges: [paid, open, today],
+        waiting: [waitingMarks],
+        messages: { t: "Oi!", o: "Oi!", p: "Oi!" },
+        dueDates: { t: "2026-12-08", o: "2026-12-05", p: "2026-12-05" },
+        today: "2026-12-08",
+        previewConfirmed: true,
+      }),
+    );
+    const order = [chargeMessages.todayTitle, "Hoje Souza", chargeMessages.waitingTitle, "Bia Dias", chargeMessages.monthTotal, chargeMessages.openTitle, "Aberta Reis", chargeMessages.paidTitle, "Paga Lopes"].map((text) => html.indexOf(text));
+    expect(order.every((position) => position >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(html).toContain("Vence hoje");
+    expect(html).toContain("Em aberto há 3 dias");
+    expect(html).toContain("R$ 300,00");
+    expect(html).not.toContain(chargeMessages.nothingToday);
+  });
+
+  test("sem nada para enviar hoje, diz isso no topo", () => {
+    const html = render(ready({ charges: [charge], messages: { c1: "Oi!" }, dueDates: { c1: "2026-12-05" }, today: "2026-12-01", previewConfirmed: true }));
+    expect(html).toContain(chargeMessages.nothingToday);
+    expect(html.indexOf(chargeMessages.nothingToday)).toBeLessThan(html.indexOf(chargeMessages.openTitle));
+    expect(html).not.toContain("Em aberto há");
+  });
+
+  test("a cobrança zerada pelo acerto fica no grupo dela", () => {
+    const html = render(ready({ charges: [{ ...charge, total_cents: 0 }] }));
+    expect(html).toContain(chargeMessages.coveredTitle);
+    expect(html).not.toContain(chargeMessages.openTitle);
+  });
+
+  test("antes da primeira prévia, o aviso fica junto das cobranças de hoje", () => {
+    const html = render(ready({ charges: [charge], messages: { c1: "Oi!" }, dueDates: { c1: "2026-12-05" }, today: "2026-12-05" }));
+    expect(html.indexOf("Antes do primeiro envio")).toBeLessThan(html.indexOf("Ana Lima"));
+    expect(html.indexOf("Antes do primeiro envio")).toBeLessThan(html.indexOf(chargeMessages.monthTotal));
+  });
 });
+

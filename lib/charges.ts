@@ -63,7 +63,15 @@ export const chargeMessages = {
   undoPaid: "Desfazer o pagamento",
   paymentFailed: "O Quitô não conseguiu guardar que a cobrança foi paga. Confira a internet e toque de novo.",
   undoPaymentFailed: "Não deu para desfazer o pagamento agora. Confira a internet e toque de novo.",
+  todayTitle: "Para enviar hoje",
+  nothingToday: "Nada para enviar hoje.",
+  openTitle: "Em aberto",
+  paidTitle: "Pagas",
+  coveredTitle: "Cobertas pelo acerto",
+  dueToday: "Vence hoje",
 };
+
+export type ChargeGroups = { today: Charge[]; open: Charge[]; paid: Charge[]; covered: Charge[] };
 
 const table = "charges";
 
@@ -279,4 +287,39 @@ export function applyPaidSaved(state: ChargesState, chargeId: string, paidAt: st
   const savingPayments = state.savingPayments.filter((id) => id !== chargeId);
   if (!saved) return { ...state, savingPayments, paymentMessage: paidAt ? chargeMessages.paymentFailed : chargeMessages.undoPaymentFailed };
   return { ...state, savingPayments, charges: state.charges.map((charge) => (charge.id === chargeId ? { ...charge, paid_at: paidAt } : charge)) };
+}
+
+function groupOf(state: ChargesState, charge: Charge): keyof ChargeGroups {
+  if (charge.total_cents === 0) return "covered";
+  if (isChargePaid(charge)) return "paid";
+  if (!isChargeSent(charge) && isDueToSend(state, charge.id)) return "today";
+  return "open";
+}
+
+export function groupCharges(state: ChargesState): ChargeGroups {
+  const groups: ChargeGroups = { today: [], open: [], paid: [], covered: [] };
+  for (const charge of state.charges) groups[groupOf(state, charge)].push(charge);
+  return groups;
+}
+
+const dayMs = 24 * 60 * 60 * 1000;
+
+function dayNumberOf(dateKey: string): number {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return Date.UTC(year, month - 1, day) / dayMs;
+}
+
+export function daysBetween(from: string, to: string): number {
+  return dayNumberOf(to) - dayNumberOf(from);
+}
+
+export function describeOpenDays(days: number): string {
+  if (days === 0) return chargeMessages.dueToday;
+  return `Em aberto há ${days} ${days === 1 ? "dia" : "dias"}`;
+}
+
+export function describeOpenFor(state: ChargesState, charge: Charge): string | null {
+  const due = state.dueDates[charge.id];
+  if (isChargePaid(charge) || due === undefined || !isDueToSend(state, charge.id)) return null;
+  return describeOpenDays(daysBetween(due, state.today));
 }

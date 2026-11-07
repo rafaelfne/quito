@@ -1,7 +1,8 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { accountPath } from "@/lib/account";
 import { formatCurrency } from "@/lib/billing";
-import { canSendCharge, chargeMessages, describeMarkLessons, describeReadyFor, isChargePaid, isChargeSent, isDueToSend, needsFirstPreview, describeWaitingStudent, monthChargesTotal, waitsForBilling, waitsForMarks, type Charge, type ChargesState, type ChargeStudent, type WaitingGuardian } from "@/lib/charges";
+import { canSendCharge, chargeMessages, describeMarkLessons, describeOpenFor, describeReadyFor, groupCharges, isChargePaid, isChargeSent, isDueToSend, needsFirstPreview, describeWaitingStudent, monthChargesTotal, waitsForBilling, waitsForMarks, type Charge, type ChargesState, type ChargeStudent, type WaitingGuardian } from "@/lib/charges";
 import { closingMessages, closingPath, describeSignedAmount } from "@/lib/closing";
 import { describeMonth, lessonsPath, lessonsPathFor } from "@/lib/lessons";
 import { whatsAppLinkFor } from "@/lib/charge-sending";
@@ -145,13 +146,16 @@ function ChargeMessage({ charge, message, firstPreview, sending }: { charge: Cha
   );
 }
 
-function ChargeCard({ charge, message, firstPreview, sending, payment }: { charge: Charge; message: string | undefined; firstPreview: FirstPreview | null; sending: Sending; payment: Payment }) {
+type ChargeCardProps = { charge: Charge; message: string | undefined; openFor: string | null; firstPreview: FirstPreview | null; sending: Sending; payment: Payment };
+
+function ChargeCard({ charge, message, openFor, firstPreview, sending, payment }: ChargeCardProps) {
+  const badge = sending.readyFor ?? openFor;
   return (
     <section className="flex flex-col gap-3 rounded-sm border p-3">
       <div className="flex flex-col gap-1">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="font-semibold break-words">{charge.guardian_name}</h2>
-          {sending.readyFor ? <p className="rounded-sm border px-2 py-1 text-sm font-medium">{sending.readyFor}</p> : null}
+          {badge ? <p className="rounded-sm border px-2 py-1 text-sm font-medium">{badge}</p> : null}
         </div>
         <p className="text-sm">{formatPhone(charge.guardian_phone)}</p>
       </div>
@@ -237,12 +241,50 @@ function sendTargetsFor(state: ChargesState, charge: Charge): SendTargets {
   return { readyFor: null, link: canSendCharge(state, charge.id) ? whatsAppLinkFor(charge.guardian_phone, message) : null };
 }
 
+function ChargeGroup({ title, total, children }: { title: string; total: number | null; children: ReactNode }) {
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="flex items-baseline justify-between gap-3 text-lg font-semibold">
+        <span>{title}</span>
+        {total === null ? null : <span className="tabular-nums">{formatCurrency(total)}</span>}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
 function ChargesContent({ state, onConfirmPreview, onSend, onUndoSend, onMarkPaid, onUndoPaid }: ChargesContentProps) {
   const { month, charges, waiting, nothingToCharge, messages } = state;
   const firstPreview = needsFirstPreview(state) ? { confirming: state.confirmingPreview, onConfirm: onConfirmPreview } : null;
   if (charges.length === 0 && waiting.length === 0 && nothingToCharge.length === 0) return <p className="text-sm">{chargeMessages.empty}</p>;
+  const groups = groupCharges(state);
+  const card = (charge: Charge) => (
+    <ChargeCard
+      key={charge.id}
+      charge={charge}
+      message={messages[charge.id]}
+      openFor={describeOpenFor(state, charge)}
+      firstPreview={firstPreview}
+      sending={{ ...sendTargetsFor(state, charge), saving: state.savingSends.includes(charge.id), onSend: () => onSend(charge.id), onUndo: () => onUndoSend(charge.id) }}
+      payment={{ saving: state.savingPayments.includes(charge.id), onMarkPaid: () => onMarkPaid(charge.id), onUndo: () => onUndoPaid(charge.id) }}
+    />
+  );
   return (
     <>
+      {[state.previewMessage, state.sendMessage, state.paymentMessage].map((alert) =>
+        alert ? (
+          <p key={alert} className="text-sm" role="alert">
+            {alert}
+          </p>
+        ) : null,
+      )}
+      {charges.length > 0 ? (
+        <ChargeGroup title={chargeMessages.todayTitle} total={null}>
+          {firstPreview && groups.today.length > 0 ? <p className="rounded-sm border p-3 text-sm">{chargeMessages.previewFirst}</p> : null}
+          {groups.today.length > 0 ? groups.today.map(card) : <p className="text-sm">{chargeMessages.nothingToday}</p>}
+        </ChargeGroup>
+      ) : null}
+      {waiting.length > 0 ? <WaitingCharges waiting={waiting} month={month} /> : null}
       {charges.length > 0 ? (
         <>
           <p className="flex items-baseline justify-between gap-3 text-lg font-semibold">
@@ -250,35 +292,24 @@ function ChargesContent({ state, onConfirmPreview, onSend, onUndoSend, onMarkPai
             <span className="tabular-nums">{formatCurrency(monthChargesTotal(charges))}</span>
           </p>
           <p className="text-sm">{chargeMessages.frozen}</p>
-          {firstPreview ? <p className="rounded-sm border p-3 text-sm">{chargeMessages.previewFirst}</p> : null}
-          {state.previewMessage ? (
-            <p className="text-sm" role="alert">
-              {state.previewMessage}
-            </p>
-          ) : null}
-          {state.sendMessage ? (
-            <p className="text-sm" role="alert">
-              {state.sendMessage}
-            </p>
-          ) : null}
-          {state.paymentMessage ? (
-            <p className="text-sm" role="alert">
-              {state.paymentMessage}
-            </p>
-          ) : null}
-          {charges.map((charge) => (
-            <ChargeCard
-              key={charge.id}
-              charge={charge}
-              message={messages[charge.id]}
-              firstPreview={firstPreview}
-              sending={{ ...sendTargetsFor(state, charge), saving: state.savingSends.includes(charge.id), onSend: () => onSend(charge.id), onUndo: () => onUndoSend(charge.id) }}
-              payment={{ saving: state.savingPayments.includes(charge.id), onMarkPaid: () => onMarkPaid(charge.id), onUndo: () => onUndoPaid(charge.id) }}
-            />
-          ))}
+          {firstPreview && groups.today.length === 0 ? <p className="rounded-sm border p-3 text-sm">{chargeMessages.previewFirst}</p> : null}
         </>
       ) : null}
-      {waiting.length > 0 ? <WaitingCharges waiting={waiting} month={month} /> : null}
+      {groups.open.length > 0 ? (
+        <ChargeGroup title={chargeMessages.openTitle} total={monthChargesTotal(groups.open)}>
+          {groups.open.map(card)}
+        </ChargeGroup>
+      ) : null}
+      {groups.paid.length > 0 ? (
+        <ChargeGroup title={chargeMessages.paidTitle} total={monthChargesTotal(groups.paid)}>
+          {groups.paid.map(card)}
+        </ChargeGroup>
+      ) : null}
+      {groups.covered.length > 0 ? (
+        <ChargeGroup title={chargeMessages.coveredTitle} total={null}>
+          {groups.covered.map(card)}
+        </ChargeGroup>
+      ) : null}
       {nothingToCharge.length > 0 ? <GuardianNames title={chargeMessages.nothingToChargeTitle} names={nothingToCharge} /> : null}
     </>
   );

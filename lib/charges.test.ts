@@ -3,6 +3,10 @@ import {
   applyChargesLoad,
   applyPaidSaved,
   awaitsReminders,
+  daysBetween,
+  describeOpenDays,
+  describeOpenFor,
+  groupCharges,
   isChargePaid,
   startSavingPayment,
   applyPreviewConfirmation,
@@ -641,5 +645,55 @@ describe("marcar como pago", () => {
     const failed = applyPaidSaved(startSavingPayment(paid, "c1"), "c1", null, false);
     expect(failed.paymentMessage).toBe(chargeMessages.undoPaymentFailed);
     expect(isChargePaid(failed.charges[0])).toBe(true);
+  });
+});
+
+describe("painel do mês", () => {
+  const base: Charge = { id: "x", charge_month: "2026-11-01", guardian_phone: "11900000000", guardian_name: "X", total_cents: 1000, account: [] };
+  const dueToday = { ...base, id: "hoje" };
+  const overdueUnsent = { ...base, id: "atrasada" };
+  const sentOpen = { ...base, id: "enviada", sent_at: "2026-12-05T12:00:00Z" };
+  const beforeDue = { ...base, id: "depois" };
+  const paid = { ...base, id: "paga", sent_at: "2026-12-05T12:00:00Z", paid_at: "2026-12-06T12:00:00Z" };
+  const covered = { ...base, id: "zerada", total_cents: 0 };
+  const panel = {
+    ...initialCharges(november),
+    status: "ready" as const,
+    today: "2026-12-08",
+    charges: [dueToday, overdueUnsent, sentOpen, beforeDue, paid, covered],
+    dueDates: { hoje: "2026-12-08", atrasada: "2026-12-05", enviada: "2026-12-05", depois: "2026-12-10", paga: "2026-12-05" },
+  };
+
+  test("separa o que enviar hoje, o que está em aberto, o que foi pago e o que o acerto cobriu", () => {
+    const groups = groupCharges(panel);
+    expect(groups.today.map(({ id }) => id)).toEqual(["hoje", "atrasada"]);
+    expect(groups.open.map(({ id }) => id)).toEqual(["enviada", "depois"]);
+    expect(groups.paid.map(({ id }) => id)).toEqual(["paga"]);
+    expect(groups.covered.map(({ id }) => id)).toEqual(["zerada"]);
+  });
+
+  test("sem os dados de recebimento, nada vai para hoje", () => {
+    expect(groupCharges({ ...panel, dueDates: {} }).today).toEqual([]);
+  });
+
+  test("conta os dias entre datas, inclusive na virada de mês e de ano", () => {
+    expect(daysBetween("2026-12-05", "2026-12-08")).toBe(3);
+    expect(daysBetween("2026-11-28", "2026-12-02")).toBe(4);
+    expect(daysBetween("2026-12-30", "2027-01-02")).toBe(3);
+    expect(daysBetween("2027-03-05", "2027-03-05")).toBe(0);
+  });
+
+  test("diz há quantos dias está em aberto", () => {
+    expect(describeOpenDays(0)).toBe("Vence hoje");
+    expect(describeOpenDays(1)).toBe("Em aberto há 1 dia");
+    expect(describeOpenDays(12)).toBe("Em aberto há 12 dias");
+  });
+
+  test("só conta os dias de quem não pagou e já passou do vencimento", () => {
+    expect(describeOpenFor(panel, dueToday)).toBe("Vence hoje");
+    expect(describeOpenFor(panel, sentOpen)).toBe("Em aberto há 3 dias");
+    expect(describeOpenFor(panel, beforeDue)).toBeNull();
+    expect(describeOpenFor(panel, paid)).toBeNull();
+    expect(describeOpenFor(panel, covered)).toBeNull();
   });
 });

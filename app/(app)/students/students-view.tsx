@@ -7,7 +7,7 @@ import { lessonsPath } from "@/lib/lessons";
 import { billingKinds, billingOptions, describeBilling, isBillingKind, packageRolloverHint } from "@/lib/billing";
 import { paymentSettingsPath } from "@/lib/payment-settings";
 import { describePlannedLessons, describeSchedule, weekdayOptions, type CalendarMonth } from "@/lib/schedule";
-import { afterSignInPath } from "@/lib/session";
+import { notesPath } from "@/lib/notes";
 import { currentDraft, formatPhone, groupStudentsByGuardian, studentGenderOptions, studentMessages, type Student, type StudentField, type StudentsState } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
 
@@ -267,7 +267,7 @@ export function StudentsView(props: StudentsViewProps) {
       <header className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold">Alunos</h1>
         <nav className="flex flex-wrap gap-4">
-          <Link className="text-sm underline" href={afterSignInPath}>
+          <Link className="text-sm underline" href={notesPath}>
             Notas
           </Link>
           <Link className="text-sm underline" href={lessonsPath}>

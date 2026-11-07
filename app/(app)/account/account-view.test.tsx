@@ -52,7 +52,7 @@ describe("tela de conta", () => {
     expect(render({ ok: false, message: "Falhou aqui." })).not.toContain("Apagar conta");
   });
 
-  test("tem caminho de volta para as notas", () => {
-    expect(render(null)).toContain('href="/notes"');
+  test("tem caminho de volta para o painel do mês", () => {
+    expect(render(null)).toContain('href="/charges"');
   });
 });
