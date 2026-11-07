@@ -3,17 +3,24 @@ import { describe, expect, test } from "vitest";
 import { AppIcon, appIconImage, homeScreenIcons, isHomeScreenIconName } from "./app-icon";
 
 describe("ícone do app", () => {
-  test("mostra a letra Q na cor do Quitô", () => {
+  test("mostra o Q branco com a perninha verde no fundo roxo do Quitô", () => {
     const html = renderToStaticMarkup(<AppIcon size={192} maskable={false} />);
-    expect(html).toContain(">Q</div>");
     expect(html).toContain("background:#7033ff");
     expect(html).toContain("width:192px");
     expect(html).toContain("height:192px");
+    expect(html).toMatch(/<circle[^>]*stroke="#ffffff"/);
+    expect(html).toMatch(/<path[^>]*stroke="#4ac885"/);
   });
 
-  test("no ícone de recorte redondo, a letra fica menor para não ser cortada", () => {
-    expect(renderToStaticMarkup(<AppIcon size={512} maskable={false} />)).toContain("font-size:317px");
-    expect(renderToStaticMarkup(<AppIcon size={512} maskable />)).toContain("font-size:256px");
+  test("o fundo é quadrado, porque o próprio celular arredonda os cantos", () => {
+    const html = renderToStaticMarkup(<AppIcon size={512} maskable={false} />);
+    expect(html).not.toContain("border-radius");
+    expect(html).not.toContain("rx=");
+  });
+
+  test("no ícone de recorte redondo, o Q fica menor para não ser cortado", () => {
+    expect(renderToStaticMarkup(<AppIcon size={512} maskable={false} />)).toContain('viewBox="0 0 512 512"');
+    expect(renderToStaticMarkup(<AppIcon size={512} maskable />)).toContain('viewBox="-64 -64 640 640"');
   });
 
   test("reconhece só os ícones que a ficha do app lista", () => {

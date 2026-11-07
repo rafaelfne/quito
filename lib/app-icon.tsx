@@ -15,24 +15,16 @@ export function isHomeScreenIconName(name: string): name is HomeScreenIconName {
   return Object.hasOwn(homeScreenIcons, name);
 }
 
+const fullViewBox = "0 0 512 512";
+const maskableSafeZoneViewBox = "-64 -64 640 640";
+
 export function AppIcon({ size, maskable }: AppIconSpec) {
-  const letterSize = Math.round(size * (maskable ? 0.5 : 0.62));
   return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: appIdentity.brandColor,
-        color: appIdentity.letterColor,
-        fontSize: letterSize,
-        fontWeight: 700,
-        lineHeight: 1,
-      }}
-    >
-      Q
+    <div style={{ width: size, height: size, display: "flex", background: appIdentity.brandColor }}>
+      <svg width={size} height={size} viewBox={maskable ? maskableSafeZoneViewBox : fullViewBox}>
+        <circle cx="246" cy="246" r="124" fill="none" stroke={appIdentity.letterColor} strokeWidth="56" />
+        <path d="M300 300 L388 388" stroke={appIdentity.accentColor} strokeWidth="56" strokeLinecap="round" />
+      </svg>
     </div>
   );
 }
