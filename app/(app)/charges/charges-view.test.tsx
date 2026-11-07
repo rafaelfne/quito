@@ -82,6 +82,29 @@ describe("tela de cobranças", () => {
     expect(html).not.toContain("Antes do primeiro envio");
   });
 
+  test("do dia 1 até a véspera, mostra pronta para o dia, com a prévia e sem o botão de enviar", () => {
+    const html = render(ready({ charges: [charge], messages: { c1: "Oi, Ana!" }, dueDates: { c1: "2026-12-05" }, today: "2026-12-01", previewConfirmed: true }));
+    expect(html).toContain("Pronta para o dia 5");
+    expect(html).toContain("Oi, Ana!");
+    expect(html).toContain(chargeMessages.sendOnDueDay);
+    expect(html).not.toContain(chargeMessages.send);
+    expect(html).not.toContain("wa.me");
+  });
+
+  test("no dia do vencimento, o botão abre o WhatsApp do responsável com a mensagem", () => {
+    const html = render(ready({ charges: [charge], messages: { c1: "Oi, Ana!" }, dueDates: { c1: "2026-12-05" }, today: "2026-12-05", previewConfirmed: true }));
+    expect(html).toContain(chargeMessages.send);
+    expect(html).toContain('href="https://wa.me/5511987654321?text=Oi%2C%20Ana!"');
+    expect(html).not.toContain("Pronta para o dia");
+    expect(html).not.toContain(chargeMessages.sendOnDueDay);
+  });
+
+  test("no dia, sem passar pela prévia, ainda não mostra o botão de enviar", () => {
+    const html = render(ready({ charges: [charge], messages: { c1: "Oi, Ana!" }, dueDates: { c1: "2026-12-05" }, today: "2026-12-05" }));
+    expect(html).toContain(chargeMessages.confirmPreview);
+    expect(html).not.toContain(chargeMessages.send);
+  });
+
   test("sem os dados de recebimento, leva para o Recebimento", () => {
     const html = render(ready({ charges: [charge] }));
     expect(html).toContain(chargeMessages.messageNeedsPayment);

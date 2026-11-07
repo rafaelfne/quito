@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { accountLinesOf, chargeDueDate, chargeMessageOf, chargeMessageParts, composedMessagesFor, loadChargeMessageContext, type ChargeMessageContext } from "@/lib/charge-message";
+import { accountLinesOf, chargeDueDate, chargeDueDatesFor, chargeMessageOf, chargeMessageParts, composedMessagesFor, loadChargeMessageContext, type ChargeMessageContext } from "@/lib/charge-message";
 import type { Charge, ChargeStudent } from "@/lib/charges";
 import type { LessonsClient } from "@/lib/lessons";
 import { composeMessage, exampleMessageParts, messageTones, quitoFooter, type MessageTone } from "@/lib/message-templates";
@@ -178,6 +178,13 @@ describe("mensagens das cobranças do mês", () => {
 
   test("sem os dados de recebimento, não há mensagem", () => {
     expect(composedMessagesFor([carla], { ...context, payment: null }, dueDay)).toEqual({});
+  });
+
+  test("guarda o vencimento de cada cobrança com valor a pagar", () => {
+    const covered = { ...carla, id: "c2", total_cents: 0 };
+    expect(chargeDueDatesFor([carla, covered], context)).toEqual({ c1: "2026-12-05" });
+    expect(chargeDueDatesFor([carla], { ...context, dueDayOverrides: new Map([[carla.guardian_phone, 20]]) })).toEqual({ c1: "2026-12-20" });
+    expect(chargeDueDatesFor([carla], { ...context, payment: null })).toEqual({});
   });
 });
 

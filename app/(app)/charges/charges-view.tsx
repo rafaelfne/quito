@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { accountPath } from "@/lib/account";
 import { formatCurrency } from "@/lib/billing";
-import { chargeMessages, describeMarkLessons, needsFirstPreview, describeWaitingStudent, monthChargesTotal, waitsForBilling, waitsForMarks, type Charge, type ChargesState, type ChargeStudent, type WaitingGuardian } from "@/lib/charges";
+import { canSendCharge, chargeMessages, describeMarkLessons, describeReadyFor, isDueToSend, needsFirstPreview, whatsAppLinkFor, describeWaitingStudent, monthChargesTotal, waitsForBilling, waitsForMarks, type Charge, type ChargesState, type ChargeStudent, type WaitingGuardian } from "@/lib/charges";
 import { closingMessages, closingPath, describeSignedAmount } from "@/lib/closing";
 import { describeMonth, lessonsPath, lessonsPathFor } from "@/lib/lessons";
 import { paymentSettingsPath } from "@/lib/payment-settings";
@@ -23,6 +23,8 @@ type FirstPreview = {
   confirming: boolean;
   onConfirm: () => void;
 };
+
+type Sending = { readyFor: string | null; link: string | null };
 
 function StudentAccount({ student }: { student: ChargeStudent }) {
   return (
@@ -60,7 +62,17 @@ function ConfirmPreview({ confirming, onConfirm }: FirstPreview) {
   );
 }
 
-function ChargeMessage({ message, firstPreview }: { message: string | undefined; firstPreview: FirstPreview | null }) {
+function SendCharge({ readyFor, link }: Sending) {
+  if (readyFor) return <p className="text-sm">{chargeMessages.sendOnDueDay}</p>;
+  if (!link) return null;
+  return (
+    <a className="inline-flex min-h-11 items-center justify-center rounded-sm border bg-foreground px-3 py-2 font-medium text-background" href={link} target="_blank" rel="noopener noreferrer">
+      {chargeMessages.send}
+    </a>
+  );
+}
+
+function ChargeMessage({ message, firstPreview, sending }: { message: string | undefined; firstPreview: FirstPreview | null; sending: Sending }) {
   if (message === undefined) {
     return (
       <div className="flex flex-col items-start gap-2 border-t pt-3 text-sm">
@@ -76,15 +88,19 @@ function ChargeMessage({ message, firstPreview }: { message: string | undefined;
       <h3 className="font-medium">{chargeMessages.messageTitle}</h3>
       <p className="rounded-sm border p-3 text-sm break-words whitespace-pre-wrap">{message}</p>
       {firstPreview ? <ConfirmPreview {...firstPreview} /> : null}
+      <SendCharge {...sending} />
     </div>
   );
 }
 
-function ChargeCard({ charge, message, firstPreview }: { charge: Charge; message: string | undefined; firstPreview: FirstPreview | null }) {
+function ChargeCard({ charge, message, firstPreview, sending }: { charge: Charge; message: string | undefined; firstPreview: FirstPreview | null; sending: Sending }) {
   return (
     <section className="flex flex-col gap-3 rounded-sm border p-3">
       <div className="flex flex-col gap-1">
-        <h2 className="font-semibold break-words">{charge.guardian_name}</h2>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-semibold break-words">{charge.guardian_name}</h2>
+          {sending.readyFor ? <p className="rounded-sm border px-2 py-1 text-sm font-medium">{sending.readyFor}</p> : null}
+        </div>
         <p className="text-sm">{formatPhone(charge.guardian_phone)}</p>
       </div>
       <ul className="flex flex-col gap-3">
@@ -96,7 +112,7 @@ function ChargeCard({ charge, message, firstPreview }: { charge: Charge; message
         <span>{chargeMessages.guardianTotal}</span>
         <span className="tabular-nums">{formatCurrency(charge.total_cents)}</span>
       </p>
-      {charge.total_cents === 0 ? <p className="text-sm">{chargeMessages.coveredByAdjustment}</p> : <ChargeMessage message={message} firstPreview={firstPreview} />}
+      {charge.total_cents === 0 ? <p className="text-sm">{chargeMessages.coveredByAdjustment}</p> : <ChargeMessage message={message} firstPreview={firstPreview} sending={sending} />}
     </section>
   );
 }
@@ -150,6 +166,14 @@ function WaitingCharges({ waiting, month }: { waiting: WaitingGuardian[]; month:
   );
 }
 
+function sendingFor(state: ChargesState, charge: Charge): Sending {
+  const due = state.dueDates[charge.id];
+  const message = state.messages[charge.id];
+  if (due === undefined || message === undefined) return { readyFor: null, link: null };
+  if (!isDueToSend(state, charge.id)) return { readyFor: describeReadyFor(due), link: null };
+  return { readyFor: null, link: canSendCharge(state, charge.id) ? whatsAppLinkFor(charge.guardian_phone, message) : null };
+}
+
 function ChargesContent({ state, onConfirmPreview }: { state: ChargesState; onConfirmPreview: () => void }) {
   const { month, charges, waiting, nothingToCharge, messages } = state;
   const firstPreview = needsFirstPreview(state) ? { confirming: state.confirmingPreview, onConfirm: onConfirmPreview } : null;
@@ -170,7 +194,7 @@ function ChargesContent({ state, onConfirmPreview }: { state: ChargesState; onCo
             </p>
           ) : null}
           {charges.map((charge) => (
-            <ChargeCard key={charge.id} charge={charge} message={messages[charge.id]} firstPreview={firstPreview} />
+            <ChargeCard key={charge.id} charge={charge} message={messages[charge.id]} firstPreview={firstPreview} sending={sendingFor(state, charge)} />
           ))}
         </>
       ) : null}

@@ -100,6 +100,8 @@ describe("página de cobranças", () => {
     expect(state.messages.c1).toContain("Segue a conta de novembro do Pedro Lima:");
     expect(state.messages.c1.split("\n")).toContain("joao@email.com");
     expect(state.previewConfirmed).toBe(false);
+    expect(state.dueDates).toEqual({ c1: "2026-12-05" });
+    expect(state.today).toBe("2026-12-01");
   });
 
   test("confirmar a prévia guarda e libera o envio", async () => {

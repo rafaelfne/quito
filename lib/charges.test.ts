@@ -2,10 +2,13 @@ import { describe, expect, test, vi } from "vitest";
 import {
   applyChargesLoad,
   applyPreviewConfirmation,
+  canSendCharge,
   canSendCharges,
   chargeMessages,
   chargesPath,
   describeMarkLessons,
+  describeReadyFor,
+  isDueToSend,
   describeWaitingStudent,
   endedMonthOf,
   initialCharges,
@@ -24,6 +27,7 @@ import {
   type Charge,
   type WaitingGuardian,
   syncChargesWithMessages,
+  whatsAppLinkFor,
 } from "@/lib/charges";
 import { buildMonthClosing, type ClosingData, type ClosingRules } from "@/lib/closing";
 import type { LessonMark, LessonsClient } from "@/lib/lessons";
@@ -438,7 +442,7 @@ const bia: WaitingGuardian = { phone: "11933334444", guardianName: "Bia", studen
 
 describe("estado da tela", () => {
   test("começa carregando o mês", () => {
-    expect(initialCharges(november)).toEqual({ month: november, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, previewConfirmed: false, confirmingPreview: false, previewMessage: null });
+    expect(initialCharges(november)).toEqual({ month: november, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null });
   });
 
   test("recarregar mantém o que já estava na tela", () => {
@@ -448,7 +452,7 @@ describe("estado da tela", () => {
 
   test("aplica o resultado", () => {
     const result = { ok: true as const, month: november, charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"] };
-    expect(applyChargesLoad(initialCharges(november), result)).toEqual({ month: november, status: "ready", charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"], messages: {}, previewConfirmed: false, confirmingPreview: false, previewMessage: null });
+    expect(applyChargesLoad(initialCharges(november), result)).toEqual({ month: november, status: "ready", charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null });
   });
 
   test("traz se o professor já passou pela prévia", () => {
@@ -502,5 +506,45 @@ describe("textos", () => {
     expect(describeWaitingStudent({ studentId: "a", studentName: "A", unmarked: 1, missingBilling: false })).toBe("1 aula ainda sem marcar.");
     expect(describeWaitingStudent({ studentId: "a", studentName: "A", unmarked: 3, missingBilling: false })).toBe("3 aulas ainda sem marcar.");
     expect(describeWaitingStudent({ studentId: "a", studentName: "A", unmarked: 0, missingBilling: true })).toBe(chargeMessages.missingBilling);
+  });
+});
+
+describe("envio só no dia do vencimento", () => {
+  const base = { ...initialCharges(november), status: "ready" as const, charges: [saved()], messages: { c1: "Oi, Ana!" }, dueDates: { c1: "2026-12-05" }, previewConfirmed: true };
+
+  test("do dia 1 até a véspera, a cobrança fica pronta para o dia, sem envio", () => {
+    for (const today of ["2026-12-01", "2026-12-04"]) {
+      expect(isDueToSend({ ...base, today }, "c1")).toBe(false);
+      expect(canSendCharge({ ...base, today }, "c1")).toBe(false);
+    }
+    expect(describeReadyFor("2026-12-05")).toBe("Pronta para o dia 5");
+  });
+
+  test("no dia do vencimento, libera o envio", () => {
+    expect(isDueToSend({ ...base, today: "2026-12-05" }, "c1")).toBe(true);
+    expect(canSendCharge({ ...base, today: "2026-12-05" }, "c1")).toBe(true);
+  });
+
+  test("depois do dia, o envio continua liberado", () => {
+    expect(canSendCharge({ ...base, today: "2026-12-09" }, "c1")).toBe(true);
+  });
+
+  test("no dia, sem passar pela prévia, não libera", () => {
+    expect(canSendCharge({ ...base, today: "2026-12-05", previewConfirmed: false }, "c1")).toBe(false);
+  });
+
+  test("sem vencimento ou sem mensagem, não libera", () => {
+    expect(canSendCharge({ ...base, today: "2026-12-05", dueDates: {} }, "c1")).toBe(false);
+    expect(canSendCharge({ ...base, today: "2026-12-05", messages: {} }, "c1")).toBe(false);
+    expect(isDueToSend({ ...base, today: "" }, "c1")).toBe(false);
+  });
+
+  test("o link abre o WhatsApp do responsável com a mensagem escrita", () => {
+    expect(whatsAppLinkFor("11987654321", "Oi, Ana!\nR$ 300,00")).toBe("https://wa.me/5511987654321?text=Oi%2C%20Ana!%0AR%24%20300%2C00");
+  });
+
+  test("aplica o vencimento e o dia de hoje que vieram da carga", () => {
+    const result = { ok: true as const, month: november, charges: [saved()], waiting: [], nothingToCharge: [], dueDates: { c1: "2026-12-05" }, today: "2026-12-02" };
+    expect(applyChargesLoad(initialCharges(november), result)).toMatchObject({ dueDates: { c1: "2026-12-05" }, today: "2026-12-02" });
   });
 });

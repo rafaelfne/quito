@@ -1,5 +1,5 @@
 import { pendingAdjustments, settleAdjustments, type PendingAdjustment, type SettledAdjustment } from "@/lib/charge-adjustments";
-import { composedMessagesFor, loadChargeMessageContext } from "@/lib/charge-message";
+import { chargeDueDatesFor, composedMessagesFor, loadChargeMessageContext } from "@/lib/charge-message";
 import { buildMonthClosing, describeUnmarked, loadClosingMonth, type GuardianClosing, type MonthClosing, type StudentClosing } from "@/lib/closing";
 import { describeMonth, monthRange, shiftMonth, type LessonsClient } from "@/lib/lessons";
 import { loadMessagePreview } from "@/lib/message-preview";
@@ -24,9 +24,9 @@ export type WaitingGuardian = { phone: string; guardianName: string; students: W
 
 export type ChargesPlan = { newCharges: NewCharge[]; waiting: WaitingGuardian[]; nothingToCharge: string[] };
 
-export type ChargesLoad = { ok: true; month: CalendarMonth; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages?: Record<string, string>; previewConfirmed?: boolean } | { ok: false; month: CalendarMonth };
+export type ChargesLoad = { ok: true; month: CalendarMonth; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages?: Record<string, string>; dueDates?: Record<string, string>; today?: string; previewConfirmed?: boolean } | { ok: false; month: CalendarMonth };
 
-export type ChargesState = { month: CalendarMonth; status: "loading" | "ready" | "failed"; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages: Record<string, string>; previewConfirmed: boolean; confirmingPreview: boolean; previewMessage: string | null };
+export type ChargesState = { month: CalendarMonth; status: "loading" | "ready" | "failed"; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages: Record<string, string>; dueDates: Record<string, string>; today: string; previewConfirmed: boolean; confirmingPreview: boolean; previewMessage: string | null };
 
 export const chargesPath = "/charges";
 
@@ -48,7 +48,11 @@ export const chargeMessages = {
   confirmPreview: "A mensagem está certa",
   confirmingPreview: "Guardando...",
   confirmPreviewFailed: "Não deu para guardar agora. Confira a internet e toque de novo.",
+  sendOnDueDay: "O botão de enviar aparece no dia do vencimento.",
+  send: "Enviar pelo WhatsApp",
 };
+
+const whatsAppCountryCode = "55";
 
 const table = "charges";
 
@@ -187,11 +191,11 @@ export async function syncMonthCharges(client: LessonsClient, month: CalendarMon
 export async function syncChargesWithMessages(client: LessonsClient, month: CalendarMonth, today: string): Promise<ChargesLoad> {
   const [result, context, preview] = await Promise.all([syncMonthCharges(client, month, today), loadChargeMessageContext(client), loadMessagePreview(client)]);
   if (!result.ok || context === null || !preview.ok) return { ok: false, month };
-  return { ...result, messages: composedMessagesFor(result.charges, context, today), previewConfirmed: preview.confirmed };
+  return { ...result, messages: composedMessagesFor(result.charges, context, today), dueDates: chargeDueDatesFor(result.charges, context), today, previewConfirmed: preview.confirmed };
 }
 
 export function initialCharges(month: CalendarMonth): ChargesState {
-  return { month, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, previewConfirmed: false, confirmingPreview: false, previewMessage: null };
+  return { month, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null };
 }
 
 export function startReloadingCharges(state: ChargesState): ChargesState {
@@ -200,8 +204,8 @@ export function startReloadingCharges(state: ChargesState): ChargesState {
 
 export function applyChargesLoad(state: ChargesState, result: ChargesLoad): ChargesState {
   if (!result.ok) return { ...state, status: "failed" };
-  const { charges, waiting, nothingToCharge, messages = {}, previewConfirmed = false } = result;
-  return { ...state, status: "ready", charges, waiting, nothingToCharge, messages, previewConfirmed };
+  const { charges, waiting, nothingToCharge, messages = {}, dueDates = {}, today = "", previewConfirmed = false } = result;
+  return { ...state, status: "ready", charges, waiting, nothingToCharge, messages, dueDates, today, previewConfirmed };
 }
 
 export function needsFirstPreview(state: ChargesState): boolean {
@@ -210,6 +214,23 @@ export function needsFirstPreview(state: ChargesState): boolean {
 
 export function canSendCharges(state: ChargesState): boolean {
   return state.previewConfirmed;
+}
+
+export function isDueToSend(state: ChargesState, chargeId: string): boolean {
+  const due = state.dueDates[chargeId];
+  return due !== undefined && state.today !== "" && state.today >= due;
+}
+
+export function canSendCharge(state: ChargesState, chargeId: string): boolean {
+  return canSendCharges(state) && isDueToSend(state, chargeId) && state.messages[chargeId] !== undefined;
+}
+
+export function describeReadyFor(due: string): string {
+  return `Pronta para o dia ${Number(due.slice(8))}`;
+}
+
+export function whatsAppLinkFor(phone: string, message: string): string {
+  return `https://wa.me/${whatsAppCountryCode}${phone}?text=${encodeURIComponent(message)}`;
 }
 
 export function startConfirmingPreview(state: ChargesState): ChargesState {

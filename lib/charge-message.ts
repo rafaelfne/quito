@@ -144,6 +144,11 @@ export function composedMessagesFor(charges: Charge[], context: ChargeMessageCon
   return messages;
 }
 
+export function chargeDueDatesFor(charges: Charge[], { payment, dueDayOverrides }: ChargeMessageContext): Record<string, string> {
+  if (payment === null) return {};
+  return Object.fromEntries(charges.filter((charge) => charge.total_cents > 0).map((charge) => [charge.id, chargeDueDate(charge, payment.due_day, dueDayOverrides)]));
+}
+
 export async function loadChargeMessageContext(client: LessonsClient): Promise<ChargeMessageContext | null> {
   const [payment, message, dueDays, students] = await Promise.all([loadPaymentSettings(client), loadMessageSettings(client), loadGuardianDueDays(client), loadStudents(client)]);
   if (!payment.ok || !message.ok || !dueDays.ok || !students.ok) return null;
