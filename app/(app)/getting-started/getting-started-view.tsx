@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { describeFirstChargeGuardian, describeFirstChargeTiming, describeFirstMonth, firstChargeMessages, firstChargeMissingMessage, firstChargeMissingPaths, type FirstChargeNotice } from "@/lib/first-charge";
 import { currentStep, describeRemaining, gettingStartedMessages, remainingSteps, type GettingStartedState, type GettingStartedStep } from "@/lib/getting-started";
+import { notificationsGuidePath, notificationsInviteMessages } from "@/lib/notifications-invite";
 import { afterSignInPath } from "@/lib/session";
 
 const primaryLinkClass = "flex min-h-11 items-center justify-center rounded-sm bg-foreground px-3 py-2 text-background";
@@ -72,6 +73,20 @@ export function FirstChargeSection({ notice }: { notice: FirstChargeNotice }) {
   );
 }
 
+export function NotificationsInvite() {
+  return (
+    <section className="flex flex-col gap-2 rounded-sm border p-3" aria-labelledby="notifications-invite-title">
+      <h2 className="font-medium" id="notifications-invite-title">
+        {notificationsInviteMessages.title}
+      </h2>
+      <p className="text-sm">{notificationsInviteMessages.text}</p>
+      <Link className={primaryLinkClass} href={notificationsGuidePath}>
+        {notificationsInviteMessages.action}
+      </Link>
+    </section>
+  );
+}
+
 function Progress({ steps }: { steps: GettingStartedStep[] }) {
   const remaining = remainingSteps(steps);
   if (remaining === 0) {
@@ -96,7 +111,7 @@ function Progress({ steps }: { steps: GettingStartedStep[] }) {
   );
 }
 
-export function GettingStartedView({ state, onRetry, baselineDelayDays = null, onSaveBaselineDelay = () => undefined, firstCharge = null }: { state: GettingStartedState; onRetry: () => void; baselineDelayDays?: number | null; onSaveBaselineDelay?: (days: number) => void; firstCharge?: FirstChargeNotice | null }) {
+export function GettingStartedView({ state, onRetry, baselineDelayDays = null, onSaveBaselineDelay = () => undefined, firstCharge = null, notificationsInvite = false }: { state: GettingStartedState; onRetry: () => void; baselineDelayDays?: number | null; onSaveBaselineDelay?: (days: number) => void; firstCharge?: FirstChargeNotice | null; notificationsInvite?: boolean }) {
   const unfinished = state.status === "ready" && remainingSteps(state.steps) > 0;
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-4 sm:p-8">
@@ -120,6 +135,7 @@ export function GettingStartedView({ state, onRetry, baselineDelayDays = null, o
           <Progress steps={state.steps} />
           <StepList steps={state.steps} baselineDelayDays={baselineDelayDays} onSaveBaselineDelay={onSaveBaselineDelay} />
           {firstCharge ? <FirstChargeSection notice={firstCharge} /> : null}
+          {notificationsInvite ? <NotificationsInvite /> : null}
         </>
       ) : null}
       {state.status !== "ready" || unfinished ? (

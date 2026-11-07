@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { GettingStartedView } from "@/app/(app)/getting-started/getting-started-view";
 import { loadFirstChargeNotice, type FirstChargeNotice } from "@/lib/first-charge";
 import { applyGettingStartedLoad, initialGettingStarted, openGettingStarted, saveBaselineDelay, startReloadingGettingStarted } from "@/lib/getting-started";
+import { showsNotificationsInvite } from "@/lib/notifications-invite";
 import { supabase } from "@/lib/supabase";
 
 export default function GettingStartedPage() {
@@ -33,5 +34,5 @@ export default function GettingStartedPage() {
     load();
   }
 
-  return <GettingStartedView state={state} onRetry={retry} baselineDelayDays={baselineDelayDays} onSaveBaselineDelay={saveBaseline} firstCharge={firstCharge} />;
+  return <GettingStartedView state={state} onRetry={retry} baselineDelayDays={baselineDelayDays} onSaveBaselineDelay={saveBaseline} firstCharge={firstCharge} notificationsInvite={showsNotificationsInvite(state)} />;
 }

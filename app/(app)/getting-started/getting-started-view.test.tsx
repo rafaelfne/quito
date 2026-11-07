@@ -1,8 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import { firstChargeMessages, type FirstChargeNotice } from "@/lib/first-charge";
+import { notificationsGuidePath, notificationsInviteMessages } from "@/lib/notifications-invite";
 import { gettingStartedMessages, initialGettingStarted, type GettingStartedStep } from "@/lib/getting-started";
-import { GettingStartedView, StepAction } from "./getting-started-view";
+import { GettingStartedView, NotificationsInvite, StepAction } from "./getting-started-view";
 
 const steps: GettingStartedStep[] = [
   { id: "a", title: "Cadastre seus alunos", hint: "Dica um", path: "/students", done: true },
@@ -104,5 +105,28 @@ describe("tela de primeiros passos", () => {
     expect(html).toMatch(new RegExp(`href="/payment"[^>]*>${firstChargeMessages.missingPayment}<`));
     expect(html).not.toContain("primeira cobrança em");
     expect(render({ status: "ready", steps })).not.toContain(firstChargeMessages.title);
+  });
+});
+
+describe("convite para as notificações", () => {
+  const finishedSteps = steps.map((step) => ({ ...step, done: true }));
+
+  test("leva ao guia de ativação no fim da sequência quando ligado", () => {
+    const html = renderToStaticMarkup(<GettingStartedView state={{ status: "ready", steps: finishedSteps }} onRetry={vi.fn()} notificationsInvite />);
+    expect(html).toContain(notificationsInviteMessages.title);
+    expect(html).toContain(notificationsInviteMessages.text);
+    expect(html).toMatch(new RegExp(`href="${notificationsGuidePath}"[^>]*>${notificationsInviteMessages.action}<`));
+  });
+
+  test("não aparece quando desligado", () => {
+    const html = render({ status: "ready", steps: finishedSteps });
+    expect(html).not.toContain(notificationsInviteMessages.title);
+    expect(html).not.toContain(notificationsGuidePath);
+  });
+
+  test("o convite sozinho tem título, texto e o link do guia", () => {
+    const html = renderToStaticMarkup(<NotificationsInvite />);
+    expect(html).toContain('aria-labelledby="notifications-invite-title"');
+    expect(html).toContain(`href="${notificationsGuidePath}"`);
   });
 });

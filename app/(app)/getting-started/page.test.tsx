@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { FirstChargeNotice } from "@/lib/first-charge";
 import type { GettingStartedState } from "@/lib/getting-started";
 
-type ViewProps = { state: GettingStartedState; onRetry: () => void; baselineDelayDays: number | null; onSaveBaselineDelay: (days: number) => Promise<void>; firstCharge: FirstChargeNotice | null };
+type ViewProps = { state: GettingStartedState; onRetry: () => void; baselineDelayDays: number | null; onSaveBaselineDelay: (days: number) => Promise<void>; firstCharge: FirstChargeNotice | null; notificationsInvite: boolean };
 
 const maybeSingle = vi.fn(async () => ({ data: { finished_at: null, baseline_delay_days: null } as { finished_at: string | null; baseline_delay_days: number | null } | null, error: null as { message: string } | null }));
 const upsert = vi.fn(async () => ({ error: null as { message: string } | null }));
@@ -129,5 +129,14 @@ describe("página de primeiros passos", () => {
     await settle();
     await settle();
     expect(view().firstCharge).toBeNull();
+  });
+
+  test("o convite para as notificações fica desligado até o guia ser lançado, mesmo com os passos feitos", async () => {
+    maybeSingle.mockResolvedValueOnce({ data: { finished_at: "2026-11-07T10:00:00Z", baseline_delay_days: 5 }, error: null });
+    expect(view().notificationsInvite).toBe(false);
+    await settle();
+    const ready = view();
+    expect(ready.state.status).toBe("ready");
+    expect(ready.notificationsInvite).toBe(false);
   });
 });

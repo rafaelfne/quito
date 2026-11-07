@@ -104,11 +104,12 @@
     {
       "id": "primeiros-passos",
       "name": "Primeiros passos",
-      "description": "O caminho guiado depois da primeira entrada: mostra os passos e quanto falta, guarda onde o professor parou, lembra o que ficou pendente até ele terminar e avisa o primeiro mês cobrado e o dia da primeira cobrança de cada responsável",
+      "description": "O caminho guiado depois da primeira entrada: mostra os passos e quanto falta, guarda onde o professor parou, lembra o que ficou pendente até ele terminar e avisa o primeiro mês cobrado e o dia da primeira cobrança de cada responsável, e guarda pronto, desligado até o guia ser lançado, o convite para as notificações no fim da sequência",
       "paths": [
         "app/(app)/getting-started",
         "lib/getting-started.ts",
-        "lib/first-charge.ts"
+        "lib/first-charge.ts",
+        "lib/notifications-invite.ts"
       ],
       "sensitive": "personal"
     },
@@ -203,6 +204,7 @@
     "lib/training.ts": "Regras do mês de treino: vai da entrada até o fim do mês, não gera cobrança e o fechamento dele é só prévia",
     "lib/closing.ts": "Regras do fechamento: quanto cada aluno e cada responsável deve no mês",
     "lib/getting-started.ts": "Regras dos passos, de quanto falta e de quando lembrar o professor",
+    "lib/notifications-invite.ts": "Convite para as notificações no fim dos primeiros passos, desligado até o guia de ativação ser lançado",
     "lib/first-charge.ts": "Regras do primeiro mês cobrado, o seguinte ao da entrada, e do dia da primeira cobrança de cada responsável",
     "lib/charges.ts": "Regras da cobrança do mês: quando fica pronta e como guarda o valor e a conta aberta",
     "lib/charge-message.ts": "Monta a mensagem de cada cobrança: nomes, mês, conta aberta, total, vencimento e chave Pix no tom escolhido",
