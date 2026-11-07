@@ -22,8 +22,8 @@ Cada funcionalidade tem um arquivo próprio em docs/product/features, com a etap
 
 <!-- virgilio:features -->
 - [Controle de aulas](features/controle-de-aulas.md) · lançado: o caderno mínimo de alunos e aulas que calcula quanto cada responsável deve no mês
-- [Cobrança](features/cobranca.md) · em construção: o lembrete gentil no dia certo, com o valor do mês e a chave Pix do professor
-- [App no celular e notificações](features/app-no-celular.md) · em aberto: o Quitô instalável no celular, com a notificação do dia de cobrar e um guia para ativar
+- [Cobrança](features/cobranca.md) · lançado: o lembrete gentil no dia certo, com o valor do mês e a chave Pix do professor
+- [App no celular e notificações](features/app-no-celular.md) · em construção: o Quitô instalável no celular, com a notificação do dia de cobrar e um guia para ativar
 - [Autenticação](features/autenticacao.md) · lançado: entrar sem senha, com código por e-mail ou Google, e ficar conectado até sair
-- [Primeiros passos](features/primeiros-passos.md) · em construção: o caminho guiado da primeira entrada até a primeira cobrança pronta, com importação de alunos e cobrança a partir do mês seguinte
+- [Primeiros passos](features/primeiros-passos.md) · lançado: o caminho guiado da primeira entrada até a primeira cobrança pronta, com importação de alunos e cobrança a partir do mês seguinte
 <!-- virgilio:features-end -->

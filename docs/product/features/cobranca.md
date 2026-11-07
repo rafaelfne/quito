@@ -1,5 +1,5 @@
 # Cobrança
-<!-- virgilio:feature id=cobranca stage=building epic=61 -->
+<!-- virgilio:feature id=cobranca stage=live epic=61 since=2026-11-07 -->
 
 ## O que é
 

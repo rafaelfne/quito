@@ -1,5 +1,5 @@
 # Primeiros passos
-<!-- virgilio:feature id=primeiros-passos stage=building epic=79 -->
+<!-- virgilio:feature id=primeiros-passos stage=live epic=79 since=2026-11-07 -->
 
 ## O que é
 
