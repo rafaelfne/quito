@@ -9,6 +9,7 @@ import { paymentSettingsPath } from "@/lib/payment-settings";
 import { describePlannedLessons, describeSchedule, weekdayOptions, type CalendarMonth } from "@/lib/schedule";
 import { notesPath } from "@/lib/notes";
 import { studentImportPath } from "@/lib/student-import";
+import { studentSetupPath } from "@/lib/student-setup";
 import { currentDraft, formatPhone, groupStudentsByGuardian, studentGenderOptions, studentMessages, type Student, type StudentField, type StudentsState } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
 
@@ -307,6 +308,11 @@ export function StudentsView(props: StudentsViewProps) {
       )}
       <section className="flex flex-col gap-4">
         <h2 className="font-semibold">Seus alunos</h2>
+        {state.students.length > 1 && !state.editing ? (
+          <Button asChild variant="outline">
+            <Link href={studentSetupPath}>Cobrança e horário em grupo</Link>
+          </Button>
+        ) : null}
         {state.listStatus === "failed" ? (
           <div className="flex flex-col gap-2">
             <p className="text-sm" role="alert">

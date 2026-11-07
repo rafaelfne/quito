@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPaymentSettings, paymentSettingsPath } from "@/lib/payment-settings";
 import { afterSignInPath } from "@/lib/session";
 import { requestTimeoutMs, withTimeout } from "@/lib/sign-in";
+import { studentSetupPath } from "@/lib/student-setup";
 import { loadStudents, studentsPath, type Student } from "@/lib/students";
 
 export type GettingStartedClient = Pick<SupabaseClient, "from">;
@@ -73,8 +74,8 @@ const stepDefinitions: StepDefinition[] = [
   {
     id: "billing-and-schedule",
     title: "Defina a forma de cobrança e o horário de cada aluno",
-    hint: "Cada aluno precisa do valor, do jeito de pagar, do dia e da hora da aula.",
-    path: studentsPath,
+    hint: "Marque os alunos que pagam igual e aplique o valor de uma vez. Depois acerte o dia e a hora da aula de cada um.",
+    path: studentSetupPath,
     isDone: ({ students }) => students.length > 0 && students.every(hasBillingAndSchedule),
   },
 ];

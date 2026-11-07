@@ -96,6 +96,13 @@ describe("tela de alunos", () => {
     expect(render(startEditing(ready, pedro))).not.toContain('href="/students/import"');
   });
 
+  test("com mais de um aluno, leva para a cobrança e o horário em grupo, mas não enquanto corrige um aluno", () => {
+    expect(render(ready)).toContain('href="/students/setup"');
+    expect(render(ready)).toContain("Cobrança e horário em grupo");
+    expect(render({ ...ready, students: [pedro] })).not.toContain('href="/students/setup"');
+    expect(render(startEditing(ready, pedro))).not.toContain('href="/students/setup"');
+  });
+
   test("o campo de telefone abre o teclado de telefone e explica para que serve", () => {
     const html = render(ready);
     expect(html).toContain('type="tel"');

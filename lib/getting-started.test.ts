@@ -85,6 +85,13 @@ describe("loadGettingStarted", () => {
     expect(progress.steps[1]).toMatchObject({ path: "/payment", done: false });
   });
 
+  test("o passo de cobrança e horário leva para a tela de aplicar em grupo", async () => {
+    const { client } = fakeClient();
+    const progress = await progressOf(loadGettingStarted(client));
+    expect(progress.steps[3]).toMatchObject({ path: "/students/setup", done: false });
+    expect(progress.steps[3].hint).toContain("aplique o valor de uma vez");
+  });
+
   test("o passo de recebimento fica feito quando a chave Pix, o nome e o vencimento estão guardados", async () => {
     const { client, from } = fakeClient({ payment: async () => paymentSaved });
     const progress = await progressOf(loadGettingStarted(client));
@@ -250,6 +257,7 @@ describe("lembrete", () => {
     expect(tracksReminder("/charges")).toBe(true);
     expect(tracksReminder("/students")).toBe(true);
     expect(tracksReminder("/payment")).toBe(true);
+    expect(tracksReminder("/students/setup")).toBe(true);
     expect(tracksReminder("/lessons")).toBe(false);
     expect(tracksReminder(gettingStartedPath)).toBe(false);
   });
