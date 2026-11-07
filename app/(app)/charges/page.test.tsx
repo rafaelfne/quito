@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { chargeMessages, type ChargesState } from "@/lib/charges";
 import type { Student } from "@/lib/students";
 
-type ViewProps = { state: ChargesState; onRetry: () => void; onConfirmPreview: () => void; onSend: (chargeId: string) => void; onUndoSend: (chargeId: string) => void; onMarkPaid: (chargeId: string) => void; onUndoPaid: (chargeId: string) => void };
+type ViewProps = { state: ChargesState; onRetry: () => void; onConfirmPreview: () => void; onSend: (chargeId: string) => void; onUndoSend: (chargeId: string) => void; onMarkPaid: (chargeId: string) => void; onUndoPaid: (chargeId: string) => void; onSendReminder: (chargeId: string) => void; onUndoReminder: (chargeId: string) => void };
 
 const pedro: Student = { id: "p", name: "Pedro Lima", gender: "male", called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
 
@@ -106,6 +106,8 @@ describe("página de cobranças", () => {
     expect(state.previewConfirmed).toBe(false);
     expect(state.dueDates).toEqual({ c1: "2026-12-05" });
     expect(state.today).toBe("2026-12-01");
+    expect(state.reminderDays).toEqual([3, 7]);
+    expect(state.reminderMessages.c1).toHaveLength(2);
   });
 
   test("confirmar a prévia guarda e libera o envio", async () => {
@@ -177,6 +179,33 @@ describe("página de cobranças", () => {
     await settle();
     expect(view().state.paymentMessage).toBe(chargeMessages.paymentFailed);
     expect(view().state.charges[0].paid_at).toBeUndefined();
+  });
+
+  test("o toque no lembrete guarda que ele saiu e desfazer tira o último", async () => {
+    view();
+    await settle();
+    view().onSendReminder("c1");
+    expect(view().state.savingReminders).toEqual(["c1"]);
+    await settle();
+    const now = new Date(2026, 11, 1, 12).toISOString();
+    expect(update).toHaveBeenLastCalledWith({ reminders_sent_at: [now] });
+    expect(sentEq).toHaveBeenLastCalledWith("id", "c1");
+    expect(view().state.charges[0].reminders_sent_at).toEqual([now]);
+    view().onUndoReminder("c1");
+    await settle();
+    expect(update).toHaveBeenLastCalledWith({ reminders_sent_at: [] });
+    expect(view().state.charges[0].reminders_sent_at).toEqual([]);
+  });
+
+  test("se não deu para guardar o lembrete, avisa", async () => {
+    sentEq.mockResolvedValueOnce({ error: { message: "fora do ar" } });
+    view();
+    await settle();
+    view().onSendReminder("c1");
+    await settle();
+    expect(view().state.reminderNotice).toBe(chargeMessages.reminderFailed);
+    view().onSendReminder("c9");
+    expect(view().state.savingReminders).toEqual([]);
   });
 
   test("tentar de novo volta a carregar", async () => {

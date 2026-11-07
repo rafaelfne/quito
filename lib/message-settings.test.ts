@@ -10,6 +10,7 @@ import {
   messageAdjustmentsFrom,
   messageSettingsDraftFrom,
   messageSettingsMessages,
+  reminderDaysFrom,
   saveMessageSettings,
   signatureLengthLimit,
   thanksLengthLimit,
@@ -21,12 +22,13 @@ import {
   type MessageSettingsState,
 } from "./message-settings";
 import { messageTones, type MessageTone } from "./message-templates";
+import { reminderMessages } from "./reminders";
 
 type Failure = { message: string } | null;
 type LoadResult = { data: MessageSettingsRow | null; error: Failure };
 
-const savedRow: MessageSettingsRow = { tone: "direct", greeting: "Bom dia", thanks: "Obrigada", signature: "Tio João", footer: true };
-const savedDraft = { tone: "direct" as MessageTone, greeting: "Bom dia", thanks: "Obrigada", signature: "Tio João", footer: true };
+const savedRow: MessageSettingsRow = { tone: "direct", greeting: "Bom dia", thanks: "Obrigada", signature: "Tio João", footer: true, reminder_days: [2, 5, 10] };
+const savedDraft = { tone: "direct" as MessageTone, greeting: "Bom dia", thanks: "Obrigada", signature: "Tio João", footer: true, reminderDays: ["2", "5", "10"] };
 
 function fakeClient(overrides: { load?: () => Promise<LoadResult>; upsert?: () => Promise<{ error: Failure }> } = {}) {
   const maybeSingle = vi.fn(overrides.load ?? (async () => ({ data: null, error: null } as LoadResult)));
@@ -63,13 +65,13 @@ describe("modelo da mensagem no banco", () => {
 
 describe("messageSettingsDraftFrom", () => {
   test("quem nunca guardou começa no Próximo, com saudação e assinatura de partida", () => {
-    expect(messageSettingsDraftFrom(null)).toEqual({ tone: "friendly", greeting: "", thanks: "", signature: "", footer: true });
+    expect(messageSettingsDraftFrom(null)).toEqual({ tone: "friendly", greeting: "", thanks: "", signature: "", footer: true, reminderDays: ["3", "7"] });
     expect(initialMessageSettings.status).toBe("loading");
   });
 
   test("abre o que foi guardado, e o que está vazio continua em branco", () => {
     expect(messageSettingsDraftFrom(savedRow)).toEqual(savedDraft);
-    expect(messageSettingsDraftFrom({ tone: "formal", greeting: null, thanks: null, signature: null, footer: true })).toEqual({ tone: "formal", greeting: "", thanks: "", signature: "", footer: true });
+    expect(messageSettingsDraftFrom({ tone: "formal", greeting: null, thanks: null, signature: null, footer: true })).toEqual({ tone: "formal", greeting: "", thanks: "", signature: "", footer: true, reminderDays: ["3", "7"] });
   });
 
   test("a linha do Quitô abre como foi guardada", () => {
@@ -84,12 +86,12 @@ describe("messageSettingsDraftFrom", () => {
 
 describe("messageAdjustmentsFrom", () => {
   test("em branco vira a saudação e a assinatura de partida", () => {
-    expect(messageAdjustmentsFrom({ tone: "friendly", greeting: "  ", thanks: " ", signature: " ", footer: true })).toEqual({ tone: "friendly", greeting: null, thanks: null, signature: null, footer: true });
+    expect(messageAdjustmentsFrom({ tone: "friendly", greeting: "  ", thanks: " ", signature: " ", footer: true, reminderDays: [] })).toEqual({ tone: "friendly", greeting: null, thanks: null, signature: null, footer: true });
   });
 
   test("tira os espaços e a pontuação do fim da saudação, porque o nome vem logo depois", () => {
-    expect(messageAdjustmentsFrom({ tone: "friendly", greeting: " Bom dia, ", thanks: " Obrigada! ", signature: " Tio João. ", footer: true })).toEqual({ tone: "friendly", greeting: "Bom dia", thanks: "Obrigada", signature: "Tio João.", footer: true });
-    expect(messageAdjustmentsFrom({ tone: "friendly", greeting: "!!", thanks: "", signature: "", footer: true }).greeting).toBeNull();
+    expect(messageAdjustmentsFrom({ tone: "friendly", greeting: " Bom dia, ", thanks: " Obrigada! ", signature: " Tio João. ", footer: true, reminderDays: [] })).toEqual({ tone: "friendly", greeting: "Bom dia", thanks: "Obrigada", signature: "Tio João.", footer: true });
+    expect(messageAdjustmentsFrom({ tone: "friendly", greeting: "!!", thanks: "", signature: "", footer: true, reminderDays: [] }).greeting).toBeNull();
   });
 });
 
@@ -103,7 +105,21 @@ describe("validateMessageSettings", () => {
   });
 
   test("em branco é válido", () => {
-    expect(validateMessageSettings({ tone: "formal", greeting: "", thanks: "", signature: "", footer: true })).toEqual({ ok: true, row: { tone: "formal", greeting: null, thanks: null, signature: null, footer: true } });
+    expect(validateMessageSettings({ tone: "formal", greeting: "", thanks: "", signature: "", footer: true, reminderDays: [] })).toEqual({ ok: true, row: { tone: "formal", greeting: null, thanks: null, signature: null, footer: true, reminder_days: [] } });
+  });
+});
+
+describe("lembretes no modelo", () => {
+  test("quem guardou antes dos lembretes começa com 3 e 7 dias; o que foi guardado abre como está", () => {
+    expect(reminderDaysFrom(null)).toEqual([3, 7]);
+    expect(reminderDaysFrom({ ...savedRow, reminder_days: undefined })).toEqual([3, 7]);
+    expect(reminderDaysFrom({ ...savedRow, reminder_days: [] })).toEqual([]);
+    expect(reminderDaysFrom(savedRow)).toEqual([2, 5, 10]);
+  });
+
+  test("dias fora da regra mostram o erro sem guardar", () => {
+    expect(validateMessageSettings({ ...savedDraft, reminderDays: ["5", "3"] })).toEqual({ ok: false, errors: { reminderDays: reminderMessages.invalidDays } });
+    expect(validateMessageSettings(savedDraft)).toMatchObject({ ok: true, row: { reminder_days: [2, 5, 10] } });
   });
 });
 

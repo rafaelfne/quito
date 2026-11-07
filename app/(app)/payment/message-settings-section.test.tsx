@@ -2,6 +2,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from "rea
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import { initialMessageSettings, messageSettingsMessages, type MessageSettingsDraft, type MessageSettingsState } from "@/lib/message-settings";
+import { reminderMessages } from "@/lib/reminders";
 import { MessageSettingsSection } from "./message-settings-section";
 
 type AnyProps = Record<string, unknown> & { children?: ReactNode };
@@ -143,5 +144,47 @@ describe("mensagem de cobrança na tela", () => {
     expect(forms).toHaveLength(0);
     (buttons[0].props.onClick as () => void)();
     expect(props.onMessageRetry).toHaveBeenCalledOnce();
+  });
+});
+
+describe("lembretes na tela", () => {
+  test("de partida, dois lembretes com o dia e o exemplo de cada um", () => {
+    const html = render(ready);
+    expect(html).toContain("Lembretes");
+    expect(html).toContain("2 lembretes");
+    expect(html).toContain("Lembrete 1 de 2: quantos dias depois do envio");
+    expect(html).toContain("Lembrete 2 de 2: quantos dias depois do envio");
+    expect(html).toContain('value="3"');
+    expect(html).toContain('value="7"');
+    expect(html).toContain("Passando para lembrar");
+    expect(html).toContain("Ainda não encontrei o pagamento");
+  });
+
+  test("sem lembretes, não mostra dias nem exemplo", () => {
+    const html = render(withDraft({ reminderDays: [] }));
+    expect(html).toContain("Nenhum lembrete");
+    expect(html).not.toContain("quantos dias depois do envio");
+    expect(html).not.toContain("Passando para lembrar");
+  });
+
+  test("o exemplo do lembrete segue o tom escolhido", () => {
+    expect(render(withDraft({ tone: "direct", reminderDays: ["3", "7", "14"] }))).toContain("Terceiro lembrete: cobrança");
+  });
+
+  test("mostra o erro dos dias", () => {
+    const html = render({ ...withDraft({ reminderDays: ["7", "3"] }), errors: { reminderDays: reminderMessages.invalidDays } });
+    expect(html).toContain(reminderMessages.invalidDays);
+    expect(html).toContain('aria-describedby="reminder-days-error"');
+  });
+
+  test("mudar quantos e o dia de um lembrete avisa a página", () => {
+    const props = handlers();
+    const elements = expand(MessageSettingsSection({ state: ready, busy: false, teacher, ...props }));
+    const select = elements.find((element) => element.type === "select");
+    (select?.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: "3" } });
+    expect(props.onMessageChange).toHaveBeenLastCalledWith({ reminderDays: ["3", "7", "14"] });
+    const dayInputs = elements.filter((element) => element.type === "input" && element.props.inputMode === "numeric");
+    (dayInputs[1]?.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: "10" } });
+    expect(props.onMessageChange).toHaveBeenLastCalledWith({ reminderDays: ["3", "10"] });
   });
 });

@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ChargesView } from "@/app/(app)/charges/charges-view";
-import { applyChargesLoad, applyPaidSaved, applyPreviewConfirmation, applySendSaved, endedMonthOf, initialCharges, startConfirmingPreview, startReloadingCharges, startSavingPayment, startSavingSend, syncChargesWithMessages } from "@/lib/charges";
-import { saveChargePaidAt, saveChargeSentAt } from "@/lib/charge-sending";
+import { applyChargesLoad, applyPaidSaved, applyPreviewConfirmation, applyRemindersSaved, applySendSaved, endedMonthOf, initialCharges, startConfirmingPreview, startReloadingCharges, startSavingPayment, startSavingReminder, startSavingSend, syncChargesWithMessages, withoutLastReminder, withReminderSent } from "@/lib/charges";
+import { saveChargePaidAt, saveChargeRemindersSentAt, saveChargeSentAt } from "@/lib/charge-sending";
 import { confirmMessagePreview } from "@/lib/message-preview";
 import { dateKeyOf } from "@/lib/lessons";
 import { supabase } from "@/lib/supabase";
@@ -38,6 +38,14 @@ export default function ChargesPage() {
     void saveChargePaidAt(supabase, chargeId, paidAt).then((saved) => setState((current) => applyPaidSaved(current, chargeId, paidAt, saved)));
   }
 
+  function saveReminders(chargeId: string, undoing: boolean) {
+    const charge = state.charges.find((one) => one.id === chargeId);
+    if (!charge) return;
+    const remindersSentAt = undoing ? withoutLastReminder(charge) : withReminderSent(charge, new Date().toISOString());
+    setState((current) => startSavingReminder(current, chargeId));
+    void saveChargeRemindersSentAt(supabase, chargeId, remindersSentAt).then((saved) => setState((current) => applyRemindersSaved(current, chargeId, remindersSentAt, saved, undoing)));
+  }
+
   return (
     <ChargesView
       state={state}
@@ -47,6 +55,8 @@ export default function ChargesPage() {
       onUndoSend={(chargeId) => saveSent(chargeId, null)}
       onMarkPaid={(chargeId) => savePaid(chargeId, new Date().toISOString())}
       onUndoPaid={(chargeId) => savePaid(chargeId, null)}
+      onSendReminder={(chargeId) => saveReminders(chargeId, false)}
+      onUndoReminder={(chargeId) => saveReminders(chargeId, true)}
     />
   );
 }

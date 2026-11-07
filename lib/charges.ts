@@ -1,8 +1,9 @@
 import { pendingAdjustments, settleAdjustments, type PendingAdjustment, type SettledAdjustment } from "@/lib/charge-adjustments";
-import { chargeDueDatesFor, composedMessagesFor, loadChargeMessageContext } from "@/lib/charge-message";
+import { chargeDueDatesFor, composedMessagesFor, loadChargeMessageContext, reminderMessagesFor } from "@/lib/charge-message";
 import { buildMonthClosing, describeUnmarked, loadClosingMonth, type GuardianClosing, type MonthClosing, type StudentClosing } from "@/lib/closing";
 import { describeMonth, monthRange, shiftMonth, type LessonsClient } from "@/lib/lessons";
 import { loadMessagePreview } from "@/lib/message-preview";
+import { reminderProgress, type ReminderProgress } from "@/lib/reminders";
 import { calendarMonthOf, type CalendarMonth } from "@/lib/schedule";
 import { requestTimeoutMs, withTimeout } from "@/lib/sign-in";
 
@@ -16,7 +17,7 @@ export type NewCharge = {
   account: ChargeStudent[];
 };
 
-export type Charge = NewCharge & { id: string; sent_at?: string | null; paid_at?: string | null };
+export type Charge = NewCharge & { id: string; sent_at?: string | null; paid_at?: string | null; reminders_sent_at?: string[] | null };
 
 export type WaitingStudent = { studentId: string; studentName: string; unmarked: number; missingBilling: boolean };
 
@@ -24,9 +25,9 @@ export type WaitingGuardian = { phone: string; guardianName: string; students: W
 
 export type ChargesPlan = { newCharges: NewCharge[]; waiting: WaitingGuardian[]; nothingToCharge: string[] };
 
-export type ChargesLoad = { ok: true; month: CalendarMonth; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages?: Record<string, string>; dueDates?: Record<string, string>; today?: string; previewConfirmed?: boolean } | { ok: false; month: CalendarMonth };
+export type ChargesLoad = { ok: true; month: CalendarMonth; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages?: Record<string, string>; dueDates?: Record<string, string>; today?: string; previewConfirmed?: boolean; reminderDays?: number[]; reminderMessages?: Record<string, string[]> } | { ok: false; month: CalendarMonth };
 
-export type ChargesState = { month: CalendarMonth; status: "loading" | "ready" | "failed"; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages: Record<string, string>; dueDates: Record<string, string>; today: string; previewConfirmed: boolean; confirmingPreview: boolean; previewMessage: string | null; savingSends: string[]; sendMessage: string | null; savingPayments: string[]; paymentMessage: string | null };
+export type ChargesState = { month: CalendarMonth; status: "loading" | "ready" | "failed"; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages: Record<string, string>; dueDates: Record<string, string>; today: string; previewConfirmed: boolean; confirmingPreview: boolean; previewMessage: string | null; savingSends: string[]; sendMessage: string | null; savingPayments: string[]; paymentMessage: string | null; reminderDays: number[]; reminderMessages: Record<string, string[]>; savingReminders: string[]; reminderNotice: string | null };
 
 export const chargesPath = "/charges";
 
@@ -63,6 +64,13 @@ export const chargeMessages = {
   undoPaid: "Desfazer o pagamento",
   paymentFailed: "O Quitô não conseguiu guardar que a cobrança foi paga. Confira a internet e toque de novo.",
   undoPaymentFailed: "Não deu para desfazer o pagamento agora. Confira a internet e toque de novo.",
+  reminderToday: "para hoje",
+  sendReminder: "Enviar lembrete pelo WhatsApp",
+  savingReminder: "Guardando...",
+  undoReminder: "Desfazer o último lembrete",
+  allRemindersSent: "Todos os lembretes deste mês foram enviados.",
+  reminderFailed: "O Quitô não conseguiu guardar que o lembrete foi enviado. Confira a internet e toque de novo.",
+  undoReminderFailed: "Não deu para desfazer o lembrete agora. Confira a internet e toque de novo.",
   todayTitle: "Para enviar hoje",
   nothingToday: "Nada para enviar hoje.",
   openTitle: "Em aberto",
@@ -75,7 +83,7 @@ export type ChargeGroups = { today: Charge[]; open: Charge[]; paid: Charge[]; co
 
 const table = "charges";
 
-const columns = "id, charge_month, guardian_phone, guardian_name, total_cents, account, sent_at, paid_at";
+const columns = "id, charge_month, guardian_phone, guardian_name, total_cents, account, sent_at, paid_at, reminders_sent_at";
 
 const chargesPageSize = 1000;
 
@@ -210,11 +218,19 @@ export async function syncMonthCharges(client: LessonsClient, month: CalendarMon
 export async function syncChargesWithMessages(client: LessonsClient, month: CalendarMonth, today: string): Promise<ChargesLoad> {
   const [result, context, preview] = await Promise.all([syncMonthCharges(client, month, today), loadChargeMessageContext(client), loadMessagePreview(client)]);
   if (!result.ok || context === null || !preview.ok) return { ok: false, month };
-  return { ...result, messages: composedMessagesFor(result.charges, context, today), dueDates: chargeDueDatesFor(result.charges, context), today, previewConfirmed: preview.confirmed };
+  return {
+    ...result,
+    messages: composedMessagesFor(result.charges, context, today),
+    dueDates: chargeDueDatesFor(result.charges, context),
+    today,
+    previewConfirmed: preview.confirmed,
+    reminderDays: context.reminderDays,
+    reminderMessages: reminderMessagesFor(result.charges, context, today),
+  };
 }
 
 export function initialCharges(month: CalendarMonth): ChargesState {
-  return { month, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null, savingPayments: [], paymentMessage: null };
+  return { month, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null, savingPayments: [], paymentMessage: null, reminderDays: [], reminderMessages: {}, savingReminders: [], reminderNotice: null };
 }
 
 export function startReloadingCharges(state: ChargesState): ChargesState {
@@ -223,8 +239,8 @@ export function startReloadingCharges(state: ChargesState): ChargesState {
 
 export function applyChargesLoad(state: ChargesState, result: ChargesLoad): ChargesState {
   if (!result.ok) return { ...state, status: "failed" };
-  const { charges, waiting, nothingToCharge, messages = {}, dueDates = {}, today = "", previewConfirmed = false } = result;
-  return { ...state, status: "ready", charges, waiting, nothingToCharge, messages, dueDates, today, previewConfirmed };
+  const { charges, waiting, nothingToCharge, messages = {}, dueDates = {}, today = "", previewConfirmed = false, reminderDays = [], reminderMessages = {} } = result;
+  return { ...state, status: "ready", charges, waiting, nothingToCharge, messages, dueDates, today, previewConfirmed, reminderDays, reminderMessages };
 }
 
 export function needsFirstPreview(state: ChargesState): boolean {
@@ -289,10 +305,51 @@ export function applyPaidSaved(state: ChargesState, chargeId: string, paidAt: st
   return { ...state, savingPayments, charges: state.charges.map((charge) => (charge.id === chargeId ? { ...charge, paid_at: paidAt } : charge)) };
 }
 
+export function remindersSentOf(charge: Charge): string[] {
+  return charge.reminders_sent_at ?? [];
+}
+
+export function reminderProgressOf(state: ChargesState, charge: Charge): ReminderProgress | null {
+  if (!awaitsReminders(charge) || !charge.sent_at) return null;
+  return reminderProgress(charge.sent_at, remindersSentOf(charge), state.reminderDays);
+}
+
+export function isReminderDue(state: ChargesState, progress: ReminderProgress): boolean {
+  return progress.next !== null && state.today !== "" && state.today >= progress.next.due;
+}
+
+export function reminderMessageOf(state: ChargesState, chargeId: string, index: number): string | undefined {
+  return state.reminderMessages[chargeId]?.[index];
+}
+
+export function withReminderSent(charge: Charge, sentAt: string): string[] {
+  return [...remindersSentOf(charge), sentAt];
+}
+
+export function withoutLastReminder(charge: Charge): string[] {
+  return remindersSentOf(charge).slice(0, -1);
+}
+
+export function startSavingReminder(state: ChargesState, chargeId: string): ChargesState {
+  return { ...state, savingReminders: [...state.savingReminders.filter((id) => id !== chargeId), chargeId], reminderNotice: null };
+}
+
+export function applyRemindersSaved(state: ChargesState, chargeId: string, remindersSentAt: string[], saved: boolean, undoing: boolean): ChargesState {
+  const savingReminders = state.savingReminders.filter((id) => id !== chargeId);
+  if (!saved) return { ...state, savingReminders, reminderNotice: undoing ? chargeMessages.undoReminderFailed : chargeMessages.reminderFailed };
+  return { ...state, savingReminders, charges: state.charges.map((charge) => (charge.id === chargeId ? { ...charge, reminders_sent_at: remindersSentAt } : charge)) };
+}
+
+export function hasReminderToday(state: ChargesState, charge: Charge): boolean {
+  const progress = reminderProgressOf(state, charge);
+  return progress !== null && isReminderDue(state, progress);
+}
+
 function groupOf(state: ChargesState, charge: Charge): keyof ChargeGroups {
   if (charge.total_cents === 0) return "covered";
   if (isChargePaid(charge)) return "paid";
   if (!isChargeSent(charge) && isDueToSend(state, charge.id)) return "today";
+  if (hasReminderToday(state, charge)) return "today";
   return "open";
 }
 

@@ -2,8 +2,17 @@ import { describe, expect, test, vi } from "vitest";
 import {
   applyChargesLoad,
   applyPaidSaved,
+  applyRemindersSaved,
+  isReminderDue,
+  reminderMessageOf,
+  reminderProgressOf,
+  remindersSentOf,
+  startSavingReminder,
+  withReminderSent,
+  withoutLastReminder,
   awaitsReminders,
   daysBetween,
+  hasReminderToday,
   describeOpenDays,
   describeOpenFor,
   groupCharges,
@@ -452,7 +461,7 @@ const bia: WaitingGuardian = { phone: "11933334444", guardianName: "Bia", studen
 
 describe("estado da tela", () => {
   test("começa carregando o mês", () => {
-    expect(initialCharges(november)).toEqual({ month: november, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null, savingPayments: [], paymentMessage: null });
+    expect(initialCharges(november)).toEqual({ month: november, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null, savingPayments: [], paymentMessage: null, reminderDays: [], reminderMessages: {}, savingReminders: [], reminderNotice: null });
   });
 
   test("recarregar mantém o que já estava na tela", () => {
@@ -462,7 +471,7 @@ describe("estado da tela", () => {
 
   test("aplica o resultado", () => {
     const result = { ok: true as const, month: november, charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"] };
-    expect(applyChargesLoad(initialCharges(november), result)).toEqual({ month: november, status: "ready", charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null, savingPayments: [], paymentMessage: null });
+    expect(applyChargesLoad(initialCharges(november), result)).toEqual({ month: november, status: "ready", charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null, savingPayments: [], paymentMessage: null, reminderDays: [], reminderMessages: {}, savingReminders: [], reminderNotice: null });
   });
 
   test("traz se o professor já passou pela prévia", () => {
@@ -648,6 +657,62 @@ describe("marcar como pago", () => {
   });
 });
 
+describe("lembretes", () => {
+  const sentAt = "2026-12-05T13:00:00.000Z";
+  const firstReminder = "2026-12-08T13:00:00.000Z";
+  const base = { ...initialCharges(november), status: "ready" as const, reminderDays: [3, 7], reminderMessages: { c1: ["Lembrete 1", "Lembrete 2"] }, today: "2026-12-08" };
+
+  test("cobrança não enviada ou já paga não tem lembrete", () => {
+    expect(reminderProgressOf(base, saved())).toBeNull();
+    expect(reminderProgressOf(base, saved({ sent_at: sentAt, paid_at: "2026-12-06T13:00:00.000Z" }))).toBeNull();
+  });
+
+  test("enviada e em aberto, o lembrete sai no dia combinado e não antes", () => {
+    const progress = reminderProgressOf(base, saved({ sent_at: sentAt }));
+    expect(progress).toEqual({ sent: 0, total: 2, next: { index: 0, due: "2026-12-08" }, lastSentIndex: null });
+    expect(isReminderDue(base, progress!)).toBe(true);
+    expect(isReminderDue({ ...base, today: "2026-12-07" }, progress!)).toBe(false);
+    expect(isReminderDue({ ...base, today: "" }, progress!)).toBe(false);
+    expect(reminderMessageOf(base, "c1", 1)).toBe("Lembrete 2");
+    expect(reminderMessageOf(base, "c9", 0)).toBeUndefined();
+  });
+
+  test("depois do último lembrete não há próximo", () => {
+    const progress = reminderProgressOf(base, saved({ sent_at: sentAt, reminders_sent_at: [firstReminder, "2026-12-12T13:00:00.000Z"] }));
+    expect(progress?.next).toBeNull();
+    expect(isReminderDue(base, progress!)).toBe(false);
+  });
+
+  test("enviar acrescenta o lembrete e desfazer tira só o último", () => {
+    expect(remindersSentOf(saved())).toEqual([]);
+    expect(withReminderSent(saved(), firstReminder)).toEqual([firstReminder]);
+    const twice = saved({ reminders_sent_at: [firstReminder, "2026-12-12T13:00:00.000Z"] });
+    expect(withReminderSent(twice, "x")).toHaveLength(3);
+    expect(withoutLastReminder(twice)).toEqual([firstReminder]);
+  });
+
+  test("guarda o lembrete só naquele responsável", () => {
+    const ready = { ...base, charges: [saved({ sent_at: sentAt }), saved({ id: "c2", sent_at: sentAt })], reminderNotice: chargeMessages.reminderFailed };
+    const saving = startSavingReminder(ready, "c1");
+    expect(saving).toMatchObject({ savingReminders: ["c1"], reminderNotice: null });
+    expect(startSavingReminder(saving, "c1").savingReminders).toEqual(["c1"]);
+    const done = applyRemindersSaved(saving, "c1", [firstReminder], true, false);
+    expect(done.savingReminders).toEqual([]);
+    expect(done.charges.map(remindersSentOf)).toEqual([[firstReminder], []]);
+  });
+
+  test("se não deu para guardar, avisa e nada muda", () => {
+    const ready = { ...base, charges: [saved({ sent_at: sentAt })] };
+    expect(applyRemindersSaved(startSavingReminder(ready, "c1"), "c1", [firstReminder], false, false)).toMatchObject({ savingReminders: [], reminderNotice: chargeMessages.reminderFailed, charges: [saved({ sent_at: sentAt })] });
+    expect(applyRemindersSaved(ready, "c1", [], false, true).reminderNotice).toBe(chargeMessages.undoReminderFailed);
+  });
+
+  test("abre com os dias e os textos dos lembretes", () => {
+    const result = { ok: true as const, month: november, charges: [saved()], waiting: [], nothingToCharge: [], reminderDays: [3], reminderMessages: { c1: ["Oi"] } };
+    expect(applyChargesLoad(initialCharges(november), result)).toMatchObject({ reminderDays: [3], reminderMessages: { c1: ["Oi"] } });
+  });
+});
+
 describe("painel do mês", () => {
   const base: Charge = { id: "x", charge_month: "2026-11-01", guardian_phone: "11900000000", guardian_name: "X", total_cents: 1000, account: [] };
   const dueToday = { ...base, id: "hoje" };
@@ -695,5 +760,14 @@ describe("painel do mês", () => {
     expect(describeOpenFor(panel, beforeDue)).toBeNull();
     expect(describeOpenFor(panel, paid)).toBeNull();
     expect(describeOpenFor(panel, covered)).toBeNull();
+  });
+
+  test("o lembrete do dia sobe para o que enviar hoje, e a cobrança paga não", () => {
+    const withReminders = { ...panel, reminderDays: [3, 7] };
+    expect(hasReminderToday(withReminders, sentOpen)).toBe(true);
+    expect(hasReminderToday(withReminders, paid)).toBe(false);
+    expect(hasReminderToday({ ...withReminders, today: "2026-12-07" }, sentOpen)).toBe(false);
+    expect(groupCharges(withReminders).today.map(({ id }) => id)).toEqual(["hoje", "atrasada", "enviada"]);
+    expect(groupCharges(withReminders).paid.map(({ id }) => id)).toEqual(["paga"]);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { saveChargePaidAt, saveChargeSentAt, whatsAppLinkFor, type ChargeSendingClient } from "@/lib/charge-sending";
+import { saveChargePaidAt, saveChargeRemindersSentAt, saveChargeSentAt, whatsAppLinkFor, type ChargeSendingClient } from "@/lib/charge-sending";
 
 function clientWith(result: { error: { message: string } | null }) {
   const eq = vi.fn(async () => result);
@@ -66,5 +66,19 @@ describe("guardar o pagamento", () => {
 
   test("erro do banco devolve falha", async () => {
     expect(await saveChargePaidAt(clientWith({ error: { message: "fora do ar" } }).client, "c1", null)).toBe(false);
+  });
+});
+
+describe("guardar os lembretes enviados", () => {
+  test("guarda a lista dos momentos de cada lembrete", async () => {
+    const { client, from, update, eq } = clientWith({ error: null });
+    expect(await saveChargeRemindersSentAt(client, "c1", ["2026-12-08T13:00:00.000Z"])).toBe(true);
+    expect(from).toHaveBeenCalledWith("charges");
+    expect(update).toHaveBeenCalledWith({ reminders_sent_at: ["2026-12-08T13:00:00.000Z"] });
+    expect(eq).toHaveBeenCalledWith("id", "c1");
+  });
+
+  test("erro do banco devolve falha", async () => {
+    expect(await saveChargeRemindersSentAt(clientWith({ error: { message: "fora do ar" } }).client, "c1", [])).toBe(false);
   });
 });

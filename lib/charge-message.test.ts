@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { accountLinesOf, chargeDueDate, chargeDueDatesFor, chargeMessageOf, chargeMessageParts, composedMessagesFor, loadChargeMessageContext, type ChargeMessageContext } from "@/lib/charge-message";
+import { accountLinesOf, chargeDueDate, chargeDueDatesFor, chargeMessageOf, chargeMessageParts, composedMessagesFor, loadChargeMessageContext, reminderMessagesFor, type ChargeMessageContext } from "@/lib/charge-message";
 import type { Charge, ChargeStudent } from "@/lib/charges";
 import type { LessonsClient } from "@/lib/lessons";
 import { composeMessage, exampleMessageParts, messageTones, quitoFooter, type MessageTone } from "@/lib/message-templates";
@@ -39,6 +39,7 @@ const context: ChargeMessageContext = {
     { id: "p", gender: "male", called_as: null },
     { id: "a", gender: "female", called_as: null },
   ],
+  reminderDays: [3, 7],
 };
 
 const dueDay = "2026-12-05";
@@ -185,6 +186,18 @@ describe("mensagens das cobranças do mês", () => {
     expect(chargeDueDatesFor([carla, covered], context)).toEqual({ c1: "2026-12-05" });
     expect(chargeDueDatesFor([carla], { ...context, dueDayOverrides: new Map([[carla.guardian_phone, 20]]) })).toEqual({ c1: "2026-12-20" });
     expect(chargeDueDatesFor([carla], { ...context, payment: null })).toEqual({});
+  });
+
+  test("monta um lembrete para cada dia combinado, só das cobranças com valor a pagar", () => {
+    const covered = { ...carla, id: "c2", total_cents: 0 };
+    const reminders = reminderMessagesFor([carla, covered], context, dueDay);
+    expect(Object.keys(reminders)).toEqual(["c1"]);
+    expect(reminders.c1).toHaveLength(2);
+    expect(reminders.c1[0]).toContain("Passando para lembrar da conta de novembro do Pedro e da Ana, de *R$ 405,00*, que venceu em 5/12.");
+    expect(reminders.c1[1]).toContain("Ainda não encontrei o pagamento");
+    expect(reminders.c1[0].split("\n")).toContain("joao.violao@email.com");
+    expect(reminderMessagesFor([carla], { ...context, reminderDays: [] }, dueDay)).toEqual({ c1: [] });
+    expect(reminderMessagesFor([carla], { ...context, payment: null }, dueDay)).toEqual({});
   });
 });
 

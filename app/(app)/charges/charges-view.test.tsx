@@ -50,7 +50,7 @@ function ready(overrides: Partial<ChargesState> = {}): ChargesState {
 }
 
 function render(state: ChargesState) {
-  return renderToStaticMarkup(<ChargesView state={state} onRetry={vi.fn()} onConfirmPreview={vi.fn()} onSend={vi.fn()} onUndoSend={vi.fn()} onMarkPaid={vi.fn()} onUndoPaid={vi.fn()} />);
+  return renderToStaticMarkup(<ChargesView state={state} onRetry={vi.fn()} onConfirmPreview={vi.fn()} onSend={vi.fn()} onUndoSend={vi.fn()} onMarkPaid={vi.fn()} onUndoPaid={vi.fn()} onSendReminder={vi.fn()} onUndoReminder={vi.fn()} />);
 }
 
 describe("tela de cobranças", () => {
@@ -219,7 +219,7 @@ describe("envio pelo WhatsApp", () => {
   test("tocar em enviar e em desfazer avisam a página com a cobrança certa", () => {
     const onSend = vi.fn();
     const onUndoSend = vi.fn();
-    const props = { onRetry: vi.fn(), onConfirmPreview: vi.fn(), onSend, onUndoSend, onMarkPaid: vi.fn(), onUndoPaid: vi.fn() };
+    const props = { onRetry: vi.fn(), onConfirmPreview: vi.fn(), onSend, onUndoSend, onMarkPaid: vi.fn(), onUndoPaid: vi.fn(), onSendReminder: vi.fn(), onUndoReminder: vi.fn() };
     const link = collect(ChargesView({ state: ready(confirmed), ...props })).find((element) => element.type === "a" && String(element.props.href).startsWith("https://wa.me/"));
     (link?.props.onClick as () => void)();
     expect(onSend).toHaveBeenCalledWith("c1");
@@ -293,7 +293,7 @@ describe("marcar como pago", () => {
   test("tocar em marcar como pago e em desfazer avisam a página com a cobrança certa", () => {
     const onMarkPaid = vi.fn();
     const onUndoPaid = vi.fn();
-    const props = { onRetry: vi.fn(), onConfirmPreview: vi.fn(), onSend: vi.fn(), onUndoSend: vi.fn(), onMarkPaid, onUndoPaid };
+    const props = { onRetry: vi.fn(), onConfirmPreview: vi.fn(), onSend: vi.fn(), onUndoSend: vi.fn(), onMarkPaid, onUndoPaid, onSendReminder: vi.fn(), onUndoReminder: vi.fn() };
     const mark = collect(ChargesView({ state: ready(confirmed), ...props })).find((element) => element.type === "button" && element.props.children === chargeMessages.markPaid);
     (mark?.props.onClick as () => void)();
     expect(onMarkPaid).toHaveBeenCalledWith("c1");
@@ -354,3 +354,74 @@ describe("marcar como pago", () => {
   });
 });
 
+describe("lembretes", () => {
+  const sentCharge = { ...charge, sent_at: "2026-12-05T13:00:00.000Z" };
+  const base = { charges: [sentCharge], messages: { c1: "Oi, Ana!" }, dueDates: { c1: "2026-12-05" }, previewConfirmed: true, reminderDays: [3, 7], reminderMessages: { c1: ["Passando para lembrar", "Ainda não encontrei"] } };
+
+  test("antes do dia, mostra quando sai o próximo lembrete, sem o botão", () => {
+    const html = render(ready({ ...base, today: "2026-12-06" }));
+    expect(html).toContain("Lembrete 1 de 2 no dia 8/12.");
+    expect(html).not.toContain(chargeMessages.sendReminder);
+    expect(html).not.toContain("Passando para lembrar");
+  });
+
+  test("no dia, mostra o lembrete com o toque para o WhatsApp", () => {
+    const html = render(ready({ ...base, today: "2026-12-08" }));
+    expect(html).toContain(`Lembrete 1 de 2 ${chargeMessages.reminderToday}`);
+    expect(html).toContain("Passando para lembrar");
+    expect(html).toContain(chargeMessages.sendReminder);
+    expect(html).toContain('href="https://wa.me/5511987654321?text=Passando%20para%20lembrar"');
+  });
+
+  test("o lembrete do dia aparece no topo, em Para enviar hoje", () => {
+    const html = render(ready({ ...base, today: "2026-12-08" }));
+    expect(html).not.toContain(chargeMessages.nothingToday);
+    expect(html.indexOf(chargeMessages.todayTitle)).toBeLessThan(html.indexOf("Ana Lima"));
+    expect(html.indexOf("Ana Lima")).toBeLessThan(html.indexOf(chargeMessages.monthTotal));
+    expect(html).not.toContain(`>${chargeMessages.openTitle}<`);
+  });
+
+  test("antes do dia do lembrete, a cobrança enviada fica em Em aberto", () => {
+    const html = render(ready({ ...base, today: "2026-12-06" }));
+    expect(html).toContain(chargeMessages.nothingToday);
+    expect(html.indexOf(chargeMessages.openTitle)).toBeLessThan(html.indexOf("Ana Lima"));
+  });
+
+  test("depois do lembrete enviado, o desfazer do envio da cobrança some e o do lembrete aparece", () => {
+    const html = render(ready({ ...base, today: "2026-12-09", charges: [{ ...sentCharge, reminders_sent_at: ["2026-12-08T13:00:00.000Z"] }] }));
+    expect(html).toContain("Lembrete 1 enviado.");
+    expect(html).toContain(chargeMessages.undoReminder);
+    expect(html).toContain("Lembrete 2 de 2 no dia 12/12.");
+    expect(html).not.toContain(chargeMessages.undoSend);
+  });
+
+  test("depois do último, avisa que todos saíram", () => {
+    const html = render(ready({ ...base, today: "2026-12-20", charges: [{ ...sentCharge, reminders_sent_at: ["2026-12-08T13:00:00.000Z", "2026-12-12T13:00:00.000Z"] }] }));
+    expect(html).toContain(chargeMessages.allRemindersSent);
+    expect(html).toContain("Lembrete 2 enviado.");
+  });
+
+  test("sem lembretes combinados, ou com a cobrança paga, nada de lembrete", () => {
+    expect(render(ready({ ...base, today: "2026-12-08", reminderDays: [] }))).not.toContain("Lembrete");
+    expect(render(ready({ ...base, today: "2026-12-08", charges: [{ ...sentCharge, paid_at: "2026-12-07T13:00:00.000Z" }] }))).not.toContain(chargeMessages.sendReminder);
+  });
+
+  test("enquanto guarda, o botão espera, e a falha aparece", () => {
+    const html = render(ready({ ...base, today: "2026-12-08", savingReminders: ["c1"], reminderNotice: chargeMessages.reminderFailed }));
+    expect(html).toContain(chargeMessages.savingReminder);
+    expect(html).toContain(chargeMessages.reminderFailed);
+  });
+
+  test("tocar no lembrete e em desfazer avisam a página com a cobrança certa", () => {
+    const onSendReminder = vi.fn();
+    const onUndoReminder = vi.fn();
+    const props = { onRetry: vi.fn(), onConfirmPreview: vi.fn(), onSend: vi.fn(), onUndoSend: vi.fn(), onMarkPaid: vi.fn(), onUndoPaid: vi.fn(), onSendReminder, onUndoReminder };
+    const link = collect(ChargesView({ state: ready({ ...base, today: "2026-12-08" }), ...props })).find((element) => element.type === "a" && element.props.children === chargeMessages.sendReminder);
+    (link?.props.onClick as () => void)();
+    expect(onSendReminder).toHaveBeenCalledWith("c1");
+    const sentOnce = ready({ ...base, today: "2026-12-09", charges: [{ ...sentCharge, reminders_sent_at: ["2026-12-08T13:00:00.000Z"] }] });
+    const undo = collect(ChargesView({ state: sentOnce, ...props })).find((element) => element.type === "button" && element.props.children === chargeMessages.undoReminder);
+    (undo?.props.onClick as () => void)();
+    expect(onUndoReminder).toHaveBeenCalledWith("c1");
+  });
+});

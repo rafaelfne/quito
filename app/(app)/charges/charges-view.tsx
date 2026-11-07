@@ -2,11 +2,12 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { accountPath } from "@/lib/account";
 import { formatCurrency } from "@/lib/billing";
-import { canSendCharge, chargeMessages, describeMarkLessons, describeOpenFor, describeReadyFor, groupCharges, isChargePaid, isChargeSent, isDueToSend, needsFirstPreview, describeWaitingStudent, monthChargesTotal, waitsForBilling, waitsForMarks, type Charge, type ChargesState, type ChargeStudent, type WaitingGuardian } from "@/lib/charges";
+import { canSendCharge, chargeMessages, describeMarkLessons, describeOpenFor, describeReadyFor, groupCharges, isChargePaid, isChargeSent, isDueToSend, isReminderDue, needsFirstPreview, describeWaitingStudent, monthChargesTotal, reminderMessageOf, reminderProgressOf, remindersSentOf, waitsForBilling, waitsForMarks, type Charge, type ChargesState, type ChargeStudent, type WaitingGuardian } from "@/lib/charges";
 import { closingMessages, closingPath, describeSignedAmount } from "@/lib/closing";
 import { describeMonth, lessonsPath, lessonsPathFor } from "@/lib/lessons";
 import { whatsAppLinkFor } from "@/lib/charge-sending";
 import { paymentSettingsPath } from "@/lib/payment-settings";
+import { describeReminderDay, describeReminderName, type ReminderProgress } from "@/lib/reminders";
 import type { CalendarMonth } from "@/lib/schedule";
 import { formatPhone, studentsPath } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
@@ -23,10 +24,23 @@ type ChargesViewProps = {
   onUndoSend: (chargeId: string) => void;
   onMarkPaid: (chargeId: string) => void;
   onUndoPaid: (chargeId: string) => void;
+  onSendReminder: (chargeId: string) => void;
+  onUndoReminder: (chargeId: string) => void;
 };
 
 type Sending = {
   readyFor: string | null;
+  link: string | null;
+  saving: boolean;
+  canUndo: boolean;
+  onSend: () => void;
+  onUndo: () => void;
+};
+
+type Reminding = {
+  progress: ReminderProgress | null;
+  due: boolean;
+  message: string | undefined;
   link: string | null;
   saving: boolean;
   onSend: () => void;
@@ -88,10 +102,14 @@ function SendCharge({ charge, sending }: { charge: Charge; sending: Sending }) {
     return (
       <div className="flex flex-col items-start gap-2 text-sm">
         <p className="font-medium">{chargeMessages.sent}</p>
-        <p>{chargeMessages.undoHint}</p>
-        <button className={secondaryButtonClass} type="button" disabled={sending.saving} onClick={sending.onUndo}>
-          {sending.saving ? chargeMessages.savingSend : chargeMessages.undoSend}
-        </button>
+        {sending.canUndo ? (
+          <>
+            <p>{chargeMessages.undoHint}</p>
+            <button className={secondaryButtonClass} type="button" disabled={sending.saving} onClick={sending.onUndo}>
+              {sending.saving ? chargeMessages.savingSend : chargeMessages.undoSend}
+            </button>
+          </>
+        ) : null}
       </div>
     );
   }
@@ -101,6 +119,39 @@ function SendCharge({ charge, sending }: { charge: Charge; sending: Sending }) {
     <a className={primaryButtonClass} href={sending.link} target="_blank" rel="noopener noreferrer" aria-disabled={sending.saving} onClick={sending.onSend}>
       {sending.saving ? chargeMessages.savingSend : chargeMessages.sendOnWhatsApp}
     </a>
+  );
+}
+
+function NextReminder({ progress, reminding }: { progress: ReminderProgress; reminding: Reminding }) {
+  if (progress.next === null) return progress.sent > 0 ? <p>{chargeMessages.allRemindersSent}</p> : null;
+  const name = describeReminderName(progress.next.index, progress.total);
+  if (!reminding.due || reminding.message === undefined || reminding.link === null) return <p>{`${name} no dia ${describeReminderDay(progress.next.due)}.`}</p>;
+  return (
+    <>
+      <h3 className="font-medium">{`${name} ${chargeMessages.reminderToday}`}</h3>
+      <p className="w-full rounded-sm border p-3 break-words whitespace-pre-wrap">{reminding.message}</p>
+      <a className={primaryButtonClass} href={reminding.link} target="_blank" rel="noopener noreferrer" aria-disabled={reminding.saving} onClick={reminding.onSend}>
+        {reminding.saving ? chargeMessages.savingReminder : chargeMessages.sendReminder}
+      </a>
+    </>
+  );
+}
+
+function ChargeReminders({ reminding }: { reminding: Reminding }) {
+  const { progress } = reminding;
+  if (progress === null || (progress.total === 0 && progress.sent === 0)) return null;
+  return (
+    <div className="flex flex-col items-start gap-2 border-t pt-3 text-sm">
+      <NextReminder progress={progress} reminding={reminding} />
+      {progress.lastSentIndex !== null ? (
+        <>
+          <p>{`Lembrete ${progress.lastSentIndex + 1} enviado.`}</p>
+          <button className={secondaryButtonClass} type="button" disabled={reminding.saving} onClick={reminding.onUndo}>
+            {reminding.saving ? chargeMessages.savingReminder : chargeMessages.undoReminder}
+          </button>
+        </>
+      ) : null}
+    </div>
   );
 }
 
@@ -146,9 +197,9 @@ function ChargeMessage({ charge, message, firstPreview, sending }: { charge: Cha
   );
 }
 
-type ChargeCardProps = { charge: Charge; message: string | undefined; openFor: string | null; firstPreview: FirstPreview | null; sending: Sending; payment: Payment };
+type ChargeCardProps = { charge: Charge; message: string | undefined; openFor: string | null; firstPreview: FirstPreview | null; sending: Sending; reminding: Reminding; payment: Payment };
 
-function ChargeCard({ charge, message, openFor, firstPreview, sending, payment }: ChargeCardProps) {
+function ChargeCard({ charge, message, openFor, firstPreview, sending, reminding, payment }: ChargeCardProps) {
   const badge = sending.readyFor ?? openFor;
   return (
     <section className="flex flex-col gap-3 rounded-sm border p-3">
@@ -173,6 +224,7 @@ function ChargeCard({ charge, message, openFor, firstPreview, sending, payment }
       ) : (
         <>
           <ChargeMessage charge={charge} message={message} firstPreview={firstPreview} sending={sending} />
+          <ChargeReminders reminding={reminding} />
           <ChargePayment charge={charge} payment={payment} />
         </>
       )}
@@ -241,6 +293,13 @@ function sendTargetsFor(state: ChargesState, charge: Charge): SendTargets {
   return { readyFor: null, link: canSendCharge(state, charge.id) ? whatsAppLinkFor(charge.guardian_phone, message) : null };
 }
 
+function remindingFor(state: ChargesState, charge: Charge): Omit<Reminding, "onSend" | "onUndo"> {
+  const progress = reminderProgressOf(state, charge);
+  const due = progress !== null && isReminderDue(state, progress);
+  const message = progress?.next ? reminderMessageOf(state, charge.id, progress.next.index) : undefined;
+  return { progress, due, message, link: due && message !== undefined ? whatsAppLinkFor(charge.guardian_phone, message) : null, saving: state.savingReminders.includes(charge.id) };
+}
+
 function ChargeGroup({ title, total, children }: { title: string; total: number | null; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-3">
@@ -253,7 +312,7 @@ function ChargeGroup({ title, total, children }: { title: string; total: number 
   );
 }
 
-function ChargesContent({ state, onConfirmPreview, onSend, onUndoSend, onMarkPaid, onUndoPaid }: ChargesContentProps) {
+function ChargesContent({ state, onConfirmPreview, onSend, onUndoSend, onMarkPaid, onUndoPaid, onSendReminder, onUndoReminder }: ChargesContentProps) {
   const { month, charges, waiting, nothingToCharge, messages } = state;
   const firstPreview = needsFirstPreview(state) ? { confirming: state.confirmingPreview, onConfirm: onConfirmPreview } : null;
   if (charges.length === 0 && waiting.length === 0 && nothingToCharge.length === 0) return <p className="text-sm">{chargeMessages.empty}</p>;
@@ -265,13 +324,14 @@ function ChargesContent({ state, onConfirmPreview, onSend, onUndoSend, onMarkPai
       message={messages[charge.id]}
       openFor={describeOpenFor(state, charge)}
       firstPreview={firstPreview}
-      sending={{ ...sendTargetsFor(state, charge), saving: state.savingSends.includes(charge.id), onSend: () => onSend(charge.id), onUndo: () => onUndoSend(charge.id) }}
+      sending={{ ...sendTargetsFor(state, charge), saving: state.savingSends.includes(charge.id), canUndo: remindersSentOf(charge).length === 0, onSend: () => onSend(charge.id), onUndo: () => onUndoSend(charge.id) }}
+      reminding={{ ...remindingFor(state, charge), onSend: () => onSendReminder(charge.id), onUndo: () => onUndoReminder(charge.id) }}
       payment={{ saving: state.savingPayments.includes(charge.id), onMarkPaid: () => onMarkPaid(charge.id), onUndo: () => onUndoPaid(charge.id) }}
     />
   );
   return (
     <>
-      {[state.previewMessage, state.sendMessage, state.paymentMessage].map((alert) =>
+      {[state.previewMessage, state.sendMessage, state.paymentMessage, state.reminderNotice].map((alert) =>
         alert ? (
           <p key={alert} className="text-sm" role="alert">
             {alert}

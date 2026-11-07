@@ -282,7 +282,7 @@ describe("página de recebimento", () => {
     expect(view().messageBusy).toBe(true);
     await settle();
     const done = view();
-    expect(upsertMessage).toHaveBeenCalledWith({ tone: "direct", greeting: null, thanks: null, signature: "João, do violão", footer: false }, { onConflict: "owner_id" });
+    expect(upsertMessage).toHaveBeenCalledWith({ tone: "direct", greeting: null, thanks: null, signature: "João, do violão", footer: false, reminder_days: [3, 7] }, { onConflict: "owner_id" });
     expect(done.messageBusy).toBe(false);
     expect(done.messageSettings.notice).toBe(messageSettingsMessages.saved);
   });

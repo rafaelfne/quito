@@ -1,10 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { defaultMessageTone, isMessageTone, type MessageAdjustments, type MessageTone } from "@/lib/message-templates";
+import { defaultReminderDays, reminderDraftFrom, sanitizedReminderDays, validateReminderDrafts } from "@/lib/reminders";
 import { requestTimeoutMs, withTimeout } from "@/lib/sign-in";
 
 export type MessageSettingsClient = Pick<SupabaseClient, "from">;
 
-export type MessageSettingsRow = MessageAdjustments;
+export type MessageSettingsRow = MessageAdjustments & { reminder_days?: number[] | null };
 
 export type MessageSettingsDraft = {
   tone: MessageTone;
@@ -12,11 +13,12 @@ export type MessageSettingsDraft = {
   thanks: string;
   signature: string;
   footer: boolean;
+  reminderDays: string[];
 };
 
 export type MessageSettingsField = keyof MessageSettingsDraft;
 
-export type MessageSettingsErrors = Partial<Record<"greeting" | "thanks" | "signature", string>>;
+export type MessageSettingsErrors = Partial<Record<"greeting" | "thanks" | "signature" | "reminderDays", string>>;
 
 export type MessageSettingsValidation = { ok: true; row: MessageSettingsRow } | { ok: false; errors: MessageSettingsErrors };
 
@@ -47,7 +49,7 @@ export const messageSettingsMessages = {
 
 const table = "message_settings";
 
-const columns = "tone, greeting, thanks, signature, footer";
+const columns = "tone, greeting, thanks, signature, footer, reminder_days";
 
 function withoutEndingPunctuation(raw: string): string {
   return raw.trim().replace(/[\s,;:.!]+$/, "");
@@ -58,14 +60,19 @@ export function messageAdjustmentsFrom(draft: MessageSettingsDraft): MessageAdju
 }
 
 export function messageSettingsDraftFrom(settings: MessageSettingsRow | null): MessageSettingsDraft {
-  if (settings === null) return { tone: defaultMessageTone, greeting: "", thanks: "", signature: "", footer: true };
+  if (settings === null) return { tone: defaultMessageTone, greeting: "", thanks: "", signature: "", footer: true, reminderDays: reminderDraftFrom(defaultReminderDays) };
   return {
     tone: isMessageTone(settings.tone) ? settings.tone : defaultMessageTone,
     greeting: settings.greeting ?? "",
     thanks: settings.thanks ?? "",
     signature: settings.signature ?? "",
     footer: settings.footer !== false,
+    reminderDays: reminderDraftFrom(reminderDaysFrom(settings)),
   };
+}
+
+export function reminderDaysFrom(settings: MessageSettingsRow | null): number[] {
+  return settings === null || settings.reminder_days === undefined ? [...defaultReminderDays] : sanitizedReminderDays(settings.reminder_days);
 }
 
 export const initialMessageSettings: MessageSettingsState = {
@@ -77,8 +84,10 @@ export const initialMessageSettings: MessageSettingsState = {
 };
 
 export function validateMessageSettings(draft: MessageSettingsDraft): MessageSettingsValidation {
-  const row = messageAdjustmentsFrom(draft);
+  const reminders = validateReminderDrafts(draft.reminderDays);
+  const row: MessageSettingsRow = { ...messageAdjustmentsFrom(draft), reminder_days: reminders.ok ? reminders.days : [] };
   const errors: MessageSettingsErrors = {};
+  if (!reminders.ok) errors.reminderDays = reminders.error;
   if ((row.greeting?.length ?? 0) > greetingLengthLimit) errors.greeting = messageSettingsMessages.greetingTooLong;
   if ((row.thanks?.length ?? 0) > thanksLengthLimit) errors.thanks = messageSettingsMessages.thanksTooLong;
   if ((row.signature?.length ?? 0) > signatureLengthLimit) errors.signature = messageSettingsMessages.signatureTooLong;

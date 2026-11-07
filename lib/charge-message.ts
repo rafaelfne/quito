@@ -4,9 +4,10 @@ import type { Charge, ChargeStudent } from "@/lib/charges";
 import { describeSignedAmount, lineUnitSeparator, monthlyLineLabel, notChargedNote, siblingDiscountPrefix, type ClosingLine } from "@/lib/closing";
 import { dueDayForGuardian, loadGuardianDueDays, overridesByPhone } from "@/lib/guardian-due-days";
 import { shiftMonth, type LessonsClient } from "@/lib/lessons";
-import { loadMessageSettings, messageAdjustmentsFrom, messageSettingsDraftFrom } from "@/lib/message-settings";
+import { loadMessageSettings, messageAdjustmentsFrom, messageSettingsDraftFrom, reminderDaysFrom } from "@/lib/message-settings";
 import { composeMessage, type MessageAdjustments, type MessageParts } from "@/lib/message-templates";
 import { dueDateIn, loadPaymentSettings, type PaymentSettingsRow } from "@/lib/payment-settings";
+import { composeReminder } from "@/lib/reminders";
 import { loadStudents, type Student } from "@/lib/students";
 
 export type ChargeMessageContext = {
@@ -14,6 +15,7 @@ export type ChargeMessageContext = {
   payment: PaymentSettingsRow | null;
   dueDayOverrides: Map<string, number>;
   students: Pick<Student, "id" | "gender" | "called_as">[];
+  reminderDays: number[];
 };
 
 type NamedStudent = { name: string; article: string; account: ChargeStudent };
@@ -144,6 +146,15 @@ export function composedMessagesFor(charges: Charge[], context: ChargeMessageCon
   return messages;
 }
 
+export function reminderMessagesFor(charges: Charge[], context: ChargeMessageContext, today: string): Record<string, string[]> {
+  const reminders: Record<string, string[]> = {};
+  for (const charge of charges) {
+    const parts = charge.total_cents > 0 ? chargeMessageParts(charge, context, today) : null;
+    if (parts !== null) reminders[charge.id] = context.reminderDays.map((_, index) => composeReminder(context.adjustments, { ...parts, duePassed: true }, index));
+  }
+  return reminders;
+}
+
 export function chargeDueDatesFor(charges: Charge[], { payment, dueDayOverrides }: ChargeMessageContext): Record<string, string> {
   if (payment === null) return {};
   return Object.fromEntries(charges.filter((charge) => charge.total_cents > 0).map((charge) => [charge.id, chargeDueDate(charge, payment.due_day, dueDayOverrides)]));
@@ -157,5 +168,6 @@ export async function loadChargeMessageContext(client: LessonsClient): Promise<C
     payment: payment.settings,
     dueDayOverrides: overridesByPhone(dueDays.rows),
     students: students.students,
+    reminderDays: reminderDaysFrom(message.settings),
   };
 }
