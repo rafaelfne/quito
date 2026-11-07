@@ -112,18 +112,24 @@ export function describeMissingBillingWarning(count: number): string {
   return count === 1 ? "1 aluno está sem forma de cobrança e não entra no total." : `${count} alunos estão sem forma de cobrança e não entram no total.`;
 }
 
-export function chargedLessonsBefore(marks: LessonMark[], studentId: string, limit: string): number {
+export function chargedLessonsBefore(marks: LessonMark[], studentId: string, limit: string, since = ""): number {
+  const counts = (date: string | null) => date !== null && date >= since && date < limit;
   return marks.reduce((total, mark) => {
     if (mark.student_id !== studentId) return total;
-    const lesson = isCharged(mark.status) && mark.lesson_date < limit ? 1 : 0;
-    const makeup = mark.makeup_date !== null && mark.makeup_date < limit ? 1 : 0;
+    const lesson = isCharged(mark.status) && counts(mark.lesson_date) ? 1 : 0;
+    const makeup = counts(mark.makeup_date) ? 1 : 0;
     return total + lesson + makeup;
   }, 0);
 }
 
-export function packageUsage(marks: LessonMark[], studentId: string, packageLessons: number, month: CalendarMonth, packageBalance = 0) {
-  const usedBefore = chargedLessonsBefore(marks, studentId, monthRange(month).first);
-  const usedThrough = chargedLessonsBefore(marks, studentId, monthRange(shiftMonth(month, 1)).first);
+export function confirmedOpeningOn(student: Student, monthFirst: string): string | null {
+  const openingOn = student.opening_balance_on ?? null;
+  return openingOn !== null && monthFirst >= openingOn ? openingOn : null;
+}
+
+export function packageUsage(marks: LessonMark[], studentId: string, packageLessons: number, month: CalendarMonth, packageBalance = 0, since = "") {
+  const usedBefore = chargedLessonsBefore(marks, studentId, monthRange(month).first, since);
+  const usedThrough = chargedLessonsBefore(marks, studentId, monthRange(shiftMonth(month, 1)).first, since);
   const packagesBefore = Math.ceil(Math.max(0, usedBefore - packageBalance) / packageLessons);
   const packagesThrough = Math.ceil(Math.max(0, usedThrough - packageBalance) / packageLessons);
   return {
@@ -169,7 +175,8 @@ function chargeOf(student: Student, counts: AttendanceCounts, data: ClosingData,
   if (billingKind === "monthly") return { ...terms, lines: monthlyLines(student, amountCents, month, data.rules), packageBalance: null };
   if (billingKind === "per_class") return { ...terms, lines: perClassLines(amountCents, counts), packageBalance: null };
   if (packageLessons === null) return null;
-  const usage = packageUsage(data.marks, student.id, packageLessons, month, student.package_balance ?? 0);
+  const openingOn = confirmedOpeningOn(student, monthRange(month).first);
+  const usage = openingOn === null ? packageUsage(data.marks, student.id, packageLessons, month, student.package_balance ?? 0) : packageUsage(data.marks, student.id, packageLessons, month, student.opening_package_balance ?? 0, openingOn);
   return { ...terms, lines: packageLines(amountCents, packageLessons, usage.bought), packageBalance: describePackageBalance(usage) };
 }
 
@@ -201,6 +208,13 @@ function studentsOfMonth({ students, enrollments, marks }: ClosingData, month: C
   return students.filter((student) => (enrolledOn.get(student.id) ?? first) <= last || hasMonthActivity(student));
 }
 
+function startingCreditsOf(student: Student, monthFirst: string): { count: number; start: string; singular: string; plural: string } | null {
+  const openingOn = confirmedOpeningOn(student, monthFirst);
+  if (openingOn !== null) return { count: student.opening_makeup_credits ?? 0, start: openingOn, singular: "crédito do acerto do saldo", plural: "créditos do acerto do saldo" };
+  if (student.created_at === undefined) return null;
+  return { count: student.makeup_credits ?? 0, start: dateKeyOf(new Date(student.created_at)), singular: "crédito inicial", plural: "créditos iniciais" };
+}
+
 function creditsByStudent(students: Student[], { marks, rules }: ClosingData, month: CalendarMonth, today: string): Map<string, string[]> {
   const { first, last } = monthRange(month);
   const asOf = today >= first && today <= last ? today : last;
@@ -208,12 +222,11 @@ function creditsByStudent(students: Student[], { marks, rules }: ClosingData, mo
   const credits = new Map<string, string[]>();
   for (const credit of openCredits(students, marksAtMonthEnd, rules.makeup_deadline_days, asOf)) credits.set(credit.studentId, [...(credits.get(credit.studentId) ?? []), describeCredit(credit)]);
   for (const student of students) {
-    const count = student.makeup_credits ?? 0;
-    const start = student.created_at === undefined ? undefined : dateKeyOf(new Date(student.created_at));
-    if (count === 0 || start === undefined || start > last) continue;
-    const expiresOn = creditExpiresOn(start, rules.makeup_deadline_days);
+    const starting = startingCreditsOf(student, first);
+    if (starting === null || starting.count === 0 || starting.start > last) continue;
+    const expiresOn = creditExpiresOn(starting.start, rules.makeup_deadline_days);
     if (expiresOn !== null && asOf > expiresOn) continue;
-    credits.set(student.id, [...(credits.get(student.id) ?? []), `${counted(count, "crédito inicial", "créditos iniciais")}${expiresOn === null ? ", sem prazo" : `, valem até ${describeShortDay(expiresOn)}`}`]);
+    credits.set(student.id, [...(credits.get(student.id) ?? []), `${counted(starting.count, starting.singular, starting.plural)}${expiresOn === null ? ", sem prazo" : `, ${starting.count === 1 ? "vale" : "valem"} até ${describeShortDay(expiresOn)}`}`]);
   }
   return credits;
 }

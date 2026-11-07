@@ -198,6 +198,16 @@ describe("tela de aulas", () => {
     expect(render({ ...ready, trainingMonth: november2026, marks: [madeUp] })).toContain("Reposição da falta de 2 de novembro. Treino: não gera cobrança.");
   });
 
+  test("no primeiro mês cobrado, leva ao acerto do saldo até todos os alunos do treino serem confirmados", () => {
+    const december = { ...ready, month: { year: 2026, month: 12 }, trainingMonth: november2026, students: [{ ...pedro, created_at: "2026-11-05T12:00:00Z" }] };
+    const html = render(december, "2026-12-01");
+    expect(html).toContain("Começou o primeiro mês cobrado.");
+    expect(html).toContain('href="/students/opening-balance"');
+    expect(render(december, "2026-11-30")).not.toContain("Começou o primeiro mês cobrado.");
+    const confirmed = { ...december, students: [{ ...december.students[0], opening_balance_on: "2026-12-01", opening_package_balance: null, opening_makeup_credits: 0 }] };
+    expect(render(confirmed, "2026-12-02")).not.toContain("Começou o primeiro mês cobrado.");
+  });
+
   test("depois do mês de treino, a tela volta ao normal", () => {
     const html = render({ ...ready, trainingMonth: { year: 2026, month: 10 }, marks: [unnotified] });
     expect(html).not.toContain("Mês de treino");

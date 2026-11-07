@@ -11,7 +11,9 @@ type StudentContact = { name: string; guardian_name: string; guardian_phone: str
 
 export type StudentRow = StudentContact & BillingRow & ScheduleRow & { gender: StudentGender; called_as: string | null; package_balance: number; makeup_credits: number };
 
-export type Student = StudentContact & SavedBilling & SavedSchedule & { id: string; gender: StudentGender | null; called_as: string | null; package_balance?: number | null; makeup_credits?: number; created_at?: string };
+export type Student = StudentContact & SavedBilling & SavedSchedule & { id: string; gender: StudentGender | null; called_as: string | null; package_balance?: number | null; makeup_credits?: number; created_at?: string } & Partial<StudentOpeningBalance>;
+
+export type StudentOpeningBalance = { opening_balance_on: string | null; opening_package_balance: number | null; opening_makeup_credits: number | null };
 
 export type StudentDraft = BillingDraft & ScheduleDraft & { name: string; gender: string; calledAs: string; guardianName: string; guardianPhone: string; packageBalance: string; makeupCredits: string };
 
@@ -62,7 +64,7 @@ export const studentMessages = {
 
 const table = "students";
 
-const columns = "id, name, gender, called_as, guardian_name, guardian_phone, billing_kind, billing_amount_cents, package_lessons, package_balance, makeup_credits, created_at, lesson_weekday, lesson_time";
+const columns = "id, name, gender, called_as, guardian_name, guardian_phone, billing_kind, billing_amount_cents, package_lessons, package_balance, makeup_credits, opening_balance_on, opening_package_balance, opening_makeup_credits, created_at, lesson_weekday, lesson_time";
 
 const nationalPhonePattern = /^[1-9]{2}(9\d{8}|[2-9]\d{7})$/;
 

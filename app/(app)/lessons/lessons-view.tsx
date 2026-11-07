@@ -36,6 +36,7 @@ import {
   type LessonCredit,
   type MakeupTarget,
 } from "@/lib/makeups";
+import { needsOpeningBalance, openingBalanceMessages, openingBalancePath } from "@/lib/opening-balance";
 import { paymentSettingsPath } from "@/lib/payment-settings";
 import { studentsPath } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
@@ -166,6 +167,14 @@ function LessonsList({ state, today, onMark, onChangeMakeupDate, onMakeUp, onUnd
       {training && state.trainingMonth ? (
         <p className="rounded-sm border p-3 text-sm font-medium" role="status">
           {describeTrainingNotice(state.trainingMonth)}
+        </p>
+      ) : null}
+      {needsOpeningBalance(state.students, state.trainingMonth, today) ? (
+        <p className="rounded-sm border p-3 text-sm font-medium" role="status">
+          {openingBalanceMessages.lessonsNotice}{" "}
+          <Link className="underline" href={openingBalancePath}>
+            {openingBalanceMessages.lessonsLink}
+          </Link>
         </p>
       ) : null}
       {state.noticeHours === null ? null : (

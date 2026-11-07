@@ -43,13 +43,14 @@
     {
       "id": "alunos",
       "name": "Alunos",
-      "description": "Onde o professor cadastra, importa colando uma lista ou escolhendo dos contatos do celular e corrige os alunos, com o responsável, o WhatsApp dele, a forma de cobrança, o saldo inicial do pacote, os créditos de reposição e o horário fixo, aplica a mesma forma de cobrança a vários alunos de uma vez e acerta o horário de cada um, e vê as aulas previstas do mês",
+      "description": "Onde o professor cadastra, importa colando uma lista ou escolhendo dos contatos do celular e corrige os alunos, com o responsável, o WhatsApp dele, a forma de cobrança, o saldo inicial do pacote, os créditos de reposição e o horário fixo, aplica a mesma forma de cobrança a vários alunos de uma vez e acerta o horário de cada um, confirma ou corrige o saldo de pacote e os créditos no início do primeiro mês cobrado, e vê as aulas previstas do mês",
       "paths": [
         "app/(app)/students",
         "lib/students.ts",
         "lib/student-import.ts",
         "lib/contact-picker.ts",
         "lib/student-setup.ts",
+        "lib/opening-balance.ts",
         "lib/billing.ts",
         "lib/schedule.ts"
       ],
@@ -169,6 +170,8 @@
     "app/(app)/students/import/import-view.tsx": "Caixa da lista colada e como cada linha foi separada na tela",
     "app/(app)/students/setup/page.tsx": "Tela de cobrança e horário em grupo",
     "app/(app)/students/setup/setup-view.tsx": "Marcar alunos, aplicar a mesma forma de cobrança e acertar o horário de cada um na tela",
+    "app/(app)/students/opening-balance/page.tsx": "Tela do acerto do saldo no início do primeiro mês cobrado",
+    "app/(app)/students/opening-balance/opening-balance-view.tsx": "Saldo de pacote e créditos previstos depois do treino de cada aluno, para confirmar ou corrigir na tela",
     "app/(app)/rules/page.tsx": "Tela de regras do professor",
     "app/(app)/rules/rules-view.tsx": "Formulário das regras do professor na tela",
     "app/(app)/payment/page.tsx": "Tela de dados de recebimento",
@@ -193,6 +196,7 @@
     "lib/students.ts": "Regras do cadastro de aluno, do gênero e do telefone do responsável",
     "lib/student-import.ts": "Regras de separar nome, responsável e telefone de cada linha colada e de marcar as repetidas",
     "lib/student-setup.ts": "Regras de marcar vários alunos, aplicar a mesma forma de cobrança de uma vez e guardar o horário de cada um",
+    "lib/opening-balance.ts": "Regras do acerto do saldo: o previsto depois do treino, quando abre, os limites e de onde a contagem real parte",
     "lib/billing.ts": "Regras da forma de cobrança e do valor em reais",
     "lib/schedule.ts": "Regras do horário fixo semanal e das aulas previstas do mês",
     "lib/teacher-rules.ts": "Regras da antecedência da falta, do prazo de reposição e do mês com 5 semanas",

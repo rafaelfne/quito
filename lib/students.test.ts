@@ -160,7 +160,7 @@ describe("loadStudents", () => {
     const { client, from, select } = fakeClient({ select: async () => ({ data: [pedro, alvaro], error: null }) });
     expect(await loadStudents(client)).toEqual({ ok: true, students: [alvaro, pedro] });
     expect(from).toHaveBeenCalledWith("students");
-    expect(select).toHaveBeenCalledWith("id, name, gender, called_as, guardian_name, guardian_phone, billing_kind, billing_amount_cents, package_lessons, package_balance, makeup_credits, created_at, lesson_weekday, lesson_time");
+    expect(select).toHaveBeenCalledWith("id, name, gender, called_as, guardian_name, guardian_phone, billing_kind, billing_amount_cents, package_lessons, package_balance, makeup_credits, opening_balance_on, opening_package_balance, opening_makeup_credits, created_at, lesson_weekday, lesson_time");
   });
 
   test("sem resposta, a lista vem vazia", async () => {
