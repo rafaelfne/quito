@@ -1,9 +1,11 @@
 import { describe, expect, test, vi } from "vitest";
 import {
+  addPickedContacts,
   applyImportLoad,
   changeImportText,
   describeReady,
   describeSaved,
+  failPickingContacts,
   importableStudents,
   initialStudentImport,
   isReady,
@@ -58,6 +60,11 @@ describe("parseStudentLine", () => {
     expect(parseStudentLine("Pedro Lima, 11987654321", 1).problems).toEqual([studentImportMessages.guardianMissing]);
     expect(parseStudentLine("Pedro Lima, Ana Lima", 1).problems).toEqual([studentImportMessages.phoneMissing]);
     expect(parseStudentLine("11987654321", 1).problems).toEqual([studentImportMessages.nameMissing]);
+  });
+
+  test("coluna do aluno em branco não vira o nome do responsável", () => {
+    expect(parseStudentLine(", Mãe do Pedro, 11987654321", 1)).toMatchObject({ name: "", guardianName: "Mãe do Pedro", problems: [studentImportMessages.nameMissing] });
+    expect(parseStudentLine("\tAna Lima\t11987654321", 1)).toMatchObject({ name: "", guardianName: "Ana Lima", problems: [studentImportMessages.nameMissing] });
   });
 
   test("telefone sem DDD fica marcado para conferir", () => {
@@ -141,6 +148,24 @@ describe("estado da importação", () => {
   test("mudar o texto apaga mensagens antigas", () => {
     const state = { ...ready("a"), message: "erro", notice: "ok" };
     expect(changeImportText(state, "b")).toEqual({ ...state, text: "b", message: null, notice: null });
+  });
+
+  test("contatos escolhidos entram na caixa com o aviso de completar o aluno", () => {
+    const state = { ...ready("Bia, Rosa, 2134567890"), message: "erro" };
+    const next = addPickedContacts(state, [{ name: ["Mãe do Pedro"], tel: ["11987654321"] }]);
+    expect(next).toMatchObject({ text: "Bia, Rosa, 2134567890\n, Mãe do Pedro, 11987654321", message: null, notice: studentImportMessages.contactsAdded(1) });
+    expect(studentImportMessages.contactsAdded(1)).toContain("1 contato entrou na caixa.");
+    expect(studentImportMessages.contactsAdded(2)).toContain("2 contatos entraram na caixa.");
+    expect(studentImportMessages.contactsAdded(2)).toContain("Escreva o nome do aluno no começo de cada linha");
+  });
+
+  test("sem contato escolhido, a caixa fica como estava", () => {
+    const state = { ...ready("Bia"), notice: "ok" };
+    expect(addPickedContacts(state, [])).toEqual({ ...state, notice: null, message: null });
+  });
+
+  test("avisa quando não deu para abrir os contatos", () => {
+    expect(failPickingContacts({ ...ready("Bia"), notice: "ok" })).toMatchObject({ text: "Bia", message: studentImportMessages.contactsFailed, notice: null });
   });
 
   test("carregar de novo volta a esperar", () => {

@@ -43,11 +43,12 @@
     {
       "id": "alunos",
       "name": "Alunos",
-      "description": "Onde o professor cadastra, importa colando uma lista e corrige os alunos, com o responsável, o WhatsApp dele, a forma de cobrança e o horário fixo, e vê as aulas previstas do mês",
+      "description": "Onde o professor cadastra, importa colando uma lista ou escolhendo dos contatos do celular e corrige os alunos, com o responsável, o WhatsApp dele, a forma de cobrança e o horário fixo, e vê as aulas previstas do mês",
       "paths": [
         "app/(app)/students",
         "lib/students.ts",
         "lib/student-import.ts",
+        "lib/contact-picker.ts",
         "lib/billing.ts",
         "lib/schedule.ts"
       ],

@@ -103,4 +103,22 @@ describe("tela de colar a lista de alunos", () => {
     expect(preventDefault).toHaveBeenCalled();
     expect(props.onSubmit).toHaveBeenCalled();
   });
+
+  test("sem a escolha de contatos no celular, não mostra o botão", () => {
+    expect(render(ready)).not.toContain("Escolher dos contatos");
+  });
+
+  test("com a escolha de contatos, oferece o botão e promete só os escolhidos", () => {
+    const onPickContacts = vi.fn();
+    const props = { ...handlers(), onPickContacts };
+    const html = renderToStaticMarkup(<StudentImportView state={ready} busy={false} {...props} />);
+    expect(html).toContain("Escolher dos contatos do celular");
+    expect(html).toContain("nunca a agenda inteira");
+    const button = expand(StudentImportView({ state: ready, busy: false, ...props })).find((element) => element.type === "button" && element.props.children === "Escolher dos contatos do celular")!;
+    expect(button.props.disabled).toBe(false);
+    (button.props.onClick as () => void)();
+    expect(onPickContacts).toHaveBeenCalled();
+    const busyButton = expand(StudentImportView({ state: ready, busy: true, ...props })).find((element) => element.type === "button" && element.props.children === "Escolher dos contatos do celular")!;
+    expect(busyButton.props.disabled).toBe(true);
+  });
 });

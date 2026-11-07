@@ -1,4 +1,5 @@
 import { requestTimeoutMs, withTimeout } from "@/lib/sign-in";
+import { appendContactLines, type PickedContact } from "@/lib/contact-picker";
 import { loadStudents, normalizePhone, studentNameLimit, type Student, type StudentsClient, type StudentsListStatus, type StudentsLoad } from "@/lib/students";
 
 export type ImportedStudent = { name: string; guardian_name: string; guardian_phone: string };
@@ -25,6 +26,8 @@ export const studentImportMessages = {
   alreadySaved: "Este aluno já está cadastrado.",
   nothingReady: "Nenhuma linha está pronta para guardar. Corrija as linhas marcadas e tente de novo.",
   loadFailed: "Não deu para conferir os alunos que você já tem. Confira a internet e tente de novo.",
+  contactsAdded: (count: number) => (count === 1 ? "1 contato entrou na caixa." : `${count} contatos entraram na caixa.`) + " Escreva o nome do aluno no começo de cada linha, antes da vírgula.",
+  contactsFailed: "Não deu para abrir os contatos do celular. Tente de novo ou cole a lista.",
   saveFailed: "Não deu para guardar os alunos agora. Confira a internet e toque em Guardar de novo.",
 };
 
@@ -35,6 +38,8 @@ const phonePattern = /\(?\+?\d[\d ().-]{6,}\d/;
 const cellSeparator = /\t|\s*[;|,]\s*|\s+[-–—/]\s+/;
 
 const listMarker = /^\s*(?:\d{1,3}[.)-]|[-•*])\s+/;
+
+const leadingEmptyCell = /^[ ]*[\t;|,]/;
 
 const headerCell = /^(nome|aluno|aluna|responsável|responsavel|telefone|whatsapp|celular|contato|fone)\b/i;
 
@@ -63,7 +68,7 @@ export function parseStudentLine(text: string, line: number): ImportLine {
   const rawPhone = content.match(phonePattern)?.[0];
   const phone = rawPhone === undefined ? null : normalizePhone(rawPhone);
   const cells = (rawPhone === undefined ? content : content.replace(rawPhone, "\t")).split(cellSeparator).map(cleanCell).filter(Boolean);
-  const [name = "", guardianName = ""] = cells;
+  const [name = "", guardianName = ""] = leadingEmptyCell.test(content) ? ["", ...cells] : cells;
   return { line, text, name, guardianName, phone, problems: problemsOf(name, guardianName, rawPhone, phone) };
 }
 
@@ -114,6 +119,15 @@ export async function saveImportedStudents(client: StudentsClient, rows: Importe
 
 export function changeImportText(state: StudentImportState, text: string): StudentImportState {
   return { ...state, text, message: null, notice: null };
+}
+
+export function addPickedContacts(state: StudentImportState, contacts: PickedContact[]): StudentImportState {
+  if (contacts.length === 0) return { ...state, message: null, notice: null };
+  return { ...state, text: appendContactLines(state.text, contacts), message: null, notice: studentImportMessages.contactsAdded(contacts.length) };
+}
+
+export function failPickingContacts(state: StudentImportState): StudentImportState {
+  return { ...state, message: studentImportMessages.contactsFailed, notice: null };
 }
 
 export function startReloadingImport(state: StudentImportState): StudentImportState {

@@ -9,6 +9,7 @@ type StudentImportViewProps = {
   onChange: (text: string) => void;
   onSubmit: () => void;
   onRetry: () => void;
+  onPickContacts?: () => void;
 };
 
 function LinePreview({ line }: { line: ImportLine }) {
@@ -37,7 +38,18 @@ function LinePreview({ line }: { line: ImportLine }) {
   );
 }
 
-export function StudentImportView({ state, busy, onChange, onSubmit, onRetry }: StudentImportViewProps) {
+function ContactsPick({ busy, onPickContacts }: { busy: boolean; onPickContacts: () => void }) {
+  return (
+    <section className="flex flex-col gap-2">
+      <Button variant="outline" type="button" disabled={busy} onClick={onPickContacts}>
+        Escolher dos contatos do celular
+      </Button>
+      <p className="text-sm opacity-70">O Quitô recebe só os contatos que você escolher, nunca a agenda inteira.</p>
+    </section>
+  );
+}
+
+export function StudentImportView({ state, busy, onChange, onSubmit, onRetry, onPickContacts }: StudentImportViewProps) {
   const lines = parseStudentList(state.text, state.students);
   const readyCount = importableStudents(lines).length;
   const pending = lines.length - readyCount;
@@ -50,6 +62,7 @@ export function StudentImportView({ state, busy, onChange, onSubmit, onRetry }: 
           Voltar para Alunos
         </Link>
       </header>
+      {onPickContacts ? <ContactsPick busy={busy} onPickContacts={onPickContacts} /> : null}
       {state.notice ? (
         <p className="text-sm" role="status">
           {state.notice}
