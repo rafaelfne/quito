@@ -57,13 +57,13 @@ describe("tela de primeiros passos", () => {
   test("diz que dá para sair e continuar depois", () => {
     const html = render({ status: "ready", steps });
     expect(html).toContain(gettingStartedMessages.leaveHint);
-    expect(html).toMatch(/href="\/notes"[^>]*>Continuar depois</);
+    expect(html).toMatch(/href="\/charges"[^>]*>Continuar depois</);
   });
 
   test("com tudo feito, comemora e leva para o início", () => {
     const html = render({ status: "ready", steps: steps.map((step) => ({ ...step, done: true })) });
     expect(html).toContain(gettingStartedMessages.finished);
-    expect(html).toMatch(/href="\/notes"[^>]*>Ir para o início</);
+    expect(html).toMatch(/href="\/charges"[^>]*>Ir para o início</);
     expect(html).not.toContain("Continuar depois");
     expect(html).not.toContain("aria-current");
   });

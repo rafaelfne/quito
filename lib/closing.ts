@@ -1,4 +1,4 @@
-import { discountAmount, formatCurrency } from "@/lib/billing";
+import { discountAmount, formatCurrency, type BillingKind } from "@/lib/billing";
 import { dateKeyOf, isCharged, lessonMarksTable, monthLessons, monthRange, shiftMonth, type LessonMark, type LessonStatus, type LessonsClient, type MonthLesson } from "@/lib/lessons";
 import { describeCredit, monthMakeups, openCredits } from "@/lib/makeups";
 import { plannedLessons, type CalendarMonth } from "@/lib/schedule";
@@ -14,7 +14,19 @@ export type ClosingData = { students: Student[]; enrollments: StudentEnrollment[
 
 export type ClosingLine = { label: string; cents: number };
 
+export type FrozenMark = Pick<LessonMark, "lesson_date" | "status" | "makeup_date">;
+
+export type ChargeBasis = {
+  billingKind: BillingKind;
+  amountCents: number;
+  packageLessons: number | null;
+  discountPercent: number;
+  monthCents: number;
+  marks: FrozenMark[];
+};
+
 export type StudentClosing = {
+  basis: ChargeBasis | null;
   studentId: string;
   studentName: string;
   lines: ClosingLine[];
@@ -48,11 +60,19 @@ export const closingMessages = {
   creditsTitle: "Créditos de reposição em aberto",
 };
 
+export const notChargedNote = ", sem cobrança";
+
+export const lineUnitSeparator = " × ";
+
+export const monthlyLineLabel = "Mensalidade";
+
+export const siblingDiscountPrefix = "Desconto de ";
+
 const marksPageSize = 1000;
 
 const marksColumns = "student_id, lesson_date, status, makeup_date";
 
-function counted(count: number, singular: string, plural: string): string {
+export function counted(count: number, singular: string, plural: string): string {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
@@ -70,8 +90,8 @@ export function describeAttendance(counts: AttendanceCounts): string {
     counts.given > 0 ? counted(counts.given, "aula dada", "aulas dadas") : "",
     counts.unnotified_absence > 0 ? `${counted(counts.unnotified_absence, "falta sem aviso", "faltas sem aviso")}, cobrada${counts.unnotified_absence === 1 ? "" : "s"}` : "",
     counts.makeups > 0 ? counted(counts.makeups, "reposição", "reposições") : "",
-    counts.notified_absence > 0 ? `${counted(counts.notified_absence, "falta avisada", "faltas avisadas")}, sem cobrança` : "",
-    counts.teacher_absence > 0 ? `${counted(counts.teacher_absence, "falta do professor", "faltas do professor")}, sem cobrança` : "",
+    counts.notified_absence > 0 ? `${counted(counts.notified_absence, "falta avisada", "faltas avisadas")}${notChargedNote}` : "",
+    counts.teacher_absence > 0 ? `${counted(counts.teacher_absence, "falta do professor", "faltas do professor")}${notChargedNote}` : "",
   ].filter(Boolean);
   return parts.length === 0 ? "Nenhuma aula marcada neste mês." : `${parts.join("; ")}.`;
 }
@@ -122,12 +142,12 @@ function perClassLines(cents: number, counts: AttendanceCounts): ClosingLine[] {
     { count: counts.makeups, label: counted(counts.makeups, "reposição", "reposições") },
   ]
     .filter(({ count }) => count > 0)
-    .map(({ count, label }) => ({ label: `${label} × ${unit}`, cents: count * cents }));
+    .map(({ count, label }) => ({ label: `${label}${lineUnitSeparator}${unit}`, cents: count * cents }));
   return lines.length > 0 ? lines : [{ label: "Nenhuma aula cobrada neste mês", cents: 0 }];
 }
 
 function monthlyLines(student: Student, cents: number, month: CalendarMonth, rules: ClosingRules): ClosingLine[] {
-  const lines = [{ label: "Mensalidade", cents }];
+  const lines = [{ label: monthlyLineLabel, cents }];
   const hasFiveWeeks = plannedLessons(student, month).length >= 5;
   if (hasFiveWeeks && rules.five_week_policy === "add_lesson" && rules.five_week_extra_cents !== null) lines.push({ label: "Mês com 5 semanas: uma aula avulsa a mais", cents: rules.five_week_extra_cents });
   return lines;
@@ -135,21 +155,28 @@ function monthlyLines(student: Student, cents: number, month: CalendarMonth, rul
 
 function packageLines(cents: number, packageLessons: number, bought: number): ClosingLine[] {
   if (bought === 0) return [{ label: "Nenhum pacote novo neste mês", cents: 0 }];
-  return [{ label: `${counted(bought, "pacote", "pacotes")} de ${counted(packageLessons, "aula", "aulas")} × ${formatCurrency(cents)}`, cents: bought * cents }];
+  return [{ label: `${counted(bought, "pacote", "pacotes")} de ${counted(packageLessons, "aula", "aulas")}${lineUnitSeparator}${formatCurrency(cents)}`, cents: bought * cents }];
 }
 
 function describePackageBalance(usage: ReturnType<typeof packageUsage>): string {
   return `Saldo do mês anterior: ${counted(usage.carriedIn, "aula", "aulas")}. Usadas neste mês: ${usage.used}. Passam para o mês seguinte: ${usage.carriedOut}.`;
 }
 
-function chargeOf(student: Student, counts: AttendanceCounts, data: ClosingData, month: CalendarMonth): { lines: ClosingLine[]; packageBalance: string | null } | null {
-  const { billing_kind: kind, billing_amount_cents: cents, package_lessons: packageLessons } = student;
-  if (kind === null || cents === null) return null;
-  if (kind === "monthly") return { lines: monthlyLines(student, cents, month, data.rules), packageBalance: null };
-  if (kind === "per_class") return { lines: perClassLines(cents, counts), packageBalance: null };
+function chargeOf(student: Student, counts: AttendanceCounts, data: ClosingData, month: CalendarMonth): { lines: ClosingLine[]; packageBalance: string | null; billingKind: BillingKind; amountCents: number; packageLessons: number | null } | null {
+  const { billing_kind: billingKind, billing_amount_cents: amountCents, package_lessons: packageLessons } = student;
+  if (billingKind === null || amountCents === null) return null;
+  const terms = { billingKind, amountCents, packageLessons };
+  if (billingKind === "monthly") return { ...terms, lines: monthlyLines(student, amountCents, month, data.rules), packageBalance: null };
+  if (billingKind === "per_class") return { ...terms, lines: perClassLines(amountCents, counts), packageBalance: null };
   if (packageLessons === null) return null;
   const usage = packageUsage(data.marks, student.id, packageLessons, month);
-  return { lines: packageLines(cents, packageLessons, usage.bought), packageBalance: describePackageBalance(usage) };
+  return { ...terms, lines: packageLines(amountCents, packageLessons, usage.bought), packageBalance: describePackageBalance(usage) };
+}
+
+function frozenMarksOf(studentId: string, marks: LessonMark[], month: CalendarMonth): FrozenMark[] {
+  const { first, last } = monthRange(month);
+  const inMonth = (date: string | null) => date !== null && date >= first && date <= last;
+  return marks.filter((mark) => mark.student_id === studentId && (inMonth(mark.lesson_date) || inMonth(mark.makeup_date))).map(({ lesson_date, status, makeup_date }) => ({ lesson_date, status, makeup_date }));
 }
 
 function closeStudent(student: Student, hasSiblings: boolean, credits: string[], data: ClosingData, month: CalendarMonth): StudentClosing {
@@ -157,13 +184,14 @@ function closeStudent(student: Student, hasSiblings: boolean, credits: string[],
   const counts = attendanceCounts(lessons, monthMakeups([student], data.marks, month).length);
   const charge = chargeOf(student, counts, data, month);
   const base = { studentId: student.id, studentName: student.name, attendance: describeAttendance(counts), credits, unmarked: counts.unmarked };
-  if (charge === null) return { ...base, lines: [], packageBalance: null, missingBilling: true, dependsOnMarks: false, totalCents: 0 };
+  if (charge === null) return { ...base, basis: null, lines: [], packageBalance: null, missingBilling: true, dependsOnMarks: false, totalCents: 0 };
   const grossCents = charge.lines.reduce((total, line) => total + line.cents, 0);
   const percent = hasSiblings ? data.rules.sibling_discount_percent : 0;
   const totalCents = discountAmount(grossCents, percent);
   const discountCents = grossCents - totalCents;
-  const lines = discountCents > 0 ? [...charge.lines, { label: `Desconto de ${percent}% para irmãos`, cents: -discountCents }] : charge.lines;
-  return { ...base, lines, packageBalance: charge.packageBalance, missingBilling: false, dependsOnMarks: student.billing_kind !== "monthly", totalCents };
+  const lines = discountCents > 0 ? [...charge.lines, { label: `${siblingDiscountPrefix}${percent}% para irmãos`, cents: -discountCents }] : charge.lines;
+  const basis = { billingKind: charge.billingKind, amountCents: charge.amountCents, packageLessons: charge.packageLessons, discountPercent: percent, monthCents: totalCents, marks: frozenMarksOf(student.id, data.marks, month) };
+  return { ...base, basis, lines, packageBalance: charge.packageBalance, missingBilling: false, dependsOnMarks: student.billing_kind !== "monthly", totalCents };
 }
 
 function studentsOfMonth({ students, enrollments, marks }: ClosingData, month: CalendarMonth): Student[] {

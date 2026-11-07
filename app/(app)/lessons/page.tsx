@@ -1,14 +1,16 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { LessonsView } from "@/app/(app)/lessons/lessons-view";
-import { applyLessonsLoad, beginMark, dateKeyOf, finishMark, initialLessons, loadLessonsMonth, nextStatus, persistLessonMark, startLessonsMonth, startReloadingLessons, type LessonStatus, type MakeupLesson, type MonthLesson } from "@/lib/lessons";
+import { applyLessonsLoad, beginMark, dateKeyOf, finishMark, initialLessons, loadLessonsMonth, nextStatus, parseMonthParam, persistLessonMark, startLessonsMonth, startReloadingLessons, type LessonStatus, type MakeupLesson, type MonthLesson } from "@/lib/lessons";
 import { beginMakeup, changeMakeupDraft, finishMakeup, makeupDateDraft, makeupDateError, persistMakeup, rejectMakeup, type LessonCredit, type MakeupTarget } from "@/lib/makeups";
 import { calendarMonthOf, type CalendarMonth } from "@/lib/schedule";
 import { supabase } from "@/lib/supabase";
 
 export default function LessonsPage() {
-  const [state, setState] = useState(initialLessons(calendarMonthOf(new Date())));
+  const requestedMonth = parseMonthParam(useSearchParams().get("month"));
+  const [state, setState] = useState(initialLessons(requestedMonth ?? calendarMonthOf(new Date())));
   const { month } = state;
   const today = dateKeyOf(new Date());
 

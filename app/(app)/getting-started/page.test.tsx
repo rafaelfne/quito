@@ -6,7 +6,12 @@ type ViewProps = { state: GettingStartedState; onRetry: () => void; baselineDela
 const maybeSingle = vi.fn(async () => ({ data: { finished_at: null, baseline_delay_days: null } as { finished_at: string | null; baseline_delay_days: number | null } | null, error: null as { message: string } | null }));
 const upsert = vi.fn(async () => ({ error: null as { message: string } | null }));
 const students = vi.fn(async () => ({ data: [], error: null }));
-const from = vi.fn((table: string) => (table === "students" ? { select: students } : { select: () => ({ maybeSingle }), upsert }));
+const payment = vi.fn(async () => ({ data: null, error: null }));
+const from = vi.fn((table: string) => {
+  if (table === "students") return { select: students };
+  if (table === "payment_settings") return { select: () => ({ maybeSingle: payment }) };
+  return { select: () => ({ maybeSingle }), upsert };
+});
 
 const hooks = vi.hoisted(() => {
   let slots: unknown[] = [];

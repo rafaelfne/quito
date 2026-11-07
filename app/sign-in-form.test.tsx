@@ -1,6 +1,7 @@
 import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
+import { Button } from "@/components/ui/button";
 import { initialSignIn, type SignInState } from "@/lib/sign-in";
 import { SignInForm, type SignInFormProps } from "./sign-in-form";
 
@@ -36,7 +37,7 @@ function tree(formProps: SignInFormProps) {
   return elements(SignInForm(formProps));
 }
 
-function byType(all: ReactElement<AnyProps>[], type: string) {
+function byType(all: ReactElement<AnyProps>[], type: string | typeof Button) {
   return all.filter((element) => element.type === type);
 }
 
@@ -85,7 +86,7 @@ describe("SignInForm no passo do e-mail", () => {
 
   test("oferece entrar com Google com um toque", () => {
     const formProps = props(initialSignIn);
-    const google = byType(tree(formProps), "button")[1];
+    const google = byType(tree(formProps), Button)[1];
     expect(google.props.children).toBe("Entrar com Google");
     expect(google.props.type).toBe("button");
     expect(google.props.disabled).toBe(false);
@@ -95,7 +96,7 @@ describe("SignInForm no passo do e-mail", () => {
   });
 
   test("trava o botão do Google enquanto espera", () => {
-    const google = byType(tree(props(initialSignIn, true)), "button")[1];
+    const google = byType(tree(props(initialSignIn, true)), Button)[1];
     expect(google.props.disabled).toBe(true);
   });
 
@@ -122,8 +123,8 @@ describe("SignInForm no passo do código", () => {
   });
 
   test("só libera Entrar com os 6 números", () => {
-    const incomplete = byType(tree(props({ ...codeStep, code: "123" })), "button")[0];
-    const complete = byType(tree(props({ ...codeStep, code: "123456" })), "button")[0];
+    const incomplete = byType(tree(props({ ...codeStep, code: "123" })), Button)[0];
+    const complete = byType(tree(props({ ...codeStep, code: "123456" })), Button)[0];
     expect(incomplete.props.disabled).toBe(true);
     expect(complete.props.disabled).toBe(false);
   });
@@ -148,7 +149,7 @@ describe("SignInForm no passo do código", () => {
 
   test("tem botões para enviar outro código e trocar o e-mail", () => {
     const formProps = props(codeStep);
-    const [, resend, edit] = byType(tree(formProps), "button");
+    const [, resend, edit] = byType(tree(formProps), Button);
     expect(resend.props.children).toBe("Enviar outro código");
     expect(edit.props.children).toBe("Trocar e-mail");
     (resend.props.onClick as () => void)();

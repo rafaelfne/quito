@@ -63,7 +63,7 @@ vi.mock("@/lib/supabase", () => ({ supabase: { from, auth: {} } }));
 
 const { default: StudentsPage } = await import("./page");
 
-const pedro: Student = { id: "1", name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
+const pedro: Student = { id: "1", name: "Pedro Lima", gender: "male", called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
 
 function settle() {
   return new Promise((resolve) => setTimeout(resolve, 0));
@@ -127,6 +127,7 @@ describe("página de alunos", () => {
   test("guarda o que foi digitado, trava enquanto grava e destrava no fim", async () => {
     const opened = await open();
     opened.onChange("name", "Pedro Lima");
+    view().onChange("gender", "male");
     view().onChange("guardianName", "Ana Lima");
     view().onChange("guardianPhone", "(11) 98765-4321");
     view().onChange("billingKind", "monthly");
@@ -138,7 +139,7 @@ describe("página de alunos", () => {
     expect(view().busy).toBe(true);
     await settle();
     const done = view();
-    expect(insert).toHaveBeenCalledWith({ name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00" });
+    expect(insert).toHaveBeenCalledWith({ name: "Pedro Lima", gender: "male", called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00" });
     expect(done.busy).toBe(false);
     expect(done.state.students).toEqual([pedro]);
     expect(done.state.notice).toContain("Pedro Lima");

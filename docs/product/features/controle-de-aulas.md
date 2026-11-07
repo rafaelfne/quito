@@ -7,7 +7,7 @@ Um caderno mínimo em que o professor registra os alunos, como cada um paga e as
 
 ## O que entra
 
-- Cadastro de aluno com nome, responsável e contato do responsável.
+- Cadastro de aluno com nome, gênero (masculino, feminino ou outro, com o jeito como quer ser chamado), responsável e contato do responsável.
 - Forma de cobrança de cada aluno: mensalidade fixa, valor por aula ou pacote de N aulas. O pacote não tem validade: as aulas que sobram passam para o mês seguinte.
 - Horário fixo semanal do aluno, que gera sozinho as aulas previstas do mês, inclusive em mês com 5 semanas.
 - Regras do professor, numa tela só e iguais para todos os alunos dele: com quanta antecedência a falta conta como avisada (24 horas de partida), se a reposição tem prazo e qual, e se na mensalidade fixa o mês com 5 semanas custa igual ou soma o valor de uma aula avulsa.

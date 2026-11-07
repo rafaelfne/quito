@@ -1,10 +1,7 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { describeReady, importableStudents, isReady, parseStudentList, studentImportMessages, type ImportLine, type StudentImportState } from "@/lib/student-import";
 import { formatPhone, studentsPath } from "@/lib/students";
-
-const primaryButtonClass = "min-h-11 rounded bg-foreground px-3 py-2 text-background disabled:opacity-50";
-
-const secondaryButtonClass = "min-h-11 rounded border px-3 py-2 disabled:opacity-50";
 
 type StudentImportViewProps = {
   state: StudentImportState;
@@ -17,7 +14,7 @@ type StudentImportViewProps = {
 function LinePreview({ line }: { line: ImportLine }) {
   const ready = isReady(line);
   return (
-    <li className="flex flex-col gap-1 rounded border p-3" aria-invalid={ready ? undefined : true}>
+    <li className="flex flex-col gap-1 rounded-sm border p-3" aria-invalid={ready ? undefined : true}>
       <p className="text-xs opacity-70">Linha {line.line}</p>
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
         <dt className="opacity-70">Aluno</dt>
@@ -63,9 +60,9 @@ export function StudentImportView({ state, busy, onChange, onSubmit, onRetry }: 
           <p className="text-sm" role="alert">
             {studentImportMessages.loadFailed}
           </p>
-          <button className={secondaryButtonClass} type="button" onClick={onRetry}>
+          <Button variant="outline" type="button" onClick={onRetry}>
             Tentar de novo
-          </button>
+          </Button>
         </div>
       ) : null}
       <form
@@ -80,7 +77,7 @@ export function StudentImportView({ state, busy, onChange, onSubmit, onRetry }: 
           Lista de alunos
           <span className="opacity-70">Exemplo: Pedro Lima, Ana Lima, (11) 98765-4321</span>
           <textarea
-            className="min-h-40 rounded border bg-background px-3 py-3 text-base text-foreground"
+            className="min-h-40 rounded-sm border bg-background px-3 py-3 text-base text-foreground"
             autoComplete="off"
             autoCapitalize="words"
             spellCheck={false}
@@ -99,9 +96,9 @@ export function StudentImportView({ state, busy, onChange, onSubmit, onRetry }: 
             {state.message}
           </p>
         ) : null}
-        <button className={primaryButtonClass} type="submit" disabled={busy || state.listStatus !== "ready" || readyCount === 0}>
+        <Button type="submit" disabled={busy || state.listStatus !== "ready" || readyCount === 0}>
           {busy ? "Guardando..." : describeReady(readyCount)}
-        </button>
+        </Button>
         {pending > 0 ? <p className="text-sm opacity-70">As linhas que precisam de correção ficam na caixa depois de guardar, para você arrumar e guardar de novo.</p> : null}
       </form>
       {lines.length > 0 ? (

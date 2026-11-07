@@ -2,9 +2,9 @@ import Link from "next/link";
 import { currentStep, describeRemaining, gettingStartedMessages, remainingSteps, type GettingStartedState, type GettingStartedStep } from "@/lib/getting-started";
 import { afterSignInPath } from "@/lib/session";
 
-const primaryLinkClass = "flex min-h-11 items-center justify-center rounded bg-foreground px-3 py-2 text-background";
-const secondaryLinkClass = "flex min-h-11 items-center justify-center rounded border px-3 py-2";
-const secondaryButtonClass = "min-h-11 rounded border px-3 py-2";
+const primaryLinkClass = "flex min-h-11 items-center justify-center rounded-sm bg-foreground px-3 py-2 text-background";
+const secondaryLinkClass = "flex min-h-11 items-center justify-center rounded-sm border px-3 py-2";
+const secondaryButtonClass = "min-h-11 rounded-sm border px-3 py-2";
 
 export function StepAction({ step, isCurrent, baselineDelayDays, onSaveBaselineDelay }: { step: GettingStartedStep; isCurrent: boolean; baselineDelayDays: number | null; onSaveBaselineDelay: (days: number) => void }) {
   if (step.done) return <p className="text-sm font-medium">Feito</p>;
@@ -12,7 +12,7 @@ export function StepAction({ step, isCurrent, baselineDelayDays, onSaveBaselineD
     return (
       <form action={(formData) => onSaveBaselineDelay(Number(formData.get("baseline-delay-days")))} className="flex flex-col gap-2">
         <label className="text-sm" htmlFor="baseline-delay-days">Dias de atraso</label>
-        <input className="min-h-11 rounded border px-3" id="baseline-delay-days" name="baseline-delay-days" type="number" min="0" max="365" step="1" required defaultValue={baselineDelayDays ?? ""} />
+        <input className="min-h-11 rounded-sm border px-3" id="baseline-delay-days" name="baseline-delay-days" type="number" min="0" max="365" step="1" required defaultValue={baselineDelayDays ?? ""} />
         <button className={isCurrent ? primaryLinkClass : secondaryButtonClass} type="submit">Salvar resposta</button>
       </form>
     );
@@ -31,7 +31,7 @@ function StepList({ steps, baselineDelayDays, onSaveBaselineDelay }: { steps: Ge
       {steps.map((step, index) => {
         const isCurrent = step.id === current?.id;
         return (
-          <li key={step.id} className="flex flex-col gap-2 rounded border p-3" aria-current={isCurrent ? "step" : undefined}>
+          <li key={step.id} className="flex flex-col gap-2 rounded-sm border p-3" aria-current={isCurrent ? "step" : undefined}>
             <h2 className="font-medium">
               {index + 1}. {step.title}
             </h2>

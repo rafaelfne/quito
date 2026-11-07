@@ -26,17 +26,25 @@ import type { Student } from "./students";
 type Failure = { message: string } | null;
 type RecordResult = { data: { finished_at: string | null; baseline_delay_days: number | null } | null; error: Failure };
 type StudentsResult = { data: Student[] | null; error: Failure };
+type PaymentResult = { data: { pix_key: string; display_name: string; due_day: number } | null; error: Failure };
 
-const complete: Student = { id: "p", name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
+const paymentSaved: PaymentResult = { data: { pix_key: "ana@exemplo.com", display_name: "Ana Professora", due_day: 5 }, error: null };
+
+const complete: Student = { id: "p", name: "Pedro Lima", gender: null, called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
 const withoutBilling: Student = { ...complete, id: "m", name: "Maria", billing_kind: null, billing_amount_cents: null };
 const withoutSchedule: Student = { ...complete, id: "j", name: "João", lesson_weekday: null, lesson_time: null };
 
-function fakeClient(overrides: { record?: () => Promise<RecordResult>; students?: () => Promise<StudentsResult>; upsert?: () => Promise<{ error: Failure }> } = {}) {
+function fakeClient(overrides: { record?: () => Promise<RecordResult>; students?: () => Promise<StudentsResult>; payment?: () => Promise<PaymentResult>; upsert?: () => Promise<{ error: Failure }> } = {}) {
   const maybeSingle = vi.fn(overrides.record ?? (async () => ({ data: { finished_at: null, baseline_delay_days: null }, error: null } as RecordResult)));
   const students = vi.fn(overrides.students ?? (async () => ({ data: [], error: null } as StudentsResult)));
+  const payment = vi.fn(overrides.payment ?? (async () => ({ data: null, error: null } as PaymentResult)));
   const upsert = vi.fn(overrides.upsert ?? (async () => ({ error: null as Failure })));
-  const from = vi.fn((name: string) => (name === "students" ? { select: students } : { select: () => ({ maybeSingle }), upsert }));
-  return { client: { from } as unknown as GettingStartedClient, from, maybeSingle, students, upsert };
+  const from = vi.fn((name: string) => {
+    if (name === "students") return { select: students };
+    if (name === "payment_settings") return { select: () => ({ maybeSingle: payment }) };
+    return { select: () => ({ maybeSingle }), upsert };
+  });
+  return { client: { from } as unknown as GettingStartedClient, from, maybeSingle, students, payment, upsert };
 }
 
 function step(id: string, done: boolean): GettingStartedStep {
@@ -50,13 +58,13 @@ async function progressOf(load: Promise<GettingStartedLoad>) {
 }
 
 describe("tabela no banco", () => {
-  const migration = readFileSync(join(process.cwd(), "supabase/migrations/20261104030000_getting_started.sql"), "utf8");
+  const migration = readFileSync(join(process.cwd(), "supabase/migrations/20261107020000_getting_started.sql"), "utf8");
 
   test("guarda uma linha por professor, com o início e o fim da sequência", () => {
     expect(migration).toContain('"owner_id" uuid primary key default auth.uid()');
     expect(migration).toContain('"started_at" timestamptz not null default now()');
     expect(migration).toContain('"finished_at" timestamptz');
-    expect(readFileSync(join(process.cwd(), "supabase/migrations/20261104040000_getting_started_baseline_delay.sql"), "utf8")).toContain('"baseline_delay_days" integer check');
+    expect(readFileSync(join(process.cwd(), "supabase/migrations/20261107030000_getting_started_baseline_delay.sql"), "utf8")).toContain('"baseline_delay_days" integer check');
   });
 });
 
@@ -67,14 +75,28 @@ describe("loadGettingStarted", () => {
     expect(from).toHaveBeenCalledWith("getting_started");
     expect(progress.started).toBe(false);
     expect(progress.finished).toBe(false);
-    expect(progress.steps.map((item) => item.done)).toEqual([false, false, false]);
+    expect(progress.steps.map((item) => item.done)).toEqual([false, false, false, false]);
   });
 
-  test("os passos saem dos dados de verdade: aluno sem cobrança ou sem horário deixa o segundo passo pendente", async () => {
+  test("o passo de recebimento vem logo depois da pergunta de partida e leva para os dados de recebimento", async () => {
+    const { client } = fakeClient();
+    const progress = await progressOf(loadGettingStarted(client));
+    expect(progress.steps.map((item) => item.id)).toEqual(["baseline-delay", "payment", "students", "billing-and-schedule"]);
+    expect(progress.steps[1]).toMatchObject({ path: "/payment", done: false });
+  });
+
+  test("o passo de recebimento fica feito quando a chave Pix, o nome e o vencimento estão guardados", async () => {
+    const { client, from } = fakeClient({ payment: async () => paymentSaved });
+    const progress = await progressOf(loadGettingStarted(client));
+    expect(from).toHaveBeenCalledWith("payment_settings");
+    expect(progress.steps.map((item) => item.done)).toEqual([false, true, false, false]);
+  });
+
+  test("os passos saem dos dados de verdade: aluno sem cobrança ou sem horário deixa o passo de cobrança pendente", async () => {
     for (const incomplete of [withoutBilling, withoutSchedule]) {
       const { client } = fakeClient({ students: async () => ({ data: [complete, incomplete], error: null }) });
       const progress = await progressOf(loadGettingStarted(client));
-      expect(progress.steps.map((item) => item.done)).toEqual([false, true, false]);
+      expect(progress.steps.map((item) => item.done)).toEqual([false, false, true, false]);
     }
   });
 
@@ -84,10 +106,10 @@ describe("loadGettingStarted", () => {
     expect(progress.steps.find((item) => item.id === "students")?.hint).toContain("colar a lista");
   });
 
-  test("todos os alunos completos fecham os dois passos", async () => {
+  test("todos os alunos completos fecham os dois passos de alunos", async () => {
     const { client } = fakeClient({ students: async () => ({ data: [complete], error: null }) });
     const progress = await progressOf(loadGettingStarted(client));
-    expect(progress.steps.map((item) => item.done)).toEqual([false, true, true]);
+    expect(progress.steps.map((item) => item.done)).toEqual([false, false, true, true]);
     expect(progress.started).toBe(true);
     expect(progress.finished).toBe(false);
   });
@@ -119,6 +141,7 @@ describe("loadGettingStarted", () => {
       ),
     ).toEqual({ ok: false });
     expect(await loadGettingStarted(fakeClient({ students: async () => ({ data: null, error: { message: "negado" } }) }).client)).toEqual({ ok: false });
+    expect(await loadGettingStarted(fakeClient({ payment: async () => ({ data: null, error: { message: "negado" } }) }).client)).toEqual({ ok: false });
   });
 });
 
@@ -168,7 +191,7 @@ describe("openGettingStarted", () => {
   });
 
   test("com todos os passos feitos, grava o fim uma vez", async () => {
-    const { client, upsert } = fakeClient({ students: async () => ({ data: [complete], error: null }), record: async () => ({ data: { finished_at: null, baseline_delay_days: 0 }, error: null }) });
+    const { client, upsert } = fakeClient({ students: async () => ({ data: [complete], error: null }), payment: async () => paymentSaved, record: async () => ({ data: { finished_at: null, baseline_delay_days: 0 }, error: null }) });
     expect((await progressOf(openGettingStarted(client))).finished).toBe(true);
     expect(upsert).toHaveBeenCalledWith({ finished_at: expect.any(String) }, { onConflict: "owner_id" });
     const done = fakeClient({ record: async () => ({ data: { finished_at: "2026-11-04T10:00:00Z", baseline_delay_days: null }, error: null }) });
@@ -177,7 +200,7 @@ describe("openGettingStarted", () => {
   });
 
   test("se o fim não gravar, os passos seguem feitos e o Quitô tenta de novo na próxima abertura", async () => {
-    const { client } = fakeClient({ students: async () => ({ data: [complete], error: null }), record: async () => ({ data: { finished_at: null, baseline_delay_days: 0 }, error: null }), upsert: async () => ({ error: { message: "negado" } }) });
+    const { client } = fakeClient({ students: async () => ({ data: [complete], error: null }), payment: async () => paymentSaved, record: async () => ({ data: { finished_at: null, baseline_delay_days: 0 }, error: null }), upsert: async () => ({ error: { message: "negado" } }) });
     const progress = await progressOf(openGettingStarted(client));
     expect(progress.finished).toBe(false);
     expect(remainingSteps(progress.steps)).toBe(0);
@@ -224,25 +247,27 @@ describe("lembrete", () => {
   const finished: GettingStartedLoad = { ok: true, progress: { started: true, finished: true, baselineDelayDays: null, steps: [step("a", true)] } };
 
   test("só olha o progresso na tela inicial e nas telas dos passos", () => {
-    expect(tracksReminder("/notes")).toBe(true);
+    expect(tracksReminder("/charges")).toBe(true);
     expect(tracksReminder("/students")).toBe(true);
+    expect(tracksReminder("/payment")).toBe(true);
     expect(tracksReminder("/lessons")).toBe(false);
     expect(tracksReminder(gettingStartedPath)).toBe(false);
   });
 
   test("a primeira entrada leva para a sequência só a partir da tela inicial", () => {
-    expect(reminderFor("/notes", neverStarted)).toEqual({ kind: "first-entry" });
+    expect(reminderFor("/charges", neverStarted)).toEqual({ kind: "first-entry" });
     expect(reminderFor("/students", neverStarted)).toEqual(noReminder);
   });
 
   test("com passo pendente, a tela inicial mostra quanto falta e a tela do passo oferece a volta", () => {
-    expect(reminderFor("/notes", pending)).toEqual({ kind: "progress", steps });
+    expect(reminderFor("/charges", pending)).toEqual({ kind: "progress", steps });
     expect(reminderFor("/students", pending)).toEqual({ kind: "back" });
+    expect(reminderFor("/payment", pending)).toEqual({ kind: "back" });
     expect(reminderFor("/lessons", pending)).toEqual(noReminder);
   });
 
   test("quem terminou não é mais lembrado, e falha ao carregar não atrapalha a tela", () => {
-    expect(reminderFor("/notes", finished)).toEqual(noReminder);
-    expect(reminderFor("/notes", { ok: false })).toEqual(noReminder);
+    expect(reminderFor("/charges", finished)).toEqual(noReminder);
+    expect(reminderFor("/charges", { ok: false })).toEqual(noReminder);
   });
 });

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { OpeningScreen } from "@/app/opening-screen";
+import { Button } from "@/components/ui/button";
 import { sessionMessages, type SessionStatus } from "@/lib/session";
 
 export type GateStatus = SessionStatus | "checking";
@@ -13,9 +14,9 @@ export function SessionGateView({ status, onRetry, children }: { status: GateSta
         <p className="text-sm" role="alert">
           {sessionMessages.unreachable}
         </p>
-        <button className="rounded bg-foreground px-3 py-2 text-background" type="button" onClick={onRetry}>
+        <Button type="button" onClick={onRetry}>
           Tentar de novo
-        </button>
+        </Button>
       </div>
     </main>
   );

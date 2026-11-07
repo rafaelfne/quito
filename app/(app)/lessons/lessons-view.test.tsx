@@ -9,7 +9,7 @@ import { LessonsView } from "./lessons-view";
 type AnyProps = Record<string, unknown> & { children?: ReactNode };
 
 const november2026 = { year: 2026, month: 11 };
-const pedro: Student = { id: "p", name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
+const pedro: Student = { id: "p", name: "Pedro Lima", gender: "male", called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
 const lia: Student = { ...pedro, id: "l", name: "Lia Melo", lesson_weekday: null, lesson_time: null };
 const firstLesson: MonthLesson = { studentId: "p", studentName: "Pedro Lima", date: "2026-11-02", time: "15:00", status: null, makeupDate: null };
 const unnotified: LessonMark = { student_id: "p", lesson_date: "2026-11-02", status: "unnotified_absence", makeup_date: null };
@@ -52,6 +52,8 @@ describe("tela de aulas", () => {
     expect(html).toContain("Carregando");
     expect(html).toContain('href="/students"');
     expect(html).toContain('href="/rules"');
+    expect(html).toContain('href="/payment"');
+    expect(html).toContain('href="/charges"');
     expect(html).toContain('href="/account"');
   });
 

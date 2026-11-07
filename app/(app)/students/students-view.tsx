@@ -1,17 +1,18 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { accountPath } from "@/lib/account";
+import { chargesPath } from "@/lib/charges";
 import { closingPath } from "@/lib/closing";
 import { lessonsPath } from "@/lib/lessons";
 import { billingKinds, billingOptions, describeBilling, isBillingKind, packageRolloverHint } from "@/lib/billing";
+import { paymentSettingsPath } from "@/lib/payment-settings";
 import { describePlannedLessons, describeSchedule, weekdayOptions, type CalendarMonth } from "@/lib/schedule";
-import { afterSignInPath } from "@/lib/session";
+import { notesPath } from "@/lib/notes";
 import { studentImportPath } from "@/lib/student-import";
-import { currentDraft, formatPhone, groupStudentsByGuardian, studentMessages, type Student, type StudentField, type StudentsState } from "@/lib/students";
+import { currentDraft, formatPhone, groupStudentsByGuardian, studentGenderOptions, studentMessages, type Student, type StudentField, type StudentsState } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
 
-const inputClass = "min-h-11 rounded border bg-background px-3 py-3 text-base text-foreground";
-const primaryButtonClass = "min-h-11 flex-1 rounded bg-foreground px-3 py-2 text-background disabled:opacity-50";
-const secondaryButtonClass = "min-h-11 rounded border px-3 py-2 disabled:opacity-50";
+const inputClass = "min-h-11 rounded-sm border bg-background px-3 py-3 text-base text-foreground";
 
 type FormHandlers = {
   onChange: (field: StudentField, value: string) => void;
@@ -38,8 +39,11 @@ type TextFieldConfig = {
   hint?: string;
 };
 
-const contactFields: TextFieldConfig[] = [
-  { field: "name", id: "student-name", label: "Nome do aluno", autoCapitalize: "words" },
+const studentNameField: TextFieldConfig = { field: "name", id: "student-name", label: "Nome do aluno", autoCapitalize: "words" };
+
+const calledAsField: TextFieldConfig = { field: "calledAs", id: "student-called-as", label: "Como quer ser chamado", autoCapitalize: "words", hint: "Do jeito que deve aparecer na mensagem de cobrança." };
+
+const guardianFields: TextFieldConfig[] = [
   { field: "guardianName", id: "student-guardian-name", label: "Nome do responsável", autoCapitalize: "words" },
   { field: "guardianPhone", id: "student-guardian-phone", label: "WhatsApp do responsável", type: "tel", inputMode: "tel", hint: "Com DDD. É para este número que a cobrança vai sair." },
 ];
@@ -79,6 +83,33 @@ function TextField({ config, state, onChange }: { config: TextFieldConfig; state
   );
 }
 
+function GenderField({ state, onChange }: { state: StudentsState; onChange: FormHandlers["onChange"] }) {
+  const error = state.errors.gender;
+  const selected = currentDraft(state).gender;
+  return (
+    <>
+      <fieldset className="flex flex-col gap-2 text-sm" aria-describedby={error ? "student-gender-error" : undefined}>
+        <legend className="mb-1">Gênero do aluno</legend>
+        <span className="opacity-70">Para a mensagem de cobrança escrever &quot;do Pedro&quot; ou &quot;da Ana&quot;.</span>
+        <div className="flex flex-wrap gap-2">
+          {studentGenderOptions.map(({ value, label }) => (
+            <label key={value} className="flex min-h-11 flex-1 items-center gap-2 rounded-sm border px-3 text-base">
+              <input type="radio" name="student-gender" value={value} checked={selected === value} onChange={() => onChange("gender", value)} />
+              {label}
+            </label>
+          ))}
+        </div>
+        {error ? (
+          <span id="student-gender-error" role="alert">
+            {error}
+          </span>
+        ) : null}
+      </fieldset>
+      {selected === "other" ? <TextField config={calledAsField} state={state} onChange={onChange} /> : null}
+    </>
+  );
+}
+
 function BillingFields({ state, onChange }: { state: StudentsState; onChange: FormHandlers["onChange"] }) {
   const selected = currentDraft(state).billingKind;
   const error = state.errors.billingKind;
@@ -87,7 +118,7 @@ function BillingFields({ state, onChange }: { state: StudentsState; onChange: Fo
       <fieldset className="flex flex-col gap-2 text-sm" aria-describedby={error ? "student-billing-kind-error" : undefined}>
         <legend className="mb-1">Como este aluno paga</legend>
         {billingKinds.map((kind) => (
-          <label key={kind} className="flex min-h-11 items-center gap-2 rounded border px-3 text-base">
+          <label key={kind} className="flex min-h-11 items-center gap-2 rounded-sm border px-3 text-base">
             <input type="radio" name="billing-kind" value={kind} checked={selected === kind} onChange={() => onChange("billingKind", kind)} />
             {billingOptions[kind].label}
           </label>
@@ -145,7 +176,9 @@ function StudentForm({ state, busy, submitLabel, onChange, onSubmit, onCancel }:
       }}
     >
       <fieldset className="flex flex-col gap-4" disabled={busy}>
-        {contactFields.map((config) => (
+        <TextField config={studentNameField} state={state} onChange={onChange} />
+        <GenderField state={state} onChange={onChange} />
+        {guardianFields.map((config) => (
           <TextField key={config.field} config={config} state={state} onChange={onChange} />
         ))}
         <ScheduleFields state={state} onChange={onChange} />
@@ -156,13 +189,13 @@ function StudentForm({ state, busy, submitLabel, onChange, onSubmit, onCancel }:
           </p>
         ) : null}
         <div className="flex gap-2">
-          <button className={primaryButtonClass} type="submit">
+          <Button className="flex-1" type="submit">
             {busy ? "Guardando..." : submitLabel}
-          </button>
+          </Button>
           {onCancel ? (
-            <button className={secondaryButtonClass} type="button" onClick={onCancel}>
+            <Button variant="outline" type="button" onClick={onCancel}>
               Cancelar
-            </button>
+            </Button>
           ) : null}
         </div>
       </fieldset>
@@ -193,9 +226,9 @@ function StudentCard({ student, month, canEdit, onEdit, discountPercent }: { stu
         ) : null}
       </dl>
       {canEdit ? (
-        <button className={secondaryButtonClass} type="button" aria-label={`Editar ${student.name}`} onClick={() => onEdit(student)}>
+        <Button variant="outline" type="button" aria-label={`Editar ${student.name}`} onClick={() => onEdit(student)}>
           Editar
-        </button>
+        </Button>
       ) : null}
     </div>
   );
@@ -212,7 +245,7 @@ function StudentList({ state, month, busy, discountPercent = 0, onChange, onSubm
           {group.length > 1 ? <h3 className="text-sm font-medium">Alunos de {group[0].guardian_name}</h3> : null}
           <ul className="flex flex-col gap-2">
             {group.map((student) => (
-              <li key={student.id} className="rounded border p-3">
+              <li key={student.id} className="rounded-sm border p-3">
                 {editing?.id === student.id ? (
                   <StudentForm state={state} busy={busy} submitLabel="Guardar" onChange={onChange} onSubmit={onSubmit} onCancel={onCancelEdit} />
                 ) : (
@@ -235,7 +268,7 @@ export function StudentsView(props: StudentsViewProps) {
       <header className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold">Alunos</h1>
         <nav className="flex flex-wrap gap-4">
-          <Link className="text-sm underline" href={afterSignInPath}>
+          <Link className="text-sm underline" href={notesPath}>
             Notas
           </Link>
           <Link className="text-sm underline" href={lessonsPath}>
@@ -246,6 +279,12 @@ export function StudentsView(props: StudentsViewProps) {
           </Link>
           <Link className="text-sm underline" href={teacherRulesPath}>
             Regras
+          </Link>
+          <Link className="text-sm underline" href={paymentSettingsPath}>
+            Recebimento
+          </Link>
+          <Link className="text-sm underline" href={chargesPath}>
+            Cobranças
           </Link>
           <Link className="text-sm underline" href={accountPath}>
             Conta
@@ -260,9 +299,9 @@ export function StudentsView(props: StudentsViewProps) {
       {state.editing ? null : (
         <section className="flex flex-col gap-4">
           <h2 className="font-semibold">Novo aluno</h2>
-          <Link className={`${secondaryButtonClass} text-center`} href={studentImportPath}>
-            Colar uma lista de alunos
-          </Link>
+          <Button asChild variant="outline">
+            <Link href={studentImportPath}>Colar uma lista de alunos</Link>
+          </Button>
           <StudentForm state={state} busy={busy || loading} submitLabel="Guardar aluno" onChange={onChange} onSubmit={onSubmit} />
         </section>
       )}
@@ -273,9 +312,9 @@ export function StudentsView(props: StudentsViewProps) {
             <p className="text-sm" role="alert">
               {studentMessages.loadFailed}
             </p>
-            <button className={secondaryButtonClass} type="button" onClick={onRetry}>
+            <Button variant="outline" type="button" onClick={onRetry}>
               Tentar de novo
-            </button>
+            </Button>
           </div>
         ) : null}
         <StudentList {...props} />

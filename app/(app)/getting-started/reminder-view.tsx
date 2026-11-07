@@ -17,10 +17,10 @@ export function GettingStartedReminderView({ reminder }: { reminder: GettingStar
   const next = currentStep(reminder.steps);
   return (
     <aside className={frameClass}>
-      <div className="flex flex-col gap-2 rounded border p-3 text-sm" aria-label="Primeiros passos">
+      <div className="flex flex-col gap-2 rounded-sm border p-3 text-sm" aria-label="Primeiros passos">
         <p className="font-medium">{next ? `Primeiros passos: ${describeRemaining(reminder.steps)}` : gettingStartedMessages.allDoneReminder}</p>
         {next ? <p>Próximo passo: {next.title}.</p> : null}
-        <Link className="flex min-h-11 items-center justify-center rounded bg-foreground px-3 py-2 text-background" href={gettingStartedPath}>
+        <Link className="flex min-h-11 items-center justify-center rounded-sm bg-foreground px-3 py-2 text-background" href={gettingStartedPath}>
           {next ? "Continuar" : "Ver"}
         </Link>
       </div>

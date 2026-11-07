@@ -20,7 +20,7 @@ import { studentNameLimit, type Student, type StudentsClient } from "./students"
 type Failure = { message: string } | null;
 type SelectResult = { data: unknown[] | null; error: Failure };
 
-const pedro: Student = { id: "1", name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: null, billing_amount_cents: null, package_lessons: null, lesson_weekday: null, lesson_time: null };
+const pedro: Student = { id: "1", name: "Pedro Lima", guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: null, billing_amount_cents: null, package_lessons: null, lesson_weekday: null, lesson_time: null, gender: null, called_as: null };
 
 function fakeClient(overrides: { select?: () => Promise<SelectResult>; insert?: () => Promise<{ error: Failure }> } = {}) {
   const select = vi.fn(overrides.select ?? (async () => ({ data: [] as unknown[], error: null as Failure })));

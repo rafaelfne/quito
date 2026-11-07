@@ -114,6 +114,15 @@ export function shiftMonth({ year, month }: CalendarMonth, delta: number): Calen
   return { year: shifted.getUTCFullYear(), month: shifted.getUTCMonth() + 1 };
 }
 
+export function lessonsPathFor({ year, month }: CalendarMonth): string {
+  return `${lessonsPath}?month=${year}-${twoDigits(month)}`;
+}
+
+export function parseMonthParam(value: string | null): CalendarMonth | null {
+  const match = value?.match(/^(\d{4})-(0[1-9]|1[0-2])$/);
+  return match ? { year: Number(match[1]), month: Number(match[2]) } : null;
+}
+
 export function describeMonth({ year, month }: CalendarMonth): string {
   return capitalized(monthFormat.format(new Date(Date.UTC(year, month - 1, 1))));
 }

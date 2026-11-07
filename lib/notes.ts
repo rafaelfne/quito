@@ -1,3 +1,5 @@
+export const notesPath = "/notes";
+
 export const noteLimit = 2000;
 
 export const noteTooLongMessage = `Sua nota passou do limite de ${noteLimit.toLocaleString("pt-BR")} caracteres. Encurte o texto e toque em Guardar de novo.`;

@@ -32,7 +32,7 @@ const hooks = vi.hoisted(() => {
   };
 });
 
-const navigation = vi.hoisted(() => ({ pathname: "/notes", router: { replace: vi.fn() } }));
+const navigation = vi.hoisted(() => ({ pathname: "/charges", router: { replace: vi.fn() } }));
 const database = vi.hoisted(() => ({ load: vi.fn() }));
 
 vi.mock("react", async (original) => ({
@@ -61,7 +61,7 @@ function reminder(): Reminder {
 
 beforeEach(() => {
   hooks.reset();
-  navigation.pathname = "/notes";
+  navigation.pathname = "/charges";
   navigation.router.replace.mockReset();
   database.load.mockReset().mockResolvedValue(pending);
 });

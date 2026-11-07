@@ -1,11 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadPaymentSettings, paymentSettingsPath } from "@/lib/payment-settings";
 import { afterSignInPath } from "@/lib/session";
 import { requestTimeoutMs, withTimeout } from "@/lib/sign-in";
 import { loadStudents, studentsPath, type Student } from "@/lib/students";
 
 export type GettingStartedClient = Pick<SupabaseClient, "from">;
 
-type StepFacts = { students: Student[]; baselineDelayDays: number | null };
+type StepFacts = { students: Student[]; baselineDelayDays: number | null; hasPaymentSettings: boolean };
 
 type StepDefinition = {
   id: string;
@@ -56,6 +57,13 @@ const stepDefinitions: StepDefinition[] = [
     isDone: ({ baselineDelayDays }) => baselineDelayDays !== null,
   },
   {
+    id: "payment",
+    title: "Informe como você quer receber",
+    hint: "Sua chave Pix, o nome que o responsável vai ver e o dia de vencimento.",
+    path: paymentSettingsPath,
+    isDone: ({ hasPaymentSettings }) => hasPaymentSettings,
+  },
+  {
     id: "students",
     title: "Cadastre seus alunos",
     hint: "Nome do aluno, nome do responsável e WhatsApp. Dá para colar a lista que você já tem.",
@@ -96,9 +104,10 @@ export async function loadGettingStarted(client: GettingStartedClient): Promise<
     const started = record !== null;
     const baselineDelayDays = record?.baseline_delay_days ?? null;
     if (record?.finished_at) return { ok: true, progress: { started, finished: true, baselineDelayDays, steps: stepsFrom(() => true) } };
-    const students = await loadStudents(client);
-    if (!students.ok) return { ok: false };
-    return { ok: true, progress: { started, finished: false, baselineDelayDays, steps: stepsFrom(({ isDone }) => isDone({ students: students.students, baselineDelayDays })) } };
+    const [students, payment] = await Promise.all([loadStudents(client), loadPaymentSettings(client)]);
+    if (!students.ok || !payment.ok) return { ok: false };
+    const facts: StepFacts = { students: students.students, baselineDelayDays, hasPaymentSettings: payment.settings !== null };
+    return { ok: true, progress: { started, finished: false, baselineDelayDays, steps: stepsFrom(({ isDone }) => isDone(facts)) } };
   } catch {
     return { ok: false };
   }
