@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test, vi } from "vitest";
 import { billingMessages } from "./billing";
 import { scheduleMessages } from "./schedule";
@@ -28,11 +30,11 @@ type Failure = { message: string } | null;
 type SelectResult = { data: unknown[] | null; error: Failure };
 
 const noBilling = { billing_kind: null, billing_amount_cents: null, package_lessons: null };
-const emptyDraft = { name: "", gender: "", calledAs: "", guardianName: "", guardianPhone: "", billingKind: "", billingAmount: "", packageLessons: "", lessonWeekday: "", lessonTime: "" };
-const pedro: Student = { id: "1", name: "Pedro Lima", gender: "male", called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "package", billing_amount_cents: 30000, package_lessons: 4, lesson_weekday: 2, lesson_time: "15:00:00" };
+const emptyDraft = { name: "", gender: "", calledAs: "", guardianName: "", guardianPhone: "", packageBalance: "", makeupCredits: "0", billingKind: "", billingAmount: "", packageLessons: "", lessonWeekday: "", lessonTime: "" };
+const pedro: Student = { id: "1", name: "Pedro Lima", gender: "male", called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "package", billing_amount_cents: 30000, package_lessons: 4, package_balance: 2, makeup_credits: 0, lesson_weekday: 2, lesson_time: "15:00:00" };
 const alvaro: Student = { id: "2", name: "Álvaro Reis", gender: "male", called_as: null, guardian_name: "Bia Reis", guardian_phone: "2134567890", ...noBilling, lesson_weekday: null, lesson_time: null };
-const validDraft = { name: "  Pedro   Lima ", gender: "male", calledAs: "", guardianName: " Ana  Lima", guardianPhone: "(11) 98765-4321", billingKind: "package", billingAmount: "300,00", packageLessons: "4", lessonWeekday: "2", lessonTime: "15:00" };
-const validRow = { name: "Pedro Lima", gender: "male" as const, called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "package" as const, billing_amount_cents: 30000, package_lessons: 4, lesson_weekday: 2, lesson_time: "15:00" };
+const validDraft = { name: "  Pedro   Lima ", gender: "male", calledAs: "", guardianName: " Ana  Lima", guardianPhone: "(11) 98765-4321", packageBalance: "2", makeupCredits: "0", billingKind: "package", billingAmount: "300,00", packageLessons: "4", lessonWeekday: "2", lessonTime: "15:00" };
+const validRow = { name: "Pedro Lima", gender: "male" as const, called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "package" as const, billing_amount_cents: 30000, package_lessons: 4, lesson_weekday: 2, lesson_time: "15:00", package_balance: 2, makeup_credits: 0 };
 
 function fakeClient(overrides: { select?: () => Promise<SelectResult>; insert?: () => Promise<{ error: Failure }>; updated?: () => Promise<SelectResult> } = {}) {
   const select = vi.fn(overrides.select ?? (async () => ({ data: [] as unknown[], error: null as Failure })));
@@ -119,6 +121,10 @@ describe("validateStudent", () => {
     expect(validateStudent({ ...validDraft, lessonTime: "" })).toEqual({ ok: false, errors: { lessonTime: scheduleMessages.timeInvalid } });
   });
 
+  test("saldo do pacote não pode superar o tamanho do pacote", () => {
+    expect(validateStudent({ ...validDraft, packageBalance: "5" })).toEqual({ ok: false, errors: { packageBalance: studentMessages.packageBalanceInvalid } });
+  });
+
   test("aceita nome no limite e recusa o que passa dele", () => {
     const fits = "a".repeat(studentNameLimit);
     const tooLong = `${fits}a`;
@@ -154,7 +160,7 @@ describe("loadStudents", () => {
     const { client, from, select } = fakeClient({ select: async () => ({ data: [pedro, alvaro], error: null }) });
     expect(await loadStudents(client)).toEqual({ ok: true, students: [alvaro, pedro] });
     expect(from).toHaveBeenCalledWith("students");
-    expect(select).toHaveBeenCalledWith("id, name, gender, called_as, guardian_name, guardian_phone, billing_kind, billing_amount_cents, package_lessons, lesson_weekday, lesson_time");
+    expect(select).toHaveBeenCalledWith("id, name, gender, called_as, guardian_name, guardian_phone, billing_kind, billing_amount_cents, package_lessons, package_balance, makeup_credits, opening_balance_on, opening_package_balance, opening_makeup_credits, created_at, lesson_weekday, lesson_time");
   });
 
   test("sem resposta, a lista vem vazia", async () => {
@@ -229,7 +235,7 @@ describe("rascunho do formulário", () => {
   test("corrigir um aluno mostra os dados dele e guarda o que estava sendo digitado no novo", () => {
     const typing = changeDraft(initialStudents, "name", "Maria");
     const editing = startEditing({ ...typing, notice: "antes", message: "antes", errors: { name: "antes" } }, pedro);
-    expect(currentDraft(editing)).toEqual({ name: "Pedro Lima", gender: "male", calledAs: "", guardianName: "Ana Lima", guardianPhone: "(11) 98765-4321", billingKind: "package", billingAmount: "300,00", packageLessons: "4", lessonWeekday: "2", lessonTime: "15:00" });
+    expect(currentDraft(editing)).toEqual({ name: "Pedro Lima", gender: "male", calledAs: "", guardianName: "Ana Lima", guardianPhone: "(11) 98765-4321", packageBalance: "2", makeupCredits: "0", billingKind: "package", billingAmount: "300,00", packageLessons: "4", lessonWeekday: "2", lessonTime: "15:00" });
     expect(editing).toMatchObject({ notice: null, message: null, errors: {} });
 
     const changed = changeDraft(editing, "name", "Pedro Souza");
@@ -297,5 +303,15 @@ describe("submitStudent", () => {
     const { client } = fakeClient({ select: async () => ({ data: null, error: { message: "sem rede" } }) });
     const state = await submitStudent(client, { ...withDraft(), students: [alvaro] });
     expect(state).toMatchObject({ students: [alvaro], listStatus: "failed", notice: "Cadastro de Pedro Lima guardado." });
+  });
+});
+
+describe("migração do saldo inicial", () => {
+  test("guarda os saldos sem falhar se as colunas já existem e limita as aulas ao tamanho do pacote", () => {
+    const migration = readFileSync(join(process.cwd(), "supabase/migrations/20261107040000_initial_student_balance.sql"), "utf8");
+    expect(migration).toContain('add column if not exists "package_balance" integer not null default 0 check ("package_balance" between 0 and 100)');
+    expect(migration).toContain('add column if not exists "makeup_credits" integer not null default 0 check ("makeup_credits" between 0 and 100)');
+    expect(migration).toContain('"package_balance" <= "package_lessons"');
+    expect(migration).toContain("where conname = 'students_package_balance_valid'");
   });
 });

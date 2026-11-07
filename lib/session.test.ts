@@ -1,8 +1,9 @@
-import { AuthApiError, AuthRetryableFetchError } from "@supabase/supabase-js";
+import { AuthApiError, AuthRetryableFetchError, AuthSessionMissingError } from "@supabase/supabase-js";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   afterSignInPath,
   checkSession,
+  confirmAccount,
   destinationFrom,
   enterIfSignedIn,
   guardPage,
@@ -26,6 +27,22 @@ function authWith(result: { session?: boolean; error?: Error | null } | "throws"
 
 const offline = new AuthRetryableFetchError("Failed to fetch", 0);
 const revoked = new AuthApiError("Invalid Refresh Token", 400, "refresh_token_not_found");
+const userGone = new AuthApiError("User from sub claim in JWT does not exist", 403, "user_not_found");
+const serverDown = new AuthApiError("Internal Server Error", 500, "unexpected_failure");
+
+function accountWith(result: { user?: boolean; error?: Error | null } | "throws" | "hangs") {
+  const getUser = vi.fn(() => {
+    if (result === "throws") return Promise.reject(new Error("offline"));
+    if (result === "hangs") return new Promise(() => {});
+    return Promise.resolve({ data: { user: result.user ? { id: "professor" } : null }, error: result.error ?? null });
+  });
+  const signOut = vi.fn(async () => ({ error: null }));
+  return { getUser, signOut } as unknown as Pick<SessionAuth, "getUser" | "signOut"> & { signOut: typeof signOut };
+}
+
+function pageAuth(session: Parameters<typeof authWith>[0], account: Parameters<typeof accountWith>[0] = { user: true }) {
+  return { ...authWith(session), ...accountWith(account) };
+}
 
 afterEach(() => {
   vi.useRealTimers();
@@ -115,19 +132,65 @@ describe("enterIfSignedIn", () => {
   });
 });
 
+describe("confirmAccount", () => {
+  test("conta que ainda existe segue conectada", async () => {
+    const auth = accountWith({ user: true });
+    await expect(confirmAccount(auth)).resolves.toBe("signed-in");
+    expect(auth.signOut).not.toHaveBeenCalled();
+  });
+
+  test.each([userGone, new AuthApiError("invalid JWT", 401, "bad_jwt"), new AuthSessionMissingError()])(
+    "conta que não existe mais sai só deste aparelho %#",
+    async (error) => {
+      const auth = accountWith({ error });
+      await expect(confirmAccount(auth)).resolves.toBe("signed-out");
+      expect(auth.signOut).toHaveBeenCalledWith({ scope: "local" });
+    },
+  );
+
+  test.each([[{ error: offline }], [{ error: serverDown }], ["throws" as const]])(
+    "sem internet ou com o servidor fora, continua conectado %#",
+    async (result) => {
+      const auth = accountWith(result);
+      await expect(confirmAccount(auth)).resolves.toBe("unreachable");
+      expect(auth.signOut).not.toHaveBeenCalled();
+    },
+  );
+
+  test("para de esperar quando o servidor não responde", async () => {
+    vi.useFakeTimers();
+    const auth = accountWith("hangs");
+    const pending = confirmAccount(auth);
+    await vi.advanceTimersByTimeAsync(requestTimeoutMs);
+    await expect(pending).resolves.toBe("unreachable");
+    expect(auth.signOut).not.toHaveBeenCalled();
+  });
+});
+
 describe("guardPage", () => {
   test("quem não entrou cai na entrada, lembrando para onde ia", async () => {
     const replace = vi.fn();
-    await expect(guardPage(authWith({}), "/alunos/42", replace)).resolves.toBe("signed-out");
+    const auth = pageAuth({});
+    await expect(guardPage(auth, "/alunos/42", replace)).resolves.toBe("signed-out");
     expect(replace).toHaveBeenCalledWith("/?next=%2Falunos%2F42");
+    expect(auth.getUser).not.toHaveBeenCalled();
+  });
+
+  test("login guardado de uma conta que não existe mais sai e cai na entrada", async () => {
+    const replace = vi.fn();
+    const auth = pageAuth({ session: true }, { error: userGone });
+    await expect(guardPage(auth, "/charges", replace)).resolves.toBe("signed-out");
+    expect(auth.signOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(replace).toHaveBeenCalledWith("/");
   });
 
   test.each([
-    [{ session: true }, "signed-in"],
-    [{ error: offline }, "unreachable"],
-  ])("não manda para a entrada quem está conectado ou sem internet %#", async (result, status) => {
+    [{ session: true }, { user: true }, "signed-in"],
+    [{ session: true }, { error: offline }, "unreachable"],
+    [{ error: offline }, { user: true }, "unreachable"],
+  ] as const)("não manda para a entrada quem está conectado ou sem internet %#", async (session, account, status) => {
     const replace = vi.fn();
-    await expect(guardPage(authWith(result), "/alunos", replace)).resolves.toBe(status);
+    await expect(guardPage(pageAuth(session, account), "/alunos", replace)).resolves.toBe(status);
     expect(replace).not.toHaveBeenCalled();
   });
 });

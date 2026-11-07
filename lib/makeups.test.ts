@@ -60,6 +60,13 @@ describe("openCredits", () => {
     expect(openCredits([pedro], marks, null, "2026-11-20")).toEqual([]);
   });
 
+  test("depois do acerto do saldo, as faltas do treino saem dos créditos e as novas continuam", () => {
+    const confirmed = { ...pedro, opening_balance_on: "2026-12-01", opening_package_balance: null, opening_makeup_credits: 1 };
+    const marks = [mark(), mark({ lesson_date: "2026-12-07" })];
+    expect(openCredits([confirmed], marks, null, "2026-12-10").map((item) => item.absenceDate)).toEqual(["2026-12-07"]);
+    expect(openCredits([confirmed], [mark()], null, "2026-11-30")).toHaveLength(1);
+  });
+
   test("sem prazo, o crédito fica aberto para sempre", () => {
     expect(openCredits([pedro], [mark()], null, "2030-01-01")).toHaveLength(1);
   });

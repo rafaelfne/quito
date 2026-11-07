@@ -8,6 +8,8 @@ import { billingKinds, billingOptions, describeBilling, isBillingKind, packageRo
 import { paymentSettingsPath } from "@/lib/payment-settings";
 import { describePlannedLessons, describeSchedule, weekdayOptions, type CalendarMonth } from "@/lib/schedule";
 import { notesPath } from "@/lib/notes";
+import { studentImportPath } from "@/lib/student-import";
+import { studentSetupPath } from "@/lib/student-setup";
 import { currentDraft, formatPhone, groupStudentsByGuardian, studentGenderOptions, studentMessages, type Student, type StudentField, type StudentsState } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
 
@@ -48,6 +50,8 @@ const guardianFields: TextFieldConfig[] = [
 ];
 
 const packageLessonsField: TextFieldConfig = { field: "packageLessons", id: "student-package-lessons", label: "Quantas aulas tem o pacote", inputMode: "numeric", hint: packageRolloverHint };
+const packageBalanceField: TextFieldConfig = { field: "packageBalance", id: "student-package-balance", label: "Quantas aulas ainda restam no pacote", inputMode: "numeric" };
+const makeupCreditsField: TextFieldConfig = { field: "makeupCredits", id: "student-makeup-credits", label: "Quantos créditos de reposição o aluno já tem", inputMode: "numeric", hint: "Eles vencem conforme o prazo de reposição, contado de hoje." };
 
 const lessonTimeField: TextFieldConfig = { field: "lessonTime", id: "student-lesson-time", label: "Horário da aula", type: "time" };
 
@@ -128,7 +132,8 @@ function BillingFields({ state, onChange }: { state: StudentsState; onChange: Fo
           </span>
         ) : null}
       </fieldset>
-      {selected === "package" ? <TextField config={packageLessonsField} state={state} onChange={onChange} /> : null}
+      {selected === "package" ? <><TextField config={packageLessonsField} state={state} onChange={onChange} /><TextField config={packageBalanceField} state={state} onChange={onChange} /></> : null}
+      {isBillingKind(selected) ? <TextField config={makeupCreditsField} state={state} onChange={onChange} /> : null}
       {isBillingKind(selected) ? <TextField config={amountField(billingOptions[selected].amountLabel)} state={state} onChange={onChange} /> : null}
     </>
   );
@@ -298,11 +303,19 @@ export function StudentsView(props: StudentsViewProps) {
       {state.editing ? null : (
         <section className="flex flex-col gap-4">
           <h2 className="font-semibold">Novo aluno</h2>
+          <Button asChild variant="outline">
+            <Link href={studentImportPath}>Colar uma lista de alunos</Link>
+          </Button>
           <StudentForm state={state} busy={busy || loading} submitLabel="Guardar aluno" onChange={onChange} onSubmit={onSubmit} />
         </section>
       )}
       <section className="flex flex-col gap-4">
         <h2 className="font-semibold">Seus alunos</h2>
+        {state.students.length > 1 && !state.editing ? (
+          <Button asChild variant="outline">
+            <Link href={studentSetupPath}>Cobrança e horário em grupo</Link>
+          </Button>
+        ) : null}
         {state.listStatus === "failed" ? (
           <div className="flex flex-col gap-2">
             <p className="text-sm" role="alert">

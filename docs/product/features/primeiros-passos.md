@@ -14,7 +14,7 @@ O caminho guiado do professor, da primeira entrada até a primeira cobrança pro
 - Importar dos contatos do celular: o professor escolhe os contatos dos responsáveis, e o Quitô recebe só os que ele escolheu, nunca a agenda inteira. Depende do Spike de importação de alunos.
 - Conferência da importação: uma tela para revisar, corrigir e completar o que veio antes de salvar, como o nome do aluno quando o contato é "Mãe do Pedro". Linhas repetidas ou sem telefone ficam marcadas.
 - Forma de cobrança e horário em grupo: o professor marca vários alunos e aplica de uma vez o mesmo valor e a mesma forma de cobrança, depois acerta só o horário de cada um.
-- Saldo inicial do aluno: quantas aulas sobram no pacote e quantos créditos de reposição ele já tem, para o Quitô partir do valor certo.
+- Saldo inicial do aluno: quantas aulas sobram no pacote e quantos créditos de reposição ele já tem, para o Quitô partir do valor certo. Os créditos iniciais vencem conforme o prazo de reposição do professor, contado da data do cadastro.
 - Início no mês seguinte: o Quitô avisa qual será o primeiro mês cobrado e o dia da primeira cobrança de cada responsável.
 - Aulas de treino: da entrada até o fim do mês, o professor marca as aulas como em qualquer mês, e o Quitô deixa claro que elas não geram cobrança.
 - Prévia do fechamento no treino: mostra a conta de cada responsável com as aulas marcadas, identificada como treino e sem virar cobrança nem lembrete.

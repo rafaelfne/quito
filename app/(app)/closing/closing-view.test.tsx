@@ -3,6 +3,7 @@ import { describe, expect, test, vi } from "vitest";
 import { closingMessages, initialClosing, type ClosingData, type ClosingState } from "@/lib/closing";
 import type { LessonMark } from "@/lib/lessons";
 import type { Student } from "@/lib/students";
+import { describeTrainingClosing, trainingMessages } from "@/lib/training";
 import { ClosingView } from "./closing-view";
 
 const november = { year: 2026, month: 11 };
@@ -17,9 +18,46 @@ function ready(overrides: Partial<ClosingData> = {}): ClosingState {
   return { month: november, status: "ready", data: { students: [pedro, bruno], enrollments: [], marks: [given, credit], rules, ...overrides } };
 }
 
-function render(state: ClosingState) {
-  return renderToStaticMarkup(<ClosingView state={state} today="2026-11-30" onChangeMonth={vi.fn()} onRetry={vi.fn()} />);
+function render(state: ClosingState, trainingMonth?: { year: number; month: number } | null) {
+  return renderToStaticMarkup(<ClosingView state={state} today="2026-11-30" onChangeMonth={vi.fn()} onRetry={vi.fn()} trainingMonth={trainingMonth} />);
 }
+
+describe("prévia do fechamento no treino", () => {
+  test("no mês de entrada, a conta de cada responsável aparece como treino e avisa que não vira cobrança nem lembrete", () => {
+    const html = render(ready(), november);
+    expect(html).toContain(describeTrainingClosing(november));
+    expect(html).toContain(trainingMessages.badge);
+    expect(html).toContain(trainingMessages.monthTotal);
+    expect(html).toContain(trainingMessages.guardianTotal);
+    expect(html).not.toContain(closingMessages.guardianTotal);
+    expect(html).toContain("Ana Lima");
+    expect(html).toContain("1 aula dada × R$ 80,00");
+    expect(html).toContain("R$ 252,00");
+  });
+
+  test("os meses antes da entrada também aparecem como treino", () => {
+    const html = render(ready(), { year: 2026, month: 12 });
+    expect(html).toContain(describeTrainingClosing({ year: 2026, month: 12 }));
+    expect(html).toContain(trainingMessages.guardianTotal);
+  });
+
+  test("depois do mês de entrada, o fechamento volta ao normal", () => {
+    const html = render(ready(), { year: 2026, month: 10 });
+    expect(html).not.toContain(trainingMessages.badge);
+    expect(html).not.toContain(trainingMessages.guardianTotal);
+    expect(html).toContain(closingMessages.guardianTotal);
+  });
+
+  test("sem saber o mês de treino, mostra o fechamento normal", () => {
+    expect(render(ready(), null)).not.toContain(trainingMessages.badge);
+  });
+
+  test("no treino sem alunos, continua levando até a tela de Alunos", () => {
+    const html = render(ready({ students: [] }), november);
+    expect(html).toContain(closingMessages.noStudents);
+    expect(html).not.toContain(trainingMessages.badge);
+  });
+});
 
 describe("tela de fechamento", () => {
   test("mostra o mês, os links e carrega", () => {

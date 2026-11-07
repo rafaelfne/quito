@@ -29,7 +29,7 @@ const updateResult = vi.fn(async () => ({ error: null as { message: string } | n
 const update = vi.fn(() => ({ eq: () => ({ eq: updateResult }) }));
 const from = vi.fn((table: string) => {
   if (table === "students") return { select: selectStudents };
-  if (table === "teacher_rules") return { select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) };
+  if (table === "teacher_rules" || table === "getting_started") return { select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) };
   return { select: () => ({ gte: () => ({ lte }), in: creditMarks }), upsert, update };
 });
 

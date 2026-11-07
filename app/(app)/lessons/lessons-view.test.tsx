@@ -183,6 +183,37 @@ describe("tela de aulas", () => {
     expect(props.onUndoMakeup).toHaveBeenCalledWith({ studentId: "p", studentName: "Pedro Lima", date: "2026-11-05", absenceDate: "2026-11-02" });
   });
 
+  test("no mês de treino, avisa que as aulas não geram cobrança e quando começa a cobrança", () => {
+    const training = { ...ready, trainingMonth: november2026, marks: [unnotified] };
+    const html = render(training);
+    expect(html).toContain("Mês de treino: marque as aulas como em qualquer mês. Até o fim de novembro de 2026, nenhuma aula marcada gera cobrança. A primeira cobrança pelo Quitô é de dezembro de 2026.");
+    expect(html).toContain("Treino: num mês cobrado, seria cobrada. Agora não gera cobrança.");
+    expect(html).toContain("Treino: 1 aula seria cobrada, 0 sem cobrança e 4 para marcar. Nenhuma gera cobrança.");
+    expect(html).not.toContain(">Cobrada<");
+    expect(buttons(training).named("Dada")[0].props.disabled).toBe(false);
+  });
+
+  test("no treino, a reposição também não gera cobrança", () => {
+    const madeUp = { ...notified, makeup_date: "2026-11-05" };
+    expect(render({ ...ready, trainingMonth: november2026, marks: [madeUp] })).toContain("Reposição da falta de 2 de novembro. Treino: não gera cobrança.");
+  });
+
+  test("no primeiro mês cobrado, leva ao acerto do saldo até todos os alunos do treino serem confirmados", () => {
+    const december = { ...ready, month: { year: 2026, month: 12 }, trainingMonth: november2026, students: [{ ...pedro, created_at: "2026-11-05T12:00:00Z" }] };
+    const html = render(december, "2026-12-01");
+    expect(html).toContain("Começou o primeiro mês cobrado.");
+    expect(html).toContain('href="/students/opening-balance"');
+    expect(render(december, "2026-11-30")).not.toContain("Começou o primeiro mês cobrado.");
+    const confirmed = { ...december, students: [{ ...december.students[0], opening_balance_on: "2026-12-01", opening_package_balance: null, opening_makeup_credits: 0 }] };
+    expect(render(confirmed, "2026-12-02")).not.toContain("Começou o primeiro mês cobrado.");
+  });
+
+  test("depois do mês de treino, a tela volta ao normal", () => {
+    const html = render({ ...ready, trainingMonth: { year: 2026, month: 10 }, marks: [unnotified] });
+    expect(html).not.toContain("Mês de treino");
+    expect(html).toContain("1 aula cobrada, 0 sem cobrança e 4 para marcar.");
+  });
+
   test("falta já reposta fica travada e diz como trocar", () => {
     const madeUp = { ...notified, makeup_date: "2026-11-05" };
     expect(render({ ...ready, marks: [madeUp] })).toContain("Reposta em 5 de novembro.");

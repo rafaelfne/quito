@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { SessionGateView, type GateStatus } from "@/app/(app)/session-gate-view";
 import { guardPage, signInBasePath, watchSignOut } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 
 export function SessionGate({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [status, setStatus] = useState<GateStatus>("checking");
 
   const verify = useCallback(() => {
@@ -17,11 +18,16 @@ export function SessionGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     verify();
-    return watchSignOut(supabase.auth, () => {
-      setStatus("signed-out");
-      router.replace(signInBasePath);
-    });
-  }, [router, verify]);
+  }, [pathname, verify]);
+
+  useEffect(
+    () =>
+      watchSignOut(supabase.auth, () => {
+        setStatus("signed-out");
+        router.replace(signInBasePath);
+      }),
+    [router],
+  );
 
   function retry() {
     setStatus("checking");

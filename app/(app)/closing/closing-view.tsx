@@ -20,13 +20,21 @@ import { paymentSettingsPath } from "@/lib/payment-settings";
 import type { CalendarMonth } from "@/lib/schedule";
 import { formatPhone, studentsPath } from "@/lib/students";
 import { teacherRulesPath } from "@/lib/teacher-rules";
+import { describeTrainingClosing, isTrainingMonth, trainingMessages } from "@/lib/training";
 
 type ClosingViewProps = {
   state: ClosingState;
   today: string;
   onChangeMonth: (delta: number) => void;
   onRetry: () => void;
+  trainingMonth?: CalendarMonth | null;
 };
+
+type ClosingLabels = { monthTotal: string; guardianTotal: string; badge: string | null };
+
+const billedLabels: ClosingLabels = { monthTotal: closingMessages.monthTotal, guardianTotal: closingMessages.guardianTotal, badge: null };
+
+const trainingLabels: ClosingLabels = { monthTotal: trainingMessages.monthTotal, guardianTotal: trainingMessages.guardianTotal, badge: trainingMessages.badge };
 
 function StudentAccount({ student }: { student: StudentClosing }) {
   return (
@@ -66,11 +74,14 @@ function StudentAccount({ student }: { student: StudentClosing }) {
   );
 }
 
-function GuardianCard({ guardian }: { guardian: GuardianClosing }) {
+function GuardianCard({ guardian, labels }: { guardian: GuardianClosing; labels: ClosingLabels }) {
   return (
     <section className="flex flex-col gap-3 rounded-sm border p-3">
       <div className="flex flex-col gap-1">
-        <h2 className="font-semibold break-words">{guardian.guardianName}</h2>
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="min-w-0 font-semibold break-words">{guardian.guardianName}</h2>
+          {labels.badge ? <span className="shrink-0 rounded-sm border px-2 text-xs font-medium">{labels.badge}</span> : null}
+        </div>
         <p className="text-sm">{formatPhone(guardian.phone)}</p>
       </div>
       <ul className="flex flex-col gap-3">
@@ -79,15 +90,17 @@ function GuardianCard({ guardian }: { guardian: GuardianClosing }) {
         ))}
       </ul>
       <p className="flex items-baseline justify-between gap-3 border-t pt-3 font-semibold">
-        <span>{closingMessages.guardianTotal}</span>
+        <span>{labels.guardianTotal}</span>
         <span className="tabular-nums">{formatCurrency(guardian.totalCents)}</span>
       </p>
     </section>
   );
 }
 
-function ClosingContent({ data, month, today }: { data: ClosingData; month: CalendarMonth; today: string }) {
+function ClosingContent({ data, month, today, trainingMonth }: { data: ClosingData; month: CalendarMonth; today: string; trainingMonth: CalendarMonth | null }) {
   const closing = buildMonthClosing(data, month, today);
+  const training = trainingMonth !== null && isTrainingMonth(month, trainingMonth);
+  const labels = training ? trainingLabels : billedLabels;
   if (closing.guardians.length === 0) {
     return (
       <p className="text-sm">
@@ -100,8 +113,13 @@ function ClosingContent({ data, month, today }: { data: ClosingData; month: Cale
   }
   return (
     <>
+      {training ? (
+        <p className="rounded-sm border p-3 text-sm" role="note">
+          {describeTrainingClosing(trainingMonth)}
+        </p>
+      ) : null}
       <p className="flex items-baseline justify-between gap-3 text-lg font-semibold">
-        <span>{closingMessages.monthTotal}</span>
+        <span>{labels.monthTotal}</span>
         <span className="tabular-nums">{formatCurrency(closing.totalCents)}</span>
       </p>
       {closing.unmarkedAffectingValue > 0 ? (
@@ -114,13 +132,13 @@ function ClosingContent({ data, month, today }: { data: ClosingData; month: Cale
       ) : null}
       {closing.missingBilling > 0 ? <p className="text-sm">{describeMissingBillingWarning(closing.missingBilling)}</p> : null}
       {closing.guardians.map((guardian) => (
-        <GuardianCard key={guardian.phone} guardian={guardian} />
+        <GuardianCard key={guardian.phone} guardian={guardian} labels={labels} />
       ))}
     </>
   );
 }
 
-export function ClosingView({ state, today, onChangeMonth, onRetry }: ClosingViewProps) {
+export function ClosingView({ state, today, onChangeMonth, onRetry, trainingMonth = null }: ClosingViewProps) {
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-4 sm:p-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -168,7 +186,7 @@ export function ClosingView({ state, today, onChangeMonth, onRetry }: ClosingVie
           </Button>
         </div>
       ) : null}
-      {state.status === "ready" && state.data ? <ClosingContent data={state.data} month={state.month} today={today} /> : null}
+      {state.status === "ready" && state.data ? <ClosingContent data={state.data} month={state.month} today={today} trainingMonth={trainingMonth} /> : null}
     </main>
   );
 }

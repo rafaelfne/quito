@@ -139,7 +139,7 @@ describe("página de alunos", () => {
     expect(view().busy).toBe(true);
     await settle();
     const done = view();
-    expect(insert).toHaveBeenCalledWith({ name: "Pedro Lima", gender: "male", called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00" });
+    expect(insert).toHaveBeenCalledWith({ name: "Pedro Lima", gender: "male", called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00", package_balance: 0, makeup_credits: 0 });
     expect(done.busy).toBe(false);
     expect(done.state.students).toEqual([pedro]);
     expect(done.state.notice).toContain("Pedro Lima");

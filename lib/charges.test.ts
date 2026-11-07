@@ -31,6 +31,7 @@ import {
   describeWaitingStudent,
   endedMonthOf,
   initialCharges,
+  isTrainingCharges,
   insertNewCharges,
   isGuardianReady,
   loadEarlierCharges,
@@ -91,7 +92,7 @@ function saved(overrides: Partial<Charge> = {}): Charge {
   };
 }
 
-type FakeBank = { students: Student[]; marks: LessonMark[]; charges: Charge[]; earlier?: Charge[]; failOn?: "select" | "insert" | "earlier"; failReload?: boolean };
+type FakeBank = { students: Student[]; marks: LessonMark[]; charges: Charge[]; earlier?: Charge[]; failOn?: "select" | "insert" | "earlier" | "training"; failReload?: boolean; startedAt?: string };
 
 function fakeClient(bank: FakeBank) {
   const upsert = vi.fn(async (...[rows]: [Omit<Charge, "id">[], unknown]) => {
@@ -106,6 +107,7 @@ function fakeClient(bank: FakeBank) {
     if (table === "students") return { select: async (columns: string) => (columns === "id, created_at" ? { data: [], error: null } : { data: bank.students, error: null }) };
     if (table === "teacher_rules") return { select: () => ({ maybeSingle: async () => ({ data: rules, error: null }) }) };
     if (table === "lesson_marks") return { select: () => ({ lte: () => marksChain }) };
+    if (table === "getting_started") return { select: () => ({ maybeSingle: async () => (bank.failOn === "training" ? { data: null, error: { message: "fora do ar" } } : { data: bank.startedAt ? { started_at: bank.startedAt } : null, error: null }) }) };
     return {
       upsert,
       select: () => ({
@@ -239,6 +241,32 @@ describe("sincronizar as cobranças do mês", () => {
     expect(upsert.mock.calls[0][1]).toEqual({ onConflict: "owner_id,charge_month,guardian_phone", ignoreDuplicates: true });
     expect(result).toMatchObject({ ok: true, month: november, waiting: [], nothingToCharge: [] });
     expect(result.ok && result.charges.map((charge) => charge.total_cents)).toEqual([30000]);
+  });
+
+  test("o mês de treino não vira cobrança", async () => {
+    const { client, upsert } = fakeClient({ students: [pedro], marks: [], charges: [], startedAt: "2026-11-07T15:00:00" });
+    const result = await syncMonthCharges(client, november, today);
+    expect(upsert).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true, month: november, trainingMonth: november, charges: [], waiting: [], nothingToCharge: [] });
+  });
+
+  test("meses antes da entrada também não viram cobrança", async () => {
+    const { client, upsert } = fakeClient({ students: [pedro], marks: [], charges: [], startedAt: "2026-12-03T15:00:00" });
+    expect(await syncMonthCharges(client, november, today)).toMatchObject({ ok: true, trainingMonth: { year: 2026, month: 12 }, charges: [] });
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  test("o mês seguinte ao treino é cobrado", async () => {
+    const { client, upsert } = fakeClient({ students: [pedro], marks: [], charges: [], startedAt: "2026-10-20T15:00:00" });
+    const result = await syncMonthCharges(client, november, today);
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ ok: true, trainingMonth: { year: 2026, month: 10 } });
+  });
+
+  test("sem saber o mês de treino, não cria cobrança", async () => {
+    const { client, upsert } = fakeClient({ students: [pedro], marks: [], charges: [], failOn: "training" });
+    expect(await syncMonthCharges(client, november, today)).toEqual({ ok: false, month: november });
+    expect(upsert).not.toHaveBeenCalled();
   });
 
   test("corrigir a aula depois não muda o valor guardado", async () => {
@@ -461,7 +489,7 @@ const bia: WaitingGuardian = { phone: "11933334444", guardianName: "Bia", studen
 
 describe("estado da tela", () => {
   test("começa carregando o mês", () => {
-    expect(initialCharges(november)).toEqual({ month: november, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null, savingPayments: [], paymentMessage: null, reminderDays: [], reminderMessages: {}, savingReminders: [], reminderNotice: null });
+    expect(initialCharges(november)).toEqual({ month: november, trainingMonth: null, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null, savingPayments: [], paymentMessage: null, reminderDays: [], reminderMessages: {}, savingReminders: [], reminderNotice: null });
   });
 
   test("recarregar mantém o que já estava na tela", () => {
@@ -471,7 +499,7 @@ describe("estado da tela", () => {
 
   test("aplica o resultado", () => {
     const result = { ok: true as const, month: november, charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"] };
-    expect(applyChargesLoad(initialCharges(november), result)).toEqual({ month: november, status: "ready", charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null, savingPayments: [], paymentMessage: null, reminderDays: [], reminderMessages: {}, savingReminders: [], reminderNotice: null });
+    expect(applyChargesLoad(initialCharges(november), result)).toEqual({ month: november, trainingMonth: null, status: "ready", charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null, savingPayments: [], paymentMessage: null, reminderDays: [], reminderMessages: {}, savingReminders: [], reminderNotice: null });
   });
 
   test("traz se o professor já passou pela prévia", () => {
@@ -481,6 +509,15 @@ describe("estado da tela", () => {
 
   test("falha marca a tela", () => {
     expect(applyChargesLoad(initialCharges(november), { ok: false, month: november }).status).toBe("failed");
+  });
+
+  test("guarda o mês de treino e diz quando a tela é do treino", () => {
+    const result = { ok: true as const, month: november, trainingMonth: november, charges: [], waiting: [], nothingToCharge: [] };
+    const next = applyChargesLoad(initialCharges(november), result);
+    expect(next.trainingMonth).toEqual(november);
+    expect(isTrainingCharges(next)).toBe(true);
+    expect(isTrainingCharges({ ...next, trainingMonth: { year: 2026, month: 10 } })).toBe(false);
+    expect(isTrainingCharges({ ...next, charges: [saved()] })).toBe(false);
   });
 });
 
