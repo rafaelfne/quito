@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test, vi } from "vitest";
 import {
   applyMessageSettingsLoad,
@@ -19,7 +21,7 @@ import {
   type MessageSettingsRow,
   type MessageSettingsState,
 } from "./message-settings";
-import { type MessageTone } from "./message-templates";
+import { messageTones, type MessageTone } from "./message-templates";
 import { reminderMessages } from "./reminders";
 
 type Failure = { message: string } | null;
@@ -45,6 +47,21 @@ function failing() {
     throw new Error("sem rede");
   };
 }
+
+describe("modelo da mensagem no banco", () => {
+  const migration = ["20261105000000_message_settings.sql", "20261105010000_message_settings_thanks.sql", "20261106000000_message_settings_footer.sql"]
+    .map((file) => readFileSync(join(process.cwd(), "supabase/migrations", file), "utf8"))
+    .join("\n");
+
+  test("guarda os mesmos limites e os mesmos tons que a tela", () => {
+    expect(migration).toContain(`char_length("greeting") between 1 and ${greetingLengthLimit}`);
+    expect(migration).toContain(`char_length("thanks") between 1 and ${thanksLengthLimit}`);
+    expect(migration).toContain(`char_length("signature") between 1 and ${signatureLengthLimit}`);
+    expect(migration).toContain(`"tone" text not null default 'friendly'`);
+    expect(migration).toContain(`"footer" boolean not null default true`);
+    expect(migration).toContain(`"tone" in (${messageTones.map((tone) => `'${tone.id}'`).join(", ")})`);
+  });
+});
 
 describe("messageSettingsDraftFrom", () => {
   test("quem nunca guardou começa no Próximo, com saudação e assinatura de partida", () => {

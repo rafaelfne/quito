@@ -1,0 +1,1 @@
+alter table public."message_settings" add column if not exists "reminder_days" integer[] not null default '{3,7}' check (cardinality("reminder_days") <= 3 and 1 <= all("reminder_days") and 60 >= all("reminder_days"));

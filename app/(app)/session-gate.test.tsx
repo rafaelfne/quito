@@ -7,12 +7,16 @@ const auth = { getSession: vi.fn(), onAuthStateChange: vi.fn() };
 const session = vi.hoisted(() => ({ guardPage: vi.fn(), watchSignOut: vi.fn() }));
 const captured: { onRetry?: () => void; status?: GateStatus } = {};
 const cleanups: unknown[] = [];
+const effectDependencies: unknown[][] = [];
 
 vi.mock("react", async (original) => ({
   ...(await original<typeof import("react")>()),
-  useEffect: (effect: () => unknown) => cleanups.push(effect()),
+  useEffect: (effect: () => unknown, dependencies: unknown[]) => {
+    effectDependencies.push(dependencies);
+    cleanups.push(effect());
+  },
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace }), usePathname: () => "/alunos/42" }));
 vi.mock("@/lib/supabase", () => ({ supabase: { auth } }));
 vi.mock("@/lib/session", async (original) => ({ ...(await original<typeof import("@/lib/session")>()), ...session }));
 vi.mock("./session-gate-view", () => ({
@@ -35,6 +39,7 @@ function render() {
 beforeEach(() => {
   replace.mockReset();
   cleanups.length = 0;
+  effectDependencies.length = 0;
   session.guardPage.mockReset().mockResolvedValue("signed-in");
   session.watchSignOut.mockReset().mockReturnValue("parar");
 });
@@ -44,6 +49,12 @@ describe("SessionGate", () => {
     render();
     expect(captured.status).toBe("checking");
     expect(session.guardPage).toHaveBeenCalledWith(auth, "/alunos/42?mes=3#aula", replace);
+  });
+
+  test("confere a conta de novo a cada tela aberta", () => {
+    render();
+    expect(session.guardPage).toHaveBeenCalledTimes(1);
+    expect(effectDependencies.some((dependencies) => dependencies.includes("/alunos/42"))).toBe(true);
   });
 
   test("quando a sessão termina, volta para a entrada sem guardar a página", () => {

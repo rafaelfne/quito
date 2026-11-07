@@ -1,7 +1,7 @@
-import { isAuthRetryableFetchError, type SupabaseClient } from "@supabase/supabase-js";
+import { isAuthApiError, isAuthRetryableFetchError, isAuthSessionMissingError, type SupabaseClient } from "@supabase/supabase-js";
 import { requestTimeoutMs, withTimeout, type SignInResult } from "@/lib/sign-in";
 
-export type SessionAuth = Pick<SupabaseClient["auth"], "getSession" | "onAuthStateChange" | "signOut">;
+export type SessionAuth = Pick<SupabaseClient["auth"], "getSession" | "getUser" | "onAuthStateChange" | "signOut">;
 
 export type SessionStatus = "signed-in" | "signed-out" | "unreachable";
 
@@ -62,8 +62,27 @@ export async function enterIfSignedIn(auth: Pick<SessionAuth, "getSession">, sea
   return true;
 }
 
-export async function guardPage(auth: Pick<SessionAuth, "getSession">, currentPath: string, replace: (path: string) => void): Promise<SessionStatus> {
-  const status = await checkSession(auth);
+const accountGoneStatuses = [401, 403, 404];
+
+function accountIsGone(error: unknown): boolean {
+  return isAuthSessionMissingError(error) || (isAuthApiError(error) && accountGoneStatuses.includes(error.status));
+}
+
+export async function confirmAccount(auth: Pick<SessionAuth, "getUser" | "signOut">): Promise<SessionStatus> {
+  try {
+    const { data, error } = await withTimeout(auth.getUser(), requestTimeoutMs);
+    if (data.user) return "signed-in";
+    if (!accountIsGone(error)) return "unreachable";
+  } catch {
+    return "unreachable";
+  }
+  await signOutThisDevice(auth);
+  return "signed-out";
+}
+
+export async function guardPage(auth: Pick<SessionAuth, "getSession" | "getUser" | "signOut">, currentPath: string, replace: (path: string) => void): Promise<SessionStatus> {
+  const stored = await checkSession(auth);
+  const status = stored === "signed-in" ? await confirmAccount(auth) : stored;
   if (status === "signed-out") replace(signInPath(currentPath));
   return status;
 }

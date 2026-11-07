@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test, vi } from "vitest";
 import { confirmMessagePreview, loadMessagePreview, type MessagePreviewClient } from "./message-preview";
 
@@ -37,5 +39,12 @@ describe("prévia da mensagem guardada", () => {
   test("erro ou queda ao confirmar devolve falso", async () => {
     expect(await confirmMessagePreview(fakeClient({ upsert: async () => ({ error: { message: "fora do ar" } }) }).client)).toBe(false);
     expect(await confirmMessagePreview(fakeClient({ upsert: async () => Promise.reject(new Error("sem rede")) }).client)).toBe(false);
+  });
+
+  test("a tabela nasce com a regra de acesso por dono", () => {
+    const sql = readFileSync(join(process.cwd(), "supabase/migrations/20261106010000_message_previews.sql"), "utf8");
+    expect(sql).toContain('alter table public."message_previews" enable row level security');
+    expect(sql).not.toContain("using (true)");
+    expect(sql.match(/\(select auth\.uid\(\)\) = "owner_id"/g)).toHaveLength(5);
   });
 });

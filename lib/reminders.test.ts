@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { exampleMessageParts, quitoFooter, type MessageAdjustments, type MessageTone } from "@/lib/message-templates";
 import {
@@ -8,6 +10,7 @@ import {
   describeReminderName,
   exampleReminder,
   reminderCountLimit,
+  reminderDayLimit,
   reminderDraftFrom,
   reminderMessages,
   reminderProgress,
@@ -21,6 +24,19 @@ function adjustments(tone: MessageTone, changes: Partial<MessageAdjustments> = {
 }
 
 const parts = { ...exampleMessageParts, duePassed: true };
+
+describe("lembretes no banco", () => {
+  const migrations = ["20261107000000_message_settings_reminder_days.sql", "20261107010000_charges_reminders_sent_at.sql"]
+    .map((file) => readFileSync(join(process.cwd(), "supabase/migrations", file), "utf8"))
+    .join("\n");
+
+  test("guarda os mesmos limites e a mesma partida que a tela", () => {
+    expect(migrations).toContain(`default '{${defaultReminderDays.join(",")}}'`);
+    expect(migrations).toContain(`cardinality("reminder_days") <= ${reminderCountLimit}`);
+    expect(migrations).toContain(`${reminderDayLimit} >= all("reminder_days")`);
+    expect(migrations).toContain(`"reminders_sent_at" timestamptz[] not null default '{}'`);
+  });
+});
 
 describe("modelo de lembrete", () => {
   test("cada tom tem um texto gentil diferente para cada lembrete", () => {

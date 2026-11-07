@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test, vi } from "vitest";
 import {
   applyGuardianDueDaysLoad,
@@ -19,6 +21,7 @@ import {
   type GuardianDueDaysState,
   type GuardianDueDayRow,
 } from "./guardian-due-days";
+import { dueDayLimit } from "./payment-settings";
 import type { Student } from "./students";
 
 type Failure = { message: string } | null;
@@ -70,6 +73,16 @@ function fakeClient(overrides: {
 function ready(groups = guardianDueGroupsFrom([pedro, lia, alvaro], overridesByPhone([overrideRow]))): GuardianDueDaysState {
   return { ...initialGuardianDueDays, status: "ready", groups, defaultDueDay: 5 };
 }
+
+describe("vencimento por responsável no banco", () => {
+  const migration = readFileSync(join(process.cwd(), "supabase/migrations/20261104010000_guardian_due_days.sql"), "utf8");
+
+  test("guarda um dia por telefone do responsável, com o mesmo limite do dia padrão", () => {
+    expect(migration).toContain(`"due_day" between 1 and ${dueDayLimit}`);
+    expect(migration).toContain('primary key ("owner_id", "guardian_phone")');
+    expect(migration).toContain(`"guardian_phone" ~ '^[1-9]{2}(9[0-9]{8}|[2-9][0-9]{7})$'`);
+  });
+});
 
 describe("dueDayForGuardian", () => {
   test("usa o dia do responsável quando existe, senão o padrão", () => {

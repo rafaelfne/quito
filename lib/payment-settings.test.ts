@@ -1,9 +1,13 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test, vi } from "vitest";
 import {
   applyPaymentSettingsLoad,
   changePaymentSetting,
+  defaultDueDay,
   describeNextDue,
   dueDateIn,
+  dueDayLimit,
   displayNameLengthLimit,
   initialPaymentSettings,
   isPixKey,
@@ -44,6 +48,17 @@ function failing() {
     throw new Error("sem rede");
   };
 }
+
+describe("dados de recebimento no banco", () => {
+  const migration = readFileSync(join(process.cwd(), "supabase/migrations/20261104000000_payment_settings.sql"), "utf8");
+
+  test("guarda os mesmos limites que a tela confere", () => {
+    expect(migration).toContain(`char_length("pix_key") between 1 and ${pixKeyLengthLimit}`);
+    expect(migration).toContain(`char_length("display_name") between 1 and ${displayNameLengthLimit}`);
+    expect(migration).toContain(`"due_day" between 1 and ${dueDayLimit}`);
+    expect(migration).toContain(`"due_day" integer not null default ${defaultDueDay}`);
+  });
+});
 
 describe("dueDateIn", () => {
   test("usa o dia escolhido quando o mês tem esse dia", () => {
