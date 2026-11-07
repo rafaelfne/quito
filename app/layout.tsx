@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Poppins, Domine, IBM_Plex_Mono } from "next/font/google";
+import { appIdentity } from "@/lib/app-identity";
 import "./globals.css";
 
 const fontAppSans = Poppins({ variable: "--font-app-sans", weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"], subsets: ["latin"] });
@@ -9,8 +10,17 @@ const fontAppSerif = Domine({ variable: "--font-app-serif", subsets: ["latin"] }
 const fontAppMono = IBM_Plex_Mono({ variable: "--font-app-mono", weight: ["100", "200", "300", "400", "500", "600", "700"], subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "quito",
-  description: "Criado com o Virgílio",
+  title: appIdentity.name,
+  description: appIdentity.description,
+  applicationName: appIdentity.name,
+  appleWebApp: { capable: true, title: appIdentity.name, statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: appIdentity.lightBackground },
+    { media: "(prefers-color-scheme: dark)", color: appIdentity.darkBackground },
+  ],
 };
 
 const followSystemTheme = `(() => {
