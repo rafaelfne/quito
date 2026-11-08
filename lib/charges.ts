@@ -214,12 +214,21 @@ function byGuardianName(charges: Charge[]): Charge[] {
   return [...charges].sort((a, b) => a.guardian_name.localeCompare(b.guardian_name, "pt-BR", { sensitivity: "base" }));
 }
 
-export async function syncMonthCharges(client: LessonsClient, month: CalendarMonth, today: string): Promise<ChargesLoad> {
+export type MonthPlanLoad = { ok: true; trainingMonth: CalendarMonth | null; existing: Charge[]; plan: ChargesPlan } | { ok: false };
+
+export async function loadMonthPlan(client: LessonsClient, month: CalendarMonth, today: string): Promise<MonthPlanLoad> {
   const [closing, existing, earlier, training] = await Promise.all([loadClosingMonth(client, month), loadMonthCharges(client, month), loadEarlierCharges(client, month), loadTrainingMonth(client)]);
-  if (!closing.ok || existing === null || earlier === null || !training.ok) return { ok: false, month };
+  if (!closing.ok || existing === null || earlier === null || !training.ok) return { ok: false };
   const { trainingMonth } = training;
-  if (isTrainingMonth(month, trainingMonth)) return { ok: true, month, trainingMonth, charges: byGuardianName(existing), waiting: [], nothingToCharge: [] };
-  const { newCharges, waiting, nothingToCharge } = planMonthCharges(buildMonthClosing(closing, month, today), month, existing, pendingAdjustments(earlier, closing.marks));
+  if (isTrainingMonth(month, trainingMonth)) return { ok: true, trainingMonth, existing, plan: { newCharges: [], waiting: [], nothingToCharge: [] } };
+  return { ok: true, trainingMonth, existing, plan: planMonthCharges(buildMonthClosing(closing, month, today), month, existing, pendingAdjustments(earlier, closing.marks)) };
+}
+
+export async function syncMonthCharges(client: LessonsClient, month: CalendarMonth, today: string): Promise<ChargesLoad> {
+  const planned = await loadMonthPlan(client, month, today);
+  if (!planned.ok) return { ok: false, month };
+  const { trainingMonth, existing, plan } = planned;
+  const { newCharges, waiting, nothingToCharge } = plan;
   if (newCharges.length === 0) return { ok: true, month, trainingMonth, charges: byGuardianName(existing), waiting, nothingToCharge };
   if (!(await insertNewCharges(client, newCharges))) return { ok: false, month };
   const charges = await loadMonthCharges(client, month);

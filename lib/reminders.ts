@@ -153,12 +153,12 @@ export function localDateOf(timestamp: string): string {
   return dateKeyOf(new Date(timestamp));
 }
 
-export function reminderProgress(sentAt: string, remindersSentAt: string[], days: number[]): ReminderProgress {
+export function reminderProgress(sentAt: string, remindersSentAt: string[], days: number[], dateOf: (timestamp: string) => string = localDateOf): ReminderProgress {
   const sent = remindersSentAt.length;
   const lastSentIndex = sent > 0 ? sent - 1 : null;
   if (sent >= days.length) return { sent, total: days.length, next: null, lastSentIndex };
-  const fromCharge = addDays(localDateOf(sentAt), days[sent]);
-  const due = sent === 0 ? fromCharge : [fromCharge, addDays(localDateOf(remindersSentAt[sent - 1]), days[sent] - days[sent - 1])].sort()[1];
+  const fromCharge = addDays(dateOf(sentAt), days[sent]);
+  const due = sent === 0 ? fromCharge : [fromCharge, addDays(dateOf(remindersSentAt[sent - 1]), days[sent] - days[sent - 1])].sort()[1];
   return { sent, total: days.length, next: { index: sent, due }, lastSentIndex };
 }
 
