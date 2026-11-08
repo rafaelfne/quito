@@ -59,6 +59,8 @@ vi.mock("react", async (original) => ({
 const loadFirstChargePreview = vi.fn(async (): Promise<FirstChargePreview | null> => ({ kind: "missing", firstMonth: { year: 2026, month: 12 }, missing: "students" }));
 vi.mock("@/lib/first-charge-preview", () => ({ loadFirstChargePreview }));
 vi.mock("@/lib/supabase", () => ({ supabase: { from, auth: {} } }));
+const guideOffer = vi.hoisted(() => ({ offered: false }));
+vi.mock("@/app/(app)/notifications/guide-offer", () => ({ useNotificationsGuideOffer: () => guideOffer.offered }));
 
 const { default: GettingStartedPage } = await import("./page");
 
@@ -73,6 +75,7 @@ function view(): ViewProps {
 
 beforeEach(() => {
   hooks.reset();
+  guideOffer.offered = false;
   maybeSingle.mockClear();
   upsert.mockClear();
 });
@@ -143,7 +146,15 @@ describe("página de primeiros passos", () => {
     expect(view().firstChargePreview).toBeNull();
   });
 
-  test("o convite para as notificações fica desligado até o guia ser lançado, mesmo com os passos feitos", async () => {
+  test("com os passos feitos, convida para o guia quando ele é oferecido neste aparelho", async () => {
+    guideOffer.offered = true;
+    maybeSingle.mockResolvedValueOnce({ data: { finished_at: "2026-11-07T10:00:00Z", baseline_delay_days: 5 }, error: null });
+    expect(view().notificationsInvite).toBe(false);
+    await settle();
+    expect(view().notificationsInvite).toBe(true);
+  });
+
+  test("o convite para as notificações fica desligado quando o guia não é oferecido neste aparelho, mesmo com os passos feitos", async () => {
     maybeSingle.mockResolvedValueOnce({ data: { finished_at: "2026-11-07T10:00:00Z", baseline_delay_days: 5 }, error: null });
     expect(view().notificationsInvite).toBe(false);
     await settle();

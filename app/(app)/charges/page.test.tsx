@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { chargeMessages, type ChargesState } from "@/lib/charges";
 import type { Student } from "@/lib/students";
 
-type ViewProps = { state: ChargesState; onRetry: () => void; onShowFullPanel: () => void; onConfirmPreview: () => void; onSend: (chargeId: string) => void; onUndoSend: (chargeId: string) => void; onMarkPaid: (chargeId: string) => void; onUndoPaid: (chargeId: string) => void; onSendReminder: (chargeId: string) => void; onUndoReminder: (chargeId: string) => void };
+type ViewProps = { state: ChargesState; onRetry: () => void; onShowFullPanel: () => void; onConfirmPreview: () => void; onSend: (chargeId: string) => void; onUndoSend: (chargeId: string) => void; onMarkPaid: (chargeId: string) => void; onUndoPaid: (chargeId: string) => void; onSendReminder: (chargeId: string) => void; onUndoReminder: (chargeId: string) => void; notificationsInvite: boolean };
 
 const pedro: Student = { id: "p", name: "Pedro Lima", gender: "male", called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
 
 const stored: unknown[] = [];
+const gettingStarted = { row: null as { started_at: string | null } | null };
+const guideOffer = vi.hoisted(() => ({ offered: false }));
 const selectStudents = vi.fn(async (columns: string) => (columns === "id, created_at" ? { data: [], error: null as { message: string } | null } : { data: [pedro] as Student[] | null, error: null as { message: string } | null }));
 const upsert = vi.fn(async (rows: Record<string, unknown>[]) => {
   stored.push(...rows.map((row) => ({ ...row, id: "c1" })));
@@ -18,7 +20,8 @@ const update = vi.fn(() => ({ eq: sentEq }));
 const marksChain = { order: () => marksChain, range: async () => ({ data: [], error: null }) };
 const from = vi.fn((table: string) => {
   if (table === "students") return { select: selectStudents };
-  if (table === "teacher_rules" || table === "message_settings" || table === "getting_started") return { select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) };
+  if (table === "getting_started") return { select: () => ({ maybeSingle: async () => ({ data: gettingStarted.row, error: null }) }) };
+  if (table === "teacher_rules" || table === "message_settings") return { select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) };
   if (table === "payment_settings") return { select: () => ({ maybeSingle: async () => ({ data: { pix_key: "joao@email.com", display_name: "João Silva", due_day: 5 }, error: null }) }) };
   if (table === "message_previews") return { upsert: previewUpsert, select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) };
   if (table === "guardian_due_days") return { select: async () => ({ data: [], error: null }) };
@@ -70,6 +73,7 @@ vi.mock("react", async (original) => ({
 const requestedParams = { current: "" };
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(requestedParams.current) }));
 vi.mock("@/lib/supabase", () => ({ supabase: { from, auth: {} } }));
+vi.mock("@/app/(app)/notifications/guide-offer", () => ({ useNotificationsGuideOffer: () => guideOffer.offered }));
 
 const { default: ChargesPage } = await import("./page");
 
@@ -85,6 +89,8 @@ function view(): ViewProps {
 beforeEach(() => {
   hooks.reset();
   requestedParams.current = "";
+  gettingStarted.row = null;
+  guideOffer.offered = false;
   stored.length = 0;
   upsert.mockClear();
   selectStudents.mockClear();
@@ -238,5 +244,34 @@ describe("página de cobranças", () => {
     view();
     await settle();
     expect(view().state).toMatchObject({ status: "ready", focusedChargeId: null, focusOnSingle: false });
+  });
+
+  test("na primeira cobrança pronta, oferece o guia de ativação a quem pode ativar neste aparelho", async () => {
+    gettingStarted.row = { started_at: "2026-10-15T12:00:00.000Z" };
+    guideOffer.offered = true;
+    expect(view().notificationsInvite).toBe(false);
+    await settle();
+    expect(view().state.status).toBe("ready");
+    expect(view().notificationsInvite).toBe(true);
+  });
+
+  test("não oferece o guia quando o aparelho não pede, ou fora da primeira cobrança", async () => {
+    gettingStarted.row = { started_at: "2026-10-15T12:00:00.000Z" };
+    view();
+    await settle();
+    expect(view().notificationsInvite).toBe(false);
+
+    hooks.reset();
+    guideOffer.offered = true;
+    gettingStarted.row = { started_at: "2026-08-15T12:00:00.000Z" };
+    view();
+    await settle();
+    expect(view().notificationsInvite).toBe(false);
+
+    hooks.reset();
+    gettingStarted.row = null;
+    view();
+    await settle();
+    expect(view().notificationsInvite).toBe(false);
   });
 });

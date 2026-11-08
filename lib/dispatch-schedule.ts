@@ -4,6 +4,8 @@ import { runDailyDispatch, type DispatchClient, type PushSender } from "@/lib/da
 
 export type DispatchConfig = { supabaseUrl: string; serviceRoleKey: string; vapidPublicKey: string; vapidPrivateKey: string; vapidSubject: string };
 
+export type VapidConfig = Pick<DispatchConfig, "vapidPublicKey" | "vapidPrivateKey" | "vapidSubject">;
+
 export type DispatchEnv = Record<string, string | undefined>;
 
 export type Notify = typeof webPush.sendNotification;
@@ -25,11 +27,16 @@ export function dispatchConfigFrom(env: DispatchEnv): DispatchConfig | null {
   return Object.values(config).every(Boolean) ? (config as DispatchConfig) : null;
 }
 
+export function vapidConfigFrom(env: DispatchEnv): VapidConfig | null {
+  const config = { vapidPublicKey: env.NEXT_PUBLIC_VAPID_PUBLIC_KEY, vapidPrivateKey: env.VAPID_PRIVATE_KEY, vapidSubject: env.VAPID_SUBJECT };
+  return Object.values(config).every(Boolean) ? (config as VapidConfig) : null;
+}
+
 function statusOf(error: unknown): number | undefined {
   return typeof error === "object" && error !== null && "statusCode" in error ? Number(error.statusCode) : undefined;
 }
 
-export function webPushSender(config: DispatchConfig, notify: Notify = webPush.sendNotification): PushSender {
+export function webPushSender(config: VapidConfig, notify: Notify = webPush.sendNotification): PushSender {
   const vapidDetails = { subject: config.vapidSubject, publicKey: config.vapidPublicKey, privateKey: config.vapidPrivateKey };
   return async ({ endpoint, p256dh, auth }, message) => {
     try {

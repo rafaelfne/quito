@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   browserPushEnvironment,
   checkPush,
+  currentEndpoint,
   deviceFrom,
   enablePush,
   keyBytes,
@@ -251,5 +252,18 @@ describe("ambiente do navegador", () => {
     const navigator = { userAgent: computerAgent } as Navigator;
     const Notification = { permission: "default" as const, requestPermission: vi.fn() };
     expect(browserPushEnvironment({ navigator, Notification, PushManager: {} }).supported).toBe(false);
+  });
+});
+
+describe("endereço deste aparelho", () => {
+  test("com a inscrição ativa, devolve o endereço dela", async () => {
+    expect(await currentEndpoint(environment())).toBe("https://push.example/abc");
+  });
+
+  test("sem permissão, sem inscrição, no iPhone fora do app ou com o navegador falhando, não tem endereço", async () => {
+    expect(await currentEndpoint(environment({ permission: () => "default" }))).toBeNull();
+    expect(await currentEndpoint(environment({ pushManager: vi.fn().mockResolvedValue(manager(null)) }))).toBeNull();
+    expect(await currentEndpoint(environment({ userAgent: iphoneAgent, standalone: false }))).toBeNull();
+    expect(await currentEndpoint(environment({ pushManager: vi.fn().mockRejectedValue(new Error("sem worker")) }))).toBeNull();
   });
 });

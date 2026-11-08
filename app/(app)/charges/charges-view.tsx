@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { NotificationsInvite } from "@/app/(app)/notifications/notifications-invite";
 import { accountPath } from "@/lib/account";
+import { notificationsInviteMessages } from "@/lib/notifications-invite";
 import { formatCurrency } from "@/lib/billing";
 import { canSendCharge, chargeMessages, describeMarkLessons, describeOpenFor, describeReadyFor, focusedChargeOf, groupCharges, isChargePaid, isChargeSent, isDueToSend, isReminderDue, isTrainingCharges, needsFirstPreview, describeWaitingStudent, monthChargesTotal, reminderMessageOf, reminderProgressOf, remindersSentOf, waitsForBilling, waitsForMarks, type Charge, type ChargesState, type ChargeStudent, type WaitingGuardian } from "@/lib/charges";
 import { closingMessages, closingPath, describeSignedAmount } from "@/lib/closing";
@@ -19,6 +21,7 @@ const shortcutClass = "inline-flex min-h-11 items-center rounded-sm border px-3 
 
 type ChargesViewProps = {
   state: ChargesState;
+  notificationsInvite?: boolean;
   onRetry: () => void;
   onShowFullPanel: () => void;
   onConfirmPreview: () => void;
@@ -283,7 +286,7 @@ function WaitingCharges({ waiting, month }: { waiting: WaitingGuardian[]; month:
   );
 }
 
-type ChargesContentProps = Omit<ChargesViewProps, "onRetry">;
+type ChargesContentProps = Omit<ChargesViewProps, "onRetry" | "notificationsInvite">;
 
 type SendTargets = { readyFor: string | null; link: string | null };
 
@@ -394,7 +397,7 @@ function ChargesContent({ state, onShowFullPanel, onConfirmPreview, onSend, onUn
   );
 }
 
-export function ChargesView({ state, onRetry, ...actions }: ChargesViewProps) {
+export function ChargesView({ state, onRetry, notificationsInvite = false, ...actions }: ChargesViewProps) {
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-4 sm:p-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -432,6 +435,7 @@ export function ChargesView({ state, onRetry, ...actions }: ChargesViewProps) {
           </button>
         </div>
       ) : null}
+      {state.status === "ready" && notificationsInvite ? <NotificationsInvite text={notificationsInviteMessages.firstChargeText} /> : null}
       {state.status === "ready" ? <ChargesContent state={state} {...actions} /> : null}
     </main>
   );

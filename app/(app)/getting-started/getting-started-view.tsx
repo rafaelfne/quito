@@ -1,8 +1,8 @@
 import Link from "next/link";
+import { NotificationsInvite } from "@/app/(app)/notifications/notifications-invite";
 import { describeFirstChargePreview, firstChargePreviewMessages, firstChargePreviewMissingPaths, type FirstChargePreview } from "@/lib/first-charge-preview";
 import { describeFirstChargeGuardian, describeFirstChargeTiming, describeFirstMonth, firstChargeMessages, firstChargeMissingMessage, firstChargeMissingPaths, type FirstChargeNotice } from "@/lib/first-charge";
 import { currentStep, describeRemaining, gettingStartedMessages, remainingSteps, type GettingStartedState, type GettingStartedStep } from "@/lib/getting-started";
-import { notificationsGuidePath, notificationsInviteMessages } from "@/lib/notifications-invite";
 import { afterSignInPath } from "@/lib/session";
 
 const primaryLinkClass = "flex min-h-11 items-center justify-center rounded-sm bg-foreground px-3 py-2 text-background";
@@ -93,20 +93,6 @@ export function FirstChargePreviewSection({ preview }: { preview: FirstChargePre
           </Link>
         </p>
       )}
-    </section>
-  );
-}
-
-export function NotificationsInvite() {
-  return (
-    <section className="flex flex-col gap-2 rounded-sm border p-3" aria-labelledby="notifications-invite-title">
-      <h2 className="font-medium" id="notifications-invite-title">
-        {notificationsInviteMessages.title}
-      </h2>
-      <p className="text-sm">{notificationsInviteMessages.text}</p>
-      <Link className={primaryLinkClass} href={notificationsGuidePath}>
-        {notificationsInviteMessages.action}
-      </Link>
     </section>
   );
 }

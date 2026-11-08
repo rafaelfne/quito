@@ -4,7 +4,7 @@ import { firstChargePreviewMessages, type FirstChargePreview } from "@/lib/first
 import { firstChargeMessages, type FirstChargeNotice } from "@/lib/first-charge";
 import { notificationsGuidePath, notificationsInviteMessages } from "@/lib/notifications-invite";
 import { gettingStartedMessages, initialGettingStarted, type GettingStartedStep } from "@/lib/getting-started";
-import { GettingStartedView, NotificationsInvite, StepAction } from "./getting-started-view";
+import { GettingStartedView, StepAction } from "./getting-started-view";
 
 const steps: GettingStartedStep[] = [
   { id: "a", title: "Cadastre seus alunos", hint: "Dica um", path: "/students", done: true },
@@ -142,12 +142,6 @@ describe("convite para as notificações", () => {
     const html = render({ status: "ready", steps: finishedSteps });
     expect(html).not.toContain(notificationsInviteMessages.title);
     expect(html).not.toContain(notificationsGuidePath);
-  });
-
-  test("o convite sozinho tem título, texto e o link do guia", () => {
-    const html = renderToStaticMarkup(<NotificationsInvite />);
-    expect(html).toContain('aria-labelledby="notifications-invite-title"');
-    expect(html).toContain(`href="${notificationsGuidePath}"`);
   });
 
   test("com a prévia da primeira cobrança, o convite vem depois dela", () => {

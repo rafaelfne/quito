@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { GettingStartedView } from "@/app/(app)/getting-started/getting-started-view";
+import { useNotificationsGuideOffer } from "@/app/(app)/notifications/guide-offer";
 import { loadFirstChargePreview, type FirstChargePreview } from "@/lib/first-charge-preview";
 import { loadFirstChargeNotice, type FirstChargeNotice } from "@/lib/first-charge";
 import { applyGettingStartedLoad, initialGettingStarted, openGettingStarted, saveBaselineDelay, startReloadingGettingStarted } from "@/lib/getting-started";
@@ -13,6 +14,7 @@ export default function GettingStartedPage() {
   const [baselineDelayDays, setBaselineDelayDays] = useState<number | null>(null);
   const [firstCharge, setFirstCharge] = useState<FirstChargeNotice | null>(null);
   const [firstChargePreview, setFirstChargePreview] = useState<FirstChargePreview | null>(null);
+  const notificationsGuideOffered = useNotificationsGuideOffer();
 
   const load = useCallback(() => {
     void openGettingStarted(supabase).then((result) => {
@@ -37,5 +39,5 @@ export default function GettingStartedPage() {
     load();
   }
 
-  return <GettingStartedView state={state} onRetry={retry} baselineDelayDays={baselineDelayDays} onSaveBaselineDelay={saveBaseline} firstCharge={firstCharge} firstChargePreview={firstChargePreview} notificationsInvite={showsNotificationsInvite(state)} />;
+  return <GettingStartedView state={state} onRetry={retry} baselineDelayDays={baselineDelayDays} onSaveBaselineDelay={saveBaseline} firstCharge={firstCharge} firstChargePreview={firstChargePreview} notificationsInvite={showsNotificationsInvite(state, notificationsGuideOffered)} />;
 }

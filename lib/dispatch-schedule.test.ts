@@ -8,7 +8,7 @@ vi.mock("@/lib/daily-dispatch", () => ({ runDailyDispatch }));
 vi.mock("@supabase/supabase-js", () => ({ createClient }));
 vi.mock("web-push", () => ({ default: { sendNotification } }));
 
-import { dispatchConfigFrom, dispatchIntervalMs, dispatchTicker, startDailyDispatch, webPushSender, type DispatchConfig, type Notify } from "@/lib/dispatch-schedule";
+import { vapidConfigFrom, dispatchConfigFrom, dispatchIntervalMs, dispatchTicker, startDailyDispatch, webPushSender, type DispatchConfig, type Notify } from "@/lib/dispatch-schedule";
 
 const env = {
   NEXT_PUBLIC_SUPABASE_URL: "https://banco.exemplo",
@@ -34,6 +34,13 @@ describe("configuração do disparo", () => {
   test("faltando uma chave, o disparo fica desligado", () => {
     expect(dispatchConfigFrom({ ...env, VAPID_PRIVATE_KEY: "" })).toBeNull();
     expect(dispatchConfigFrom({ ...env, SUPABASE_SERVICE_ROLE_KEY: undefined })).toBeNull();
+  });
+});
+
+describe("chaves das notificações", () => {
+  test("bastam as três chaves VAPID, sem a chave do servidor", () => {
+    expect(vapidConfigFrom({ ...env, SUPABASE_SERVICE_ROLE_KEY: undefined })).toEqual({ vapidPublicKey: "publica", vapidPrivateKey: "privada", vapidSubject: env.VAPID_SUBJECT });
+    expect(vapidConfigFrom({ ...env, VAPID_SUBJECT: "" })).toBeNull();
   });
 });
 

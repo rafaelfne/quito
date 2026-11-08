@@ -127,6 +127,17 @@ export async function enablePush(environment: PushEnvironment, client: PushSubsc
   }
 }
 
+export async function currentEndpoint(environment: PushEnvironment): Promise<string | null> {
+  if (blockedStatus(environment) || environment.permission() !== "granted") return null;
+  try {
+    const manager = await withTimeout(environment.pushManager(), requestTimeoutMs);
+    const subscription = await manager.getSubscription();
+    return subscription?.toJSON().endpoint ?? null;
+  } catch {
+    return null;
+  }
+}
+
 type PushWindow = {
   navigator: Navigator & { standalone?: boolean };
   matchMedia?: (query: string) => { matches: boolean };
