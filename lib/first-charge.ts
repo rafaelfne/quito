@@ -46,11 +46,19 @@ export function firstChargedMonth(entryMonth: CalendarMonth): CalendarMonth {
   return shiftMonth(entryMonth, 1);
 }
 
+function entryMonthOf(startedAt: string | null, today: string): CalendarMonth {
+  return startedAt === null ? calendarMonthOf(new Date(`${today}T12:00:00`)) : calendarMonthOf(new Date(startedAt));
+}
+
+export function isFirstChargeOver(startedAt: string | null, today: string): boolean {
+  return today > monthRange(shiftMonth(firstChargedMonth(entryMonthOf(startedAt, today)), 1)).last;
+}
+
 export function firstChargeNoticeFrom({ startedAt, today, students, defaultDueDay, dueDayOverrides }: FirstChargeFacts): FirstChargeNotice | null {
-  const entryMonth = startedAt === null ? calendarMonthOf(new Date(`${today}T12:00:00`)) : calendarMonthOf(new Date(startedAt));
+  const entryMonth = entryMonthOf(startedAt, today);
   const firstMonth = firstChargedMonth(entryMonth);
   const chargeMonth = shiftMonth(firstMonth, 1);
-  if (today > monthRange(chargeMonth).last) return null;
+  if (isFirstChargeOver(startedAt, today)) return null;
   const missing: FirstChargeMissing | null = students.length === 0 ? "students" : defaultDueDay === null ? "payment" : null;
   const guardians =
     missing === null && defaultDueDay !== null
@@ -81,11 +89,15 @@ export function firstChargeMissingMessage(missing: FirstChargeMissing): string {
 }
 
 export async function loadFirstChargeNotice(client: FirstChargeClient, startedAt: string | null, now: Date = new Date()): Promise<FirstChargeNotice | null> {
+  return loadFirstChargeNoticeOn(client, startedAt, dateKeyOf(now));
+}
+
+export async function loadFirstChargeNoticeOn(client: FirstChargeClient, startedAt: string | null, today: string): Promise<FirstChargeNotice | null> {
   const [students, payment, dueDays] = await Promise.all([loadStudents(client), loadPaymentSettings(client), loadGuardianDueDays(client)]);
   if (!students.ok || !payment.ok || !dueDays.ok) return null;
   return firstChargeNoticeFrom({
     startedAt,
-    today: dateKeyOf(now),
+    today,
     students: students.students,
     defaultDueDay: payment.settings?.due_day ?? null,
     dueDayOverrides: overridesByPhone(dueDays.rows),

@@ -30,7 +30,7 @@ export function localClock(now: Date, timeZone: string): LocalClock {
   return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
 }
 
-function counted(amount: number, singular: string, plural: string): string {
+export function counted(amount: number, singular: string, plural: string): string {
   return `${amount} ${amount === 1 ? singular : plural}`;
 }
 

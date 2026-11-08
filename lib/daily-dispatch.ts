@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { notificationTapPath } from "@/lib/charges";
+import { chargesPath, notificationTapPath } from "@/lib/charges";
 import { describeDayWork, loadDayWork, localClock, ownerScoped, type DayWork } from "@/lib/day-work";
+import { claimFirstChargeEve, describeFirstChargeEve, loadFirstChargeEve, recordFirstChargeEveReach, type FirstChargeEve } from "@/lib/first-charge-eve";
 import { defaultNotificationHour, fallbackTimeZone, isNotificationHour } from "@/lib/notification-time";
 
 export type DispatchClient = Pick<SupabaseClient, "from">;
@@ -88,16 +89,40 @@ function dayBefore(now: Date): string {
   return new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
+type DeviceReach = { reached: number; live: PushTarget[] };
+
+async function notifyDevices(client: DispatchClient, send: PushSender, ownerId: string, devices: PushTarget[], message: PushMessage): Promise<DeviceReach> {
+  const results = await Promise.all(devices.map((device) => send(device, message)));
+  await Promise.all(devices.filter((_, index) => results[index] === "gone").map((device) => forgetDevice(client, ownerId, device.endpoint)));
+  return { reached: results.filter((result) => result === "sent").length, live: devices.filter((_, index) => results[index] !== "gone") };
+}
+
+async function eveToSend(client: DispatchClient, target: TeacherTarget, eve: FirstChargeEve | null): Promise<FirstChargeEve | null> {
+  if (eve === null) return null;
+  return (await claimFirstChargeEve(client, target.ownerId, eve, target.devices.length)) ? eve : null;
+}
+
 async function dispatchTo(client: DispatchClient, send: PushSender, target: TeacherTarget, today: string): Promise<keyof DispatchReport> {
-  const work = await loadDayWork(ownerScoped(client, target.ownerId), today, target.timeZone);
-  if (work === null) return "failed";
+  const scoped = ownerScoped(client, target.ownerId);
+  const [work, eveLoad] = await Promise.all([loadDayWork(scoped, today, target.timeZone), loadFirstChargeEve(scoped, today)]);
+  if (work === null || !eveLoad.ok) return "failed";
   if (!(await claimDispatch(client, target.ownerId, today, work))) return "quiet";
   const body = describeDayWork(work);
-  if (body === null) return "quiet";
-  const message = { title: dispatchTitle, body, path: notificationTapPath };
-  const results = await Promise.all(target.devices.map((device) => send(device, message)));
-  await Promise.all(target.devices.filter((_, index) => results[index] === "gone").map((device) => forgetDevice(client, target.ownerId, device.endpoint)));
-  return results.includes("sent") ? "notified" : "failed";
+  const eve = await eveToSend(client, target, eveLoad.eve);
+  if (body === null && eve === null) return "quiet";
+  let devices = target.devices;
+  let reached = 0;
+  if (eve !== null) {
+    const reach = await notifyDevices(client, send, target.ownerId, devices, { title: dispatchTitle, body: describeFirstChargeEve(eve), path: chargesPath });
+    await recordFirstChargeEveReach(client, target.ownerId, reach.reached);
+    devices = reach.live;
+    reached += reach.reached;
+  }
+  if (body !== null) {
+    const reach = await notifyDevices(client, send, target.ownerId, devices, { title: dispatchTitle, body, path: notificationTapPath });
+    reached += reach.reached;
+  }
+  return reached > 0 ? "notified" : "failed";
 }
 
 export async function runDailyDispatch(client: DispatchClient, send: PushSender, now: Date): Promise<DispatchReport | null> {

@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import type { Charge } from "@/lib/charges";
+import { claimFirstChargeEve } from "@/lib/first-charge-eve";
 import { claimDispatch, dispatchTitle, isDispatchDue, loadRecentDispatches, loadTeacherTargets, runDailyDispatch, teacherTargets, type DispatchClient, type PushSender, type TeacherTarget } from "@/lib/daily-dispatch";
 import { chargeDaysToSend, describeDayWork, loadDayWork, localClock, ownerScoped } from "@/lib/day-work";
 
@@ -7,7 +8,7 @@ type Row = Record<string, unknown>;
 
 type Tables = Record<string, Row[]>;
 
-const keys: Record<string, string[]> = { notification_dispatches: ["owner_id", "day"] };
+const keys: Record<string, string[]> = { notification_dispatches: ["owner_id", "day"], first_charge_eves: ["owner_id"] };
 
 function fakeDatabase(tables: Tables, failing: string[] = []) {
   const writes: { table: string; kind: string; row?: Row }[] = [];
@@ -45,6 +46,18 @@ function fakeDatabase(tables: Tables, failing: string[] = []) {
       existing.push(...added);
       writes.push({ table, kind: "upsert", row });
       return { select: async () => (failing.includes(`${table}:write`) ? { data: null, error: { message: "fora do ar" } } : { data: added, error: null }) };
+    },
+    update: (changes: Row) => {
+      const filters: Row = {};
+      const builder = {
+        eq: (column: string, value: unknown) => ((filters[column] = value), builder),
+        then: (resolve: (value: { error: null }) => unknown) => {
+          for (const row of tables[table] ?? []) if (Object.entries(filters).every(([key, wanted]) => row[key] === wanted)) Object.assign(row, changes);
+          return Promise.resolve({ error: null }).then(resolve);
+        },
+      };
+      writes.push({ table, kind: "update", row: changes });
+      return builder;
     },
     delete: () => {
       const filters: Row = {};
@@ -445,5 +458,60 @@ describe("disparo diário", () => {
   test("sem conseguir ler quem recebe, não faz nada", async () => {
     const { client } = fakeDatabase({}, ["notification_dispatches"]);
     expect(await runDailyDispatch(client, async () => "sent", nineInSaoPaulo)).toBeNull();
+  });
+});
+
+describe("aviso na véspera da primeira cobrança", () => {
+  const eveInSaoPaulo = new Date("2026-12-04T12:05:00Z");
+  const enteredInOctober = { getting_started: [{ owner_id: teacher, started_at: "2026-10-10T12:00:00Z" }] };
+  const eveBody = "Amanhã é o dia da sua primeira cobrança: 1 cobrança para enviar. As notificações deste celular estão funcionando.";
+
+  test("na véspera, no horário escolhido, lembra o dia seguinte e guarda que a inscrição continua valendo", async () => {
+    const { client, tables } = fakeDatabase(merged(teacherData(teacher, 5), enteredInOctober, subscribed(teacher, ["a", "b"]), { notification_dispatches: [], first_charge_eves: [] }));
+    const send = vi.fn<PushSender>(async () => "sent");
+    expect(await runDailyDispatch(client, send, eveInSaoPaulo)).toEqual({ notified: 1, quiet: 0, failed: 0 });
+    expect(send.mock.calls.map(([device, message]) => [device.endpoint, message])).toEqual([
+      ["a", { title: dispatchTitle, body: eveBody, path: "/charges" }],
+      ["b", { title: dispatchTitle, body: eveBody, path: "/charges" }],
+    ]);
+    expect(JSON.stringify(send.mock.calls)).not.toMatch(/Ana Lima|Pedro|300/);
+    expect(tables.first_charge_eves).toEqual([{ owner_id: teacher, due_date: "2026-12-05", charges: 1, devices: 2, reached: 2 }]);
+  });
+
+  test("é uma única notificação: no dia da cobrança vem só o aviso do dia", async () => {
+    const { client } = fakeDatabase(merged(teacherData(teacher, 5), enteredInOctober, subscribed(teacher, ["a"]), { notification_dispatches: [], first_charge_eves: [] }));
+    const send = vi.fn<PushSender>(async () => "sent");
+    await runDailyDispatch(client, send, eveInSaoPaulo);
+    await runDailyDispatch(client, send, new Date("2026-12-04T20:00:00Z"));
+    await runDailyDispatch(client, send, nineInSaoPaulo);
+    expect(send.mock.calls.map(([, message]) => message.body)).toEqual([eveBody, "1 cobrança para enviar hoje"]);
+  });
+
+  test("o registro da véspera vale uma vez só por professor", async () => {
+    const { client } = fakeDatabase({ first_charge_eves: [] });
+    const eve = { dueDate: "2026-12-05", charges: 1 };
+    expect(await claimFirstChargeEve(client, teacher, eve, 1)).toBe(true);
+    expect(await claimFirstChargeEve(client, teacher, { dueDate: "2027-01-05", charges: 1 }, 1)).toBe(false);
+  });
+
+  test("se a inscrição se perdeu na espera, o aparelho sai da lista e o registro mostra que não chegou", async () => {
+    const { client, tables } = fakeDatabase(merged(teacherData(teacher, 5), enteredInOctober, subscribed(teacher, ["a"]), { notification_dispatches: [], first_charge_eves: [] }));
+    expect(await runDailyDispatch(client, async () => "gone", eveInSaoPaulo)).toEqual({ notified: 0, quiet: 0, failed: 1 });
+    expect(tables.push_subscriptions).toEqual([]);
+    expect(tables.first_charge_eves).toEqual([{ owner_id: teacher, due_date: "2026-12-05", charges: 1, devices: 1, reached: 0 }]);
+  });
+
+  test("quem começou antes e já passou da primeira cobrança não recebe a véspera", async () => {
+    const { client, tables } = fakeDatabase(merged(teacherData(teacher, 5), { getting_started: [{ owner_id: teacher, started_at: "2026-09-10T12:00:00Z" }] }, subscribed(teacher, ["a"]), { notification_dispatches: [], first_charge_eves: [] }));
+    const send = vi.fn<PushSender>(async () => "sent");
+    expect(await runDailyDispatch(client, send, eveInSaoPaulo)).toEqual({ notified: 0, quiet: 1, failed: 0 });
+    expect(send).not.toHaveBeenCalled();
+    expect(tables.first_charge_eves).toEqual([]);
+  });
+
+  test("sem conseguir ler o começo do professor, tenta de novo na próxima volta", async () => {
+    const { client, tables } = fakeDatabase(merged(teacherData(teacher, 5), enteredInOctober, subscribed(teacher, ["a"]), { notification_dispatches: [], first_charge_eves: [] }), ["getting_started"]);
+    expect(await runDailyDispatch(client, async () => "sent", eveInSaoPaulo)).toEqual({ notified: 0, quiet: 0, failed: 1 });
+    expect(tables.notification_dispatches).toEqual([]);
   });
 });
