@@ -4,7 +4,7 @@ import { chargeDueDatesFor, loadChargeMessageContext } from "@/lib/charge-messag
 import { awaitsReminders, isChargeSent, loadMonthPlan, remindersSentOf, type Charge } from "@/lib/charges";
 import { shiftMonth, type LessonsClient } from "@/lib/lessons";
 import { fallbackTimeZone } from "@/lib/notification-time";
-import { reminderProgress } from "@/lib/reminders";
+import { addDays, reminderProgress } from "@/lib/reminders";
 
 export type DayWork = { charges: number; reminders: number };
 
@@ -44,13 +44,18 @@ function plannedCharge(charge: Omit<Charge, "id">, index: number): Charge {
   return { ...charge, id: `planned-${index}` };
 }
 
+export function chargeDaysToSend(today: string): string[] {
+  return [today, addDays(today, -1)];
+}
+
 export async function loadDayWork(client: LessonsClient, today: string, timeZone: string): Promise<DayWork | null> {
   const month = shiftMonth(monthOfKey(today), -1);
   const [planned, context] = await Promise.all([loadMonthPlan(client, month, today), loadChargeMessageContext(client)]);
   if (!planned.ok || context === null) return null;
   const candidates = [...planned.existing, ...planned.plan.newCharges.map(plannedCharge)];
   const dueDates = chargeDueDatesFor(candidates, context);
-  const charges = candidates.filter((charge) => !isChargeSent(charge) && dueDates[charge.id] === today).length;
+  const daysToSend = chargeDaysToSend(today);
+  const charges = candidates.filter((charge) => !isChargeSent(charge) && daysToSend.includes(dueDates[charge.id])).length;
   const dateOf = (timestamp: string) => localClock(new Date(timestamp), timeZone).date;
   const reminders = planned.existing.filter((charge) => awaitsReminders(charge) && charge.sent_at && reminderProgress(charge.sent_at, remindersSentOf(charge), context.reminderDays, dateOf).next?.due === today).length;
   return { charges, reminders };

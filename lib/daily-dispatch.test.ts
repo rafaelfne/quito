@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 import type { Charge } from "@/lib/charges";
 import { claimDispatch, dispatchTitle, isDispatchDue, loadRecentDispatches, loadTeacherTargets, runDailyDispatch, teacherTargets, type DispatchClient, type PushSender, type TeacherTarget } from "@/lib/daily-dispatch";
-import { describeDayWork, loadDayWork, localClock, ownerScoped } from "@/lib/day-work";
+import { chargeDaysToSend, describeDayWork, loadDayWork, localClock, ownerScoped } from "@/lib/day-work";
 
 type Row = Record<string, unknown>;
 
@@ -187,6 +187,51 @@ describe("o que o professor tem para enviar no dia", () => {
   test("sem conseguir ler os dados, não decide nada", async () => {
     const { client } = fakeDatabase(teacherData(teacher, 5), ["payment_settings"]);
     expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toBeNull();
+  });
+});
+
+describe("repetição no dia seguinte", () => {
+  test("a cobrança conta no dia dela e no dia seguinte", () => {
+    expect(chargeDaysToSend("2026-12-05")).toEqual(["2026-12-05", "2026-12-04"]);
+    expect(chargeDaysToSend("2026-12-01")).toEqual(["2026-12-01", "2026-11-30"]);
+  });
+
+  test("cobrança de ontem ainda não enviada conta de novo hoje", async () => {
+    const { client } = fakeDatabase(teacherData(teacher, 5));
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-06", saoPaulo)).toEqual({ charges: 1, reminders: 0 });
+  });
+
+  test("cobrança de ontem já enviada não repete", async () => {
+    const { client } = fakeDatabase(merged(teacherData(teacher, 5), { charges: [charge({ guardian_phone: "11987654321", sent_at: "2026-12-05T23:00:00Z" })] }));
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-06", saoPaulo)).toEqual({ charges: 0, reminders: 0 });
+  });
+
+  test("a repetição é uma só: dois dias depois não conta mais", async () => {
+    const { client } = fakeDatabase(merged(teacherData(teacher, 5), { charges: [charge({})] }));
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-07", saoPaulo)).toEqual({ charges: 0, reminders: 0 });
+  });
+
+  test("cobrança de ontem soma com a de hoje", async () => {
+    const tables = merged(teacherData(teacher, 6), { charges: [charge({})], guardian_due_days: [{ owner_id: teacher, guardian_phone: "11911112222", due_day: 5 }] });
+    const { client } = fakeDatabase(tables);
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-06", saoPaulo)).toEqual({ charges: 2, reminders: 0 });
+  });
+
+  test("avisa no dia, repete uma vez no dia seguinte e para", async () => {
+    const { client } = fakeDatabase(merged(teacherData(teacher, 5), subscribed(teacher, ["a"]), { notification_dispatches: [] }));
+    const send = vi.fn<PushSender>(async () => "sent");
+    expect(await runDailyDispatch(client, send, nineInSaoPaulo)).toEqual({ notified: 1, quiet: 0, failed: 0 });
+    expect(await runDailyDispatch(client, send, new Date("2026-12-06T12:05:00Z"))).toEqual({ notified: 1, quiet: 0, failed: 0 });
+    expect(await runDailyDispatch(client, send, new Date("2026-12-07T12:05:00Z"))).toEqual({ notified: 0, quiet: 1, failed: 0 });
+    expect(send.mock.calls.map(([, message]) => message.body)).toEqual(["1 cobrança para enviar hoje", "1 cobrança para enviar hoje"]);
+  });
+
+  test("cobrança enviada no dia não repete no dia seguinte", async () => {
+    const sent = { charges: [charge({ guardian_phone: "11987654321", guardian_name: "Ana Lima", sent_at: "2026-12-05T13:00:00Z" })] };
+    const { client } = fakeDatabase(merged(teacherData(teacher, 5), sent, subscribed(teacher, ["a"]), { notification_dispatches: [] }));
+    const send = vi.fn<PushSender>(async () => "sent");
+    expect(await runDailyDispatch(client, send, new Date("2026-12-06T12:05:00Z"))).toEqual({ notified: 0, quiet: 1, failed: 0 });
+    expect(send).not.toHaveBeenCalled();
   });
 });
 
