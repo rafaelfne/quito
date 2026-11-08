@@ -61,4 +61,18 @@ describe("supabaseServer", () => {
 
     expect(() => supabaseServer()).toThrow("supabaseKey is required");
   });
+  test("sem a chave pública, não troca pela chave secreta que passaria por cima da regra de acesso", () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", undefined);
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "chave-secreta-de-teste");
+
+    expect(() => supabaseServer()).toThrow("supabaseKey is required");
+    expect(createClient).not.toHaveBeenCalledWith(url, "chave-secreta-de-teste", expect.anything());
+  });
+
+  test("o login conferido numa conexão não aparece na conexão de outro professor", () => {
+    const first = supabaseServer();
+    const second = supabaseServer();
+
+    expect(first.auth).not.toBe(second.auth);
+  });
 });
