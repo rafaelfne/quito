@@ -1,12 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { monthOfKey } from "@/lib/charge-adjustments";
-import { chargeDueDatesFor, loadChargeMessageContext } from "@/lib/charge-message";
-import { awaitsReminders, isChargeSent, loadMonthPlan, remindersSentOf, type Charge } from "@/lib/charges";
-import { shiftMonth, type LessonsClient } from "@/lib/lessons";
+import { chargeDueDate, chargeDueDatesFor, loadChargeMessageContext, type ChargeMessageContext } from "@/lib/charge-message";
+import { awaitsReminders, isChargeSent, loadMonthPlan, remindersSentOf, waitsForMarks, type Charge, type WaitingGuardian } from "@/lib/charges";
+import { monthRange, shiftMonth, type LessonsClient } from "@/lib/lessons";
 import { fallbackTimeZone } from "@/lib/notification-time";
 import { addDays, reminderProgress } from "@/lib/reminders";
 
-export type DayWork = { charges: number; reminders: number };
+export type DayWork = { charges: number; reminders: number; unmarked: number };
 
 export type LocalClock = { date: string; hour: number };
 
@@ -34,14 +34,29 @@ function counted(amount: number, singular: string, plural: string): string {
   return `${amount} ${amount === 1 ? singular : plural}`;
 }
 
-export function describeDayWork({ charges, reminders }: DayWork): string | null {
+function describeToSend(charges: number, reminders: number): string | null {
   const parts = [charges > 0 ? counted(charges, "cobrança", "cobranças") : null, reminders > 0 ? counted(reminders, "lembrete", "lembretes") : null].filter((part) => part !== null);
   if (parts.length === 0) return null;
   return `${parts.join(" e ")} para enviar hoje`;
 }
 
+function describeToMark(unmarked: number): string | null {
+  if (unmarked === 0) return null;
+  return `${counted(unmarked, "cobrança", "cobranças")} ${unmarked === 1 ? "precisa" : "precisam"} de aula marcada`;
+}
+
+export function describeDayWork({ charges, reminders, unmarked }: DayWork): string | null {
+  const parts = [describeToSend(charges, reminders), describeToMark(unmarked)].filter((part) => part !== null);
+  return parts.length === 0 ? null : parts.join(". ");
+}
+
 function plannedCharge(charge: Omit<Charge, "id">, index: number): Charge {
   return { ...charge, id: `planned-${index}` };
+}
+
+function waitingDueToday(waiting: WaitingGuardian[], chargeMonth: string, { payment, dueDayOverrides }: ChargeMessageContext, today: string): number {
+  if (payment === null) return 0;
+  return waiting.filter((guardian) => waitsForMarks([guardian]) && chargeDueDate({ charge_month: chargeMonth, guardian_phone: guardian.phone }, payment.due_day, dueDayOverrides) === today).length;
 }
 
 export function chargeDaysToSend(today: string): string[] {
@@ -58,5 +73,6 @@ export async function loadDayWork(client: LessonsClient, today: string, timeZone
   const charges = candidates.filter((charge) => !isChargeSent(charge) && daysToSend.includes(dueDates[charge.id])).length;
   const dateOf = (timestamp: string) => localClock(new Date(timestamp), timeZone).date;
   const reminders = planned.existing.filter((charge) => awaitsReminders(charge) && charge.sent_at && reminderProgress(charge.sent_at, remindersSentOf(charge), context.reminderDays, dateOf).next?.due === today).length;
-  return { charges, reminders };
+  const unmarked = waitingDueToday(planned.plan.waiting, monthRange(month).first, context, today);
+  return { charges, reminders, unmarked };
 }

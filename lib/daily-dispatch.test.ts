@@ -70,6 +70,10 @@ function student(id: string, ownerId: string, overrides: Row = {}): Row {
   return { id, owner_id: ownerId, name: "Pedro Lima", gender: "male", called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00", created_at: "2026-10-01T12:00:00Z", ...overrides };
 }
 
+function perClass(id: string, ownerId: string, guardianPhone: string): Row {
+  return student(id, ownerId, { name: "Bia Rocha", guardian_name: "Rui Rocha", guardian_phone: guardianPhone, billing_kind: "per_class", billing_amount_cents: 10000 });
+}
+
 function charge(overrides: Partial<Charge> & Row): Row {
   return {
     id: "c1",
@@ -121,67 +125,102 @@ describe("hora e dia no fuso do professor", () => {
 
 describe("texto da notificação, só com a quantidade", () => {
   test("cobranças", () => {
-    expect(describeDayWork({ charges: 3, reminders: 0 })).toBe("3 cobranças para enviar hoje");
-    expect(describeDayWork({ charges: 1, reminders: 0 })).toBe("1 cobrança para enviar hoje");
+    expect(describeDayWork({ charges: 3, reminders: 0, unmarked: 0 })).toBe("3 cobranças para enviar hoje");
+    expect(describeDayWork({ charges: 1, reminders: 0, unmarked: 0 })).toBe("1 cobrança para enviar hoje");
   });
 
   test("lembretes", () => {
-    expect(describeDayWork({ charges: 0, reminders: 2 })).toBe("2 lembretes para enviar hoje");
-    expect(describeDayWork({ charges: 0, reminders: 1 })).toBe("1 lembrete para enviar hoje");
+    expect(describeDayWork({ charges: 0, reminders: 2, unmarked: 0 })).toBe("2 lembretes para enviar hoje");
+    expect(describeDayWork({ charges: 0, reminders: 1, unmarked: 0 })).toBe("1 lembrete para enviar hoje");
   });
 
   test("cobranças e lembretes juntos", () => {
-    expect(describeDayWork({ charges: 1, reminders: 2 })).toBe("1 cobrança e 2 lembretes para enviar hoje");
+    expect(describeDayWork({ charges: 1, reminders: 2, unmarked: 0 })).toBe("1 cobrança e 2 lembretes para enviar hoje");
+  });
+
+  test("cobranças que precisam de aula marcada", () => {
+    expect(describeDayWork({ charges: 0, reminders: 0, unmarked: 2 })).toBe("2 cobranças precisam de aula marcada");
+    expect(describeDayWork({ charges: 0, reminders: 0, unmarked: 1 })).toBe("1 cobrança precisa de aula marcada");
+  });
+
+  test("a mesma notificação junta o que enviar e o que falta marcar", () => {
+    expect(describeDayWork({ charges: 3, reminders: 1, unmarked: 2 })).toBe("3 cobranças e 1 lembrete para enviar hoje. 2 cobranças precisam de aula marcada");
   });
 
   test("dia sem nada a fazer não tem texto", () => {
-    expect(describeDayWork({ charges: 0, reminders: 0 })).toBeNull();
+    expect(describeDayWork({ charges: 0, reminders: 0, unmarked: 0 })).toBeNull();
   });
 });
 
 describe("o que o professor tem para enviar no dia", () => {
   test("cada professor só enxerga os próprios dados", async () => {
     const { client } = fakeDatabase(merged(teacherData(teacher, 5), teacherData(other, 5)));
-    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 1, reminders: 0 });
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 1, reminders: 0, unmarked: 0 });
   });
 
   test("conta a cobrança que vence hoje mesmo antes de o professor abrir o painel", async () => {
     const { client, writes } = fakeDatabase(teacherData(teacher, 5));
-    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 1, reminders: 0 });
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 1, reminders: 0, unmarked: 0 });
     expect(writes).toEqual([]);
   });
 
   test("cobrança que vence outro dia não conta", async () => {
     const { client } = fakeDatabase(teacherData(teacher, 10));
-    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 0, reminders: 0 });
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 0, reminders: 0, unmarked: 0 });
   });
 
   test("cobrança já enviada não conta de novo", async () => {
     const { client } = fakeDatabase(merged(teacherData(teacher, 5), { charges: [charge({ guardian_phone: "11987654321", sent_at: "2026-12-05T12:00:00Z" })] }));
-    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 0, reminders: 0 });
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 0, reminders: 0, unmarked: 0 });
   });
 
   test("cobrança guardada e ainda não enviada conta", async () => {
     const { client } = fakeDatabase(merged(teacherData(teacher, 5), { charges: [charge({})] }));
-    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 2, reminders: 0 });
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 2, reminders: 0, unmarked: 0 });
   });
 
   test("conta o lembrete do dia, no fuso do professor", async () => {
     const sentLateAtNight = charge({ sent_at: "2026-12-03T01:00:00Z" });
     const { client } = fakeDatabase(merged(teacherData(teacher, 1), { charges: [sentLateAtNight] }));
-    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 0, reminders: 1 });
-    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", "UTC")).toEqual({ charges: 0, reminders: 0 });
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 0, reminders: 1, unmarked: 0 });
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", "UTC")).toEqual({ charges: 0, reminders: 0, unmarked: 0 });
   });
 
   test("cobrança paga não pede lembrete", async () => {
     const paid = charge({ sent_at: "2026-12-02T13:00:00Z", paid_at: "2026-12-04T13:00:00Z" });
     const { client } = fakeDatabase(merged(teacherData(teacher, 1), { charges: [paid] }));
-    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 0, reminders: 0 });
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 0, reminders: 0, unmarked: 0 });
   });
 
   test("mês de treino não conta cobrança", async () => {
     const { client } = fakeDatabase(merged(teacherData(teacher, 5), { getting_started: [{ owner_id: teacher, started_at: "2026-11-10T12:00:00Z" }] }));
-    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 0, reminders: 0 });
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 0, reminders: 0, unmarked: 0 });
+  });
+
+  test("cobrança que vence hoje com aula sem marcar conta à parte", async () => {
+    const { client, writes } = fakeDatabase(merged(teacherData(teacher, 5), { students: [perClass("bia", teacher, "11955556666")] }));
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 1, reminders: 0, unmarked: 1 });
+    expect(writes).toEqual([]);
+  });
+
+  test("aula sem marcar só conta no dia do vencimento", async () => {
+    const { client } = fakeDatabase(merged(teacherData(teacher, 10), { students: [perClass("bia", teacher, "11955556666")] }));
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 0, reminders: 0, unmarked: 0 });
+  });
+
+  test("o vencimento próprio do responsável vale para a aula sem marcar", async () => {
+    const { client } = fakeDatabase(merged(teacherData(teacher, 10), { students: [perClass("bia", teacher, "11955556666")], guardian_due_days: [{ owner_id: teacher, guardian_phone: "11955556666", due_day: 5 }] }));
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 0, reminders: 0, unmarked: 1 });
+  });
+
+  test("falta só a forma de cobrança não conta como aula sem marcar", async () => {
+    const { client } = fakeDatabase(merged(teacherData(teacher, 5), { students: [student("bia", teacher, { guardian_phone: "11955556666", billing_kind: null, billing_amount_cents: null })] }));
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 1, reminders: 0, unmarked: 0 });
+  });
+
+  test("sem chave Pix guardada, não há vencimento para contar", async () => {
+    const { client } = fakeDatabase(merged({ ...teacherData(teacher, 5), payment_settings: [] }, { students: [perClass("bia", teacher, "11955556666")] }));
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 0, reminders: 0, unmarked: 0 });
   });
 
   test("sem conseguir ler os dados, não decide nada", async () => {
@@ -198,23 +237,29 @@ describe("repetição no dia seguinte", () => {
 
   test("cobrança de ontem ainda não enviada conta de novo hoje", async () => {
     const { client } = fakeDatabase(teacherData(teacher, 5));
-    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-06", saoPaulo)).toEqual({ charges: 1, reminders: 0 });
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-06", saoPaulo)).toEqual({ charges: 1, reminders: 0, unmarked: 0 });
   });
 
   test("cobrança de ontem já enviada não repete", async () => {
     const { client } = fakeDatabase(merged(teacherData(teacher, 5), { charges: [charge({ guardian_phone: "11987654321", sent_at: "2026-12-05T23:00:00Z" })] }));
-    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-06", saoPaulo)).toEqual({ charges: 0, reminders: 0 });
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-06", saoPaulo)).toEqual({ charges: 0, reminders: 0, unmarked: 0 });
   });
 
   test("a repetição é uma só: dois dias depois não conta mais", async () => {
     const { client } = fakeDatabase(merged(teacherData(teacher, 5), { charges: [charge({})] }));
-    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-07", saoPaulo)).toEqual({ charges: 0, reminders: 0 });
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-07", saoPaulo)).toEqual({ charges: 0, reminders: 0, unmarked: 0 });
   });
 
   test("cobrança de ontem soma com a de hoje", async () => {
     const tables = merged(teacherData(teacher, 6), { charges: [charge({})], guardian_due_days: [{ owner_id: teacher, guardian_phone: "11911112222", due_day: 5 }] });
     const { client } = fakeDatabase(tables);
-    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-06", saoPaulo)).toEqual({ charges: 2, reminders: 0 });
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-06", saoPaulo)).toEqual({ charges: 2, reminders: 0, unmarked: 0 });
+  });
+
+  test("no dia seguinte, a cobrança repete e a aula sem marcar não", async () => {
+    const { client } = fakeDatabase(merged(teacherData(teacher, 5), { students: [perClass("bia", teacher, "11955556666")] }));
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-05", saoPaulo)).toEqual({ charges: 1, reminders: 0, unmarked: 1 });
+    expect(await loadDayWork(ownerScoped(client, teacher), "2026-12-06", saoPaulo)).toEqual({ charges: 1, reminders: 0, unmarked: 0 });
   });
 
   test("avisa no dia, repete uma vez no dia seguinte e para", async () => {
@@ -275,9 +320,9 @@ describe("professores que recebem a notificação", () => {
 describe("registro do aviso do dia", () => {
   test("só o primeiro registro do dia vale", async () => {
     const { client } = fakeDatabase({ notification_dispatches: [] });
-    expect(await claimDispatch(client, teacher, "2026-12-05", { charges: 1, reminders: 0 })).toBe(true);
-    expect(await claimDispatch(client, teacher, "2026-12-05", { charges: 1, reminders: 0 })).toBe(false);
-    expect(await claimDispatch(client, teacher, "2026-12-06", { charges: 0, reminders: 0 })).toBe(true);
+    expect(await claimDispatch(client, teacher, "2026-12-05", { charges: 1, reminders: 0, unmarked: 0 })).toBe(true);
+    expect(await claimDispatch(client, teacher, "2026-12-05", { charges: 1, reminders: 0, unmarked: 0 })).toBe(false);
+    expect(await claimDispatch(client, teacher, "2026-12-06", { charges: 0, reminders: 0, unmarked: 0 })).toBe(true);
   });
 
   test("lê os avisos recentes", async () => {
@@ -306,9 +351,25 @@ describe("disparo diário", () => {
     const send = vi.fn<PushSender>(async () => "sent");
     expect(await runDailyDispatch(client, send, nineInSaoPaulo)).toEqual({ notified: 1, quiet: 0, failed: 0 });
     expect(send).toHaveBeenCalledTimes(2);
-    expect(send.mock.calls[0]).toEqual([{ endpoint: "a", p256dh: "k", auth: "s" }, { title: dispatchTitle, body: "1 cobrança para enviar hoje", path: "/charges" }]);
+    expect(send.mock.calls[0]).toEqual([{ endpoint: "a", p256dh: "k", auth: "s" }, { title: dispatchTitle, body: "1 cobrança para enviar hoje", path: "/charges?from=notification" }]);
     expect(JSON.stringify(send.mock.calls)).not.toMatch(/Ana Lima|Pedro|300/);
     expect(tables.notification_dispatches).toEqual([{ owner_id: teacher, day: "2026-12-05", charges: 1, reminders: 0 }]);
+  });
+
+  test("com aula sem marcar no dia do vencimento, a mesma notificação avisa e o toque leva ao painel", async () => {
+    const { client } = fakeDatabase(merged(teacherData(teacher, 5), { students: [perClass("bia", teacher, "11955556666"), perClass("leo", teacher, "11977778888")] }, subscribed(teacher, ["a"]), { notification_dispatches: [] }));
+    const send = vi.fn<PushSender>(async () => "sent");
+    expect(await runDailyDispatch(client, send, nineInSaoPaulo)).toEqual({ notified: 1, quiet: 0, failed: 0 });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][1]).toEqual({ title: dispatchTitle, body: "1 cobrança para enviar hoje. 2 cobranças precisam de aula marcada", path: "/charges?from=notification" });
+    expect(JSON.stringify(send.mock.calls)).not.toMatch(/Rocha|Bia|Leo|100/);
+  });
+
+  test("dia só com aula sem marcar também avisa", async () => {
+    const { client } = fakeDatabase(merged({ ...teacherData(teacher, 5), students: [perClass("bia", teacher, "11955556666")] }, subscribed(teacher, ["a"]), { notification_dispatches: [] }));
+    const send = vi.fn<PushSender>(async () => "sent");
+    expect(await runDailyDispatch(client, send, nineInSaoPaulo)).toEqual({ notified: 1, quiet: 0, failed: 0 });
+    expect(send.mock.calls[0][1].body).toBe("1 cobrança precisa de aula marcada");
   });
 
   test("avisa uma vez só no dia, mesmo rodando de novo", async () => {

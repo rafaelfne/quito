@@ -105,7 +105,7 @@ export function accountLinesOf(charge: Charge, students: ChargeMessageContext["s
   return [...named.flatMap(studentLines), ...discountLines(named)];
 }
 
-export function chargeDueDate(charge: Charge, defaultDueDay: number, overrides: Map<string, number>): string {
+export function chargeDueDate(charge: Pick<Charge, "charge_month" | "guardian_phone">, defaultDueDay: number, overrides: Map<string, number>): string {
   const dueDay = dueDayForGuardian(defaultDueDay, overrides.get(charge.guardian_phone));
   return dueDateIn(shiftMonth(monthOfKey(charge.charge_month), 1), dueDay);
 }

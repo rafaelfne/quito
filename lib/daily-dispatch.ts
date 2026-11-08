@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { chargesPath } from "@/lib/charges";
+import { notificationTapPath } from "@/lib/charges";
 import { describeDayWork, loadDayWork, localClock, ownerScoped, type DayWork } from "@/lib/day-work";
 import { defaultNotificationHour, fallbackTimeZone, isNotificationHour } from "@/lib/notification-time";
 
@@ -94,7 +94,7 @@ async function dispatchTo(client: DispatchClient, send: PushSender, target: Teac
   if (!(await claimDispatch(client, target.ownerId, today, work))) return "quiet";
   const body = describeDayWork(work);
   if (body === null) return "quiet";
-  const message = { title: dispatchTitle, body, path: chargesPath };
+  const message = { title: dispatchTitle, body, path: notificationTapPath };
   const results = await Promise.all(target.devices.map((device) => send(device, message)));
   await Promise.all(target.devices.filter((_, index) => results[index] === "gone").map((device) => forgetDevice(client, target.ownerId, device.endpoint)));
   return results.includes("sent") ? "notified" : "failed";
