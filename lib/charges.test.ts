@@ -48,6 +48,11 @@ import {
   type Charge,
   type WaitingGuardian,
   syncChargesWithMessages,
+  focusedChargeOf,
+  isFromNotification,
+  notificationTapPath,
+  showFullPanel,
+  singleChargeToSend,
 } from "@/lib/charges";
 import { buildMonthClosing, type ClosingData, type ClosingRules } from "@/lib/closing";
 import type { LessonMark, LessonsClient } from "@/lib/lessons";
@@ -489,7 +494,7 @@ const bia: WaitingGuardian = { phone: "11933334444", guardianName: "Bia", studen
 
 describe("estado da tela", () => {
   test("começa carregando o mês", () => {
-    expect(initialCharges(november)).toEqual({ month: november, trainingMonth: null, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null, savingPayments: [], paymentMessage: null, reminderDays: [], reminderMessages: {}, savingReminders: [], reminderNotice: null });
+    expect(initialCharges(november)).toEqual({ month: november, trainingMonth: null, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null, savingPayments: [], paymentMessage: null, reminderDays: [], reminderMessages: {}, savingReminders: [], reminderNotice: null, focusOnSingle: false, focusedChargeId: null });
   });
 
   test("recarregar mantém o que já estava na tela", () => {
@@ -499,7 +504,7 @@ describe("estado da tela", () => {
 
   test("aplica o resultado", () => {
     const result = { ok: true as const, month: november, charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"] };
-    expect(applyChargesLoad(initialCharges(november), result)).toEqual({ month: november, trainingMonth: null, status: "ready", charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null, savingPayments: [], paymentMessage: null, reminderDays: [], reminderMessages: {}, savingReminders: [], reminderNotice: null });
+    expect(applyChargesLoad(initialCharges(november), result)).toEqual({ month: november, trainingMonth: null, status: "ready", charges: [saved()], waiting: [bia], nothingToCharge: ["Caio"], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null, savingPayments: [], paymentMessage: null, reminderDays: [], reminderMessages: {}, savingReminders: [], reminderNotice: null, focusOnSingle: false, focusedChargeId: null });
   });
 
   test("traz se o professor já passou pela prévia", () => {
@@ -806,5 +811,58 @@ describe("painel do mês", () => {
     expect(hasReminderToday({ ...withReminders, today: "2026-12-07" }, sentOpen)).toBe(false);
     expect(groupCharges(withReminders).today.map(({ id }) => id)).toEqual(["hoje", "atrasada", "enviada"]);
     expect(groupCharges(withReminders).paid.map(({ id }) => id)).toEqual(["paga"]);
+  });
+});
+
+describe("toque na notificação", () => {
+  const due = { ...saved(), id: "hoje" };
+  const later = { ...saved(), id: "depois", guardian_phone: "11911112222" };
+  const loaded = (charges: Charge[], waiting: WaitingGuardian[] = []) => ({ ok: true as const, month: november, trainingMonth: null, charges, waiting, nothingToCharge: [], dueDates: { hoje: "2026-12-05", depois: "2026-12-10" }, today: "2026-12-05", messages: { hoje: "Oi", depois: "Oi" } });
+  const waitingMarks: WaitingGuardian = { phone: "11933334444", guardianName: "Bia", students: [{ studentId: "rui", studentName: "Rui", unmarked: 2, missingBilling: false }] };
+  const waitingBilling: WaitingGuardian = { phone: "11933334444", guardianName: "Bia", students: [{ studentId: "rui", studentName: "Rui", unmarked: 0, missingBilling: true }] };
+
+  test("o toque abre o painel das cobranças marcado como vindo da notificação", () => {
+    expect(notificationTapPath).toBe(`${chargesPath}?from=notification`);
+    expect(isFromNotification(new URLSearchParams(notificationTapPath.split("?")[1]).get("from"))).toBe(true);
+    expect(isFromNotification(null)).toBe(false);
+    expect(isFromNotification("outro")).toBe(false);
+  });
+
+  test("vindo da notificação, com uma só cobrança para hoje, abre a prévia dela", () => {
+    const state = applyChargesLoad(initialCharges(november, true), loaded([due, later]));
+    expect(state.focusedChargeId).toBe("hoje");
+    expect(state.focusOnSingle).toBe(false);
+    expect(focusedChargeOf(state)?.id).toBe("hoje");
+  });
+
+  test("com mais de uma cobrança para hoje, ou nenhuma, abre o painel do dia", () => {
+    const two = applyChargesLoad(initialCharges(november, true), { ...loaded([due, { ...later, id: "hoje2" }]), dueDates: { hoje: "2026-12-05", hoje2: "2026-12-05" } });
+    expect(two.focusedChargeId).toBeNull();
+    expect(focusedChargeOf(two)).toBeNull();
+    expect(applyChargesLoad(initialCharges(november, true), loaded([later])).focusedChargeId).toBeNull();
+  });
+
+  test("com aula para marcar, o toque leva ao painel mesmo com uma só cobrança pronta", () => {
+    expect(applyChargesLoad(initialCharges(november, true), loaded([due], [waitingMarks])).focusedChargeId).toBeNull();
+    expect(applyChargesLoad(initialCharges(november, true), loaded([due], [waitingBilling])).focusedChargeId).toBe("hoje");
+  });
+
+  test("abrindo o painel direto, sem a notificação, mostra tudo", () => {
+    expect(applyChargesLoad(initialCharges(november), loaded([due])).focusedChargeId).toBeNull();
+  });
+
+  test("a escolha vale só para a primeira carga: recarregar não muda e falhar espera a próxima", () => {
+    const failed = applyChargesLoad(initialCharges(november, true), { ok: false, month: november });
+    expect(failed.focusOnSingle).toBe(true);
+    const focused = applyChargesLoad(failed, loaded([due]));
+    expect(focused.focusedChargeId).toBe("hoje");
+    const sent = applyChargesLoad(focused, loaded([{ ...due, sent_at: "2026-12-05T12:00:00Z" }]));
+    expect(sent.focusedChargeId).toBe("hoje");
+    expect(singleChargeToSend(sent)).toBeNull();
+  });
+
+  test("ver o painel do dia sai da prévia e mostra tudo", () => {
+    const focused = applyChargesLoad(initialCharges(november, true), loaded([due]));
+    expect(focusedChargeOf(showFullPanel(focused))).toBeNull();
   });
 });

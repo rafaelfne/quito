@@ -1,15 +1,17 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { ChargesView } from "@/app/(app)/charges/charges-view";
-import { applyChargesLoad, applyPaidSaved, applyPreviewConfirmation, applyRemindersSaved, applySendSaved, endedMonthOf, initialCharges, startConfirmingPreview, startReloadingCharges, startSavingPayment, startSavingReminder, startSavingSend, syncChargesWithMessages, withoutLastReminder, withReminderSent } from "@/lib/charges";
+import { applyChargesLoad, applyPaidSaved, applyPreviewConfirmation, applyRemindersSaved, applySendSaved, endedMonthOf, initialCharges, isFromNotification, showFullPanel, startConfirmingPreview, startReloadingCharges, startSavingPayment, startSavingReminder, startSavingSend, syncChargesWithMessages, withoutLastReminder, withReminderSent } from "@/lib/charges";
 import { saveChargePaidAt, saveChargeRemindersSentAt, saveChargeSentAt } from "@/lib/charge-sending";
 import { confirmMessagePreview } from "@/lib/message-preview";
 import { dateKeyOf } from "@/lib/lessons";
 import { supabase } from "@/lib/supabase";
 
 export default function ChargesPage() {
-  const [state, setState] = useState(initialCharges(endedMonthOf(new Date())));
+  const fromNotification = isFromNotification(useSearchParams().get("from"));
+  const [state, setState] = useState(initialCharges(endedMonthOf(new Date()), fromNotification));
   const { month } = state;
 
   const load = useCallback(() => {
@@ -50,6 +52,7 @@ export default function ChargesPage() {
     <ChargesView
       state={state}
       onRetry={retry}
+      onShowFullPanel={() => setState(showFullPanel)}
       onConfirmPreview={confirmPreview}
       onSend={(chargeId) => saveSent(chargeId, new Date().toISOString())}
       onUndoSend={(chargeId) => saveSent(chargeId, null)}

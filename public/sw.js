@@ -1,4 +1,4 @@
-const fallbackPath = "/charges";
+const fallbackPath = "/charges?from=notification";
 
 const fallbackTitle = "Quitô";
 
@@ -27,5 +27,17 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const path = (event.notification.data && event.notification.data.path) || fallbackPath;
-  event.waitUntil(self.clients.openWindow(path));
+  event.waitUntil(openPath(path));
 });
+
+async function openPath(path) {
+  const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  const open = windows.find((client) => typeof client.navigate === "function");
+  if (!open) return self.clients.openWindow(path);
+  try {
+    const navigated = await open.navigate(path);
+    return await (navigated || open).focus();
+  } catch {
+    return self.clients.openWindow(path);
+  }
+}

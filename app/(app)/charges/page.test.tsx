@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { chargeMessages, type ChargesState } from "@/lib/charges";
 import type { Student } from "@/lib/students";
 
-type ViewProps = { state: ChargesState; onRetry: () => void; onConfirmPreview: () => void; onSend: (chargeId: string) => void; onUndoSend: (chargeId: string) => void; onMarkPaid: (chargeId: string) => void; onUndoPaid: (chargeId: string) => void; onSendReminder: (chargeId: string) => void; onUndoReminder: (chargeId: string) => void };
+type ViewProps = { state: ChargesState; onRetry: () => void; onShowFullPanel: () => void; onConfirmPreview: () => void; onSend: (chargeId: string) => void; onUndoSend: (chargeId: string) => void; onMarkPaid: (chargeId: string) => void; onUndoPaid: (chargeId: string) => void; onSendReminder: (chargeId: string) => void; onUndoReminder: (chargeId: string) => void };
 
 const pedro: Student = { id: "p", name: "Pedro Lima", gender: "male", called_as: null, guardian_name: "Ana Lima", guardian_phone: "11987654321", billing_kind: "monthly", billing_amount_cents: 30000, package_lessons: null, lesson_weekday: 1, lesson_time: "15:00:00" };
 
@@ -67,6 +67,8 @@ vi.mock("react", async (original) => ({
   useCallback: hooks.useCallback,
   useEffect: hooks.useEffect,
 }));
+const requestedParams = { current: "" };
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(requestedParams.current) }));
 vi.mock("@/lib/supabase", () => ({ supabase: { from, auth: {} } }));
 
 const { default: ChargesPage } = await import("./page");
@@ -82,6 +84,7 @@ function view(): ViewProps {
 
 beforeEach(() => {
   hooks.reset();
+  requestedParams.current = "";
   stored.length = 0;
   upsert.mockClear();
   selectStudents.mockClear();
@@ -218,5 +221,22 @@ describe("página de cobranças", () => {
     expect(view().state.status).toBe("loading");
     await settle();
     expect(view().state.status).toBe("ready");
+  });
+
+  test("aberta pela notificação no dia da única cobrança, mostra a prévia dela e volta ao painel", async () => {
+    vi.setSystemTime(new Date(2026, 11, 5, 12));
+    requestedParams.current = "from=notification";
+    expect(view().state.focusOnSingle).toBe(true);
+    await settle();
+    expect(view().state).toMatchObject({ status: "ready", focusedChargeId: "c1", focusOnSingle: false });
+    view().onShowFullPanel();
+    expect(view().state.focusedChargeId).toBeNull();
+  });
+
+  test("aberta direto, mostra o painel inteiro", async () => {
+    vi.setSystemTime(new Date(2026, 11, 5, 12));
+    view();
+    await settle();
+    expect(view().state).toMatchObject({ status: "ready", focusedChargeId: null, focusOnSingle: false });
   });
 });
