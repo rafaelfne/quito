@@ -26,8 +26,8 @@ jobs:
           set -euo pipefail
           curl -fsSL -o gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
           echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tar.gz" | sha256sum -c -
-          curl -fsSL -o virgilio.tar.gz https://github.com/Omnex-Labs/virgilio-releases/releases/download/v2026.1.0-beta.33/virgilio-linux-x64.tar.gz
-          echo "d0253a5c6f2478a62a0e74bf8ba9b269cb6fb005a37ae411684b4fe0593caaa5  virgilio.tar.gz" | sha256sum -c -
+          curl -fsSL -o virgilio.tar.gz https://github.com/Omnex-Labs/virgilio-releases/releases/download/v2026.1.0-beta.46/virgilio-linux-x64.tar.gz
+          echo "0c9a6348ecd3a50af744d9cadff98041f4a5404d0bc3920c5e6a81f45caaa3aa  virgilio.tar.gz" | sha256sum -c -
           mkdir -p "$RUNNER_TEMP/bin"
           tar -xzf virgilio.tar.gz -C "$RUNNER_TEMP/bin" virgilio
           rm virgilio.tar.gz
@@ -92,8 +92,8 @@ jobs:
       - name: install virgilio
         run: |
           set -euo pipefail
-          curl -fsSL -o virgilio.tar.gz https://github.com/Omnex-Labs/virgilio-releases/releases/download/v2026.1.0-beta.33/virgilio-linux-x64.tar.gz
-          echo "d0253a5c6f2478a62a0e74bf8ba9b269cb6fb005a37ae411684b4fe0593caaa5  virgilio.tar.gz" | sha256sum -c -
+          curl -fsSL -o virgilio.tar.gz https://github.com/Omnex-Labs/virgilio-releases/releases/download/v2026.1.0-beta.46/virgilio-linux-x64.tar.gz
+          echo "0c9a6348ecd3a50af744d9cadff98041f4a5404d0bc3920c5e6a81f45caaa3aa  virgilio.tar.gz" | sha256sum -c -
           mkdir -p "$RUNNER_TEMP/bin"
           tar -xzf virgilio.tar.gz -C "$RUNNER_TEMP/bin" virgilio
           rm virgilio.tar.gz
