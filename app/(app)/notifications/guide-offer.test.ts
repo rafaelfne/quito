@@ -34,20 +34,37 @@ beforeEach(() => {
 
 describe("oferta do guia de ativação", () => {
   test("no Android com as notificações desligadas, oferece", async () => {
-    expect(useNotificationsGuideOffer()).toBe(false);
+    expect(useNotificationsGuideOffer()).toBe("none");
     await settle();
-    expect(state.setters[0]).toHaveBeenCalledWith(true);
+    expect(state.setters[0]).toHaveBeenCalledWith("offer");
   });
 
   test("no Android com as notificações ativas, não oferece", async () => {
     push.checkPush.mockResolvedValue("active");
     useNotificationsGuideOffer();
     await settle();
-    expect(state.setters[0]).toHaveBeenCalledWith(false);
+    expect(state.setters[0]).toHaveBeenCalledWith("none");
   });
 
-  test("fora do Android, nem confere as notificações", async () => {
+  test("no iPhone pelo Safari, oferece o guia para adicionar à tela de início", async () => {
     push.deviceFrom.mockReturnValue("iphone");
+    push.browserPushEnvironment.mockReturnValue({ userAgent: "iPhone", standalone: false });
+    push.checkPush.mockResolvedValue("needs-install");
+    useNotificationsGuideOffer();
+    await settle();
+    expect(state.setters[0]).toHaveBeenCalledWith("offer");
+  });
+
+  test("no iPhone aberto pelo ícone, sem notificações, chama de volta ao guia", async () => {
+    push.deviceFrom.mockReturnValue("iphone");
+    push.browserPushEnvironment.mockReturnValue({ userAgent: "iPhone", standalone: true });
+    useNotificationsGuideOffer();
+    await settle();
+    expect(state.setters[0]).toHaveBeenCalledWith("resume");
+  });
+
+  test("no computador, nem confere as notificações", async () => {
+    push.deviceFrom.mockReturnValue("computer");
     useNotificationsGuideOffer();
     await settle();
     expect(push.checkPush).not.toHaveBeenCalled();

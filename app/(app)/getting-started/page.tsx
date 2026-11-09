@@ -14,7 +14,7 @@ export default function GettingStartedPage() {
   const [baselineDelayDays, setBaselineDelayDays] = useState<number | null>(null);
   const [firstCharge, setFirstCharge] = useState<FirstChargeNotice | null>(null);
   const [firstChargePreview, setFirstChargePreview] = useState<FirstChargePreview | null>(null);
-  const notificationsGuideOffered = useNotificationsGuideOffer();
+  const notificationsGuideOffer = useNotificationsGuideOffer();
 
   const load = useCallback(() => {
     void openGettingStarted(supabase).then((result) => {
@@ -39,5 +39,5 @@ export default function GettingStartedPage() {
     load();
   }
 
-  return <GettingStartedView state={state} onRetry={retry} baselineDelayDays={baselineDelayDays} onSaveBaselineDelay={saveBaseline} firstCharge={firstCharge} firstChargePreview={firstChargePreview} notificationsInvite={showsNotificationsInvite(state, notificationsGuideOffered)} />;
+  return <GettingStartedView state={state} onRetry={retry} baselineDelayDays={baselineDelayDays} onSaveBaselineDelay={saveBaseline} firstCharge={firstCharge} firstChargePreview={firstChargePreview} notificationsInvite={showsNotificationsInvite(state, notificationsGuideOffer !== "none")} />;
 }

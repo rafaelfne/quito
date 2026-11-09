@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
+import type { ChargesInvite } from "@/lib/activation-guide";
 import { chargeMessages, initialCharges, type Charge, type ChargesState, type WaitingGuardian } from "@/lib/charges";
 import { notificationsGuidePath, notificationsInviteMessages } from "@/lib/notifications-invite";
 import { ChargesView } from "./charges-view";
@@ -464,20 +465,27 @@ describe("lembretes", () => {
 });
 
 describe("convite para o guia de ativação na primeira cobrança", () => {
-  function renderInvite(state: ChargesState, notificationsInvite: boolean) {
+  function renderInvite(state: ChargesState, notificationsInvite: ChargesInvite | null) {
     return renderToStaticMarkup(<ChargesView state={state} notificationsInvite={notificationsInvite} onRetry={vi.fn()} onShowFullPanel={vi.fn()} onConfirmPreview={vi.fn()} onSend={vi.fn()} onUndoSend={vi.fn()} onMarkPaid={vi.fn()} onUndoPaid={vi.fn()} onSendReminder={vi.fn()} onUndoReminder={vi.fn()} />);
   }
 
   test("com a primeira cobrança pronta, convida antes das cobranças", () => {
-    const html = renderInvite(ready({ charges: [charge] }), true);
+    const html = renderInvite(ready({ charges: [charge] }), "first-charge");
     expect(html).toContain(notificationsInviteMessages.firstChargeText);
     expect(html).toContain(`href="${notificationsGuidePath}"`);
     expect(html.indexOf(notificationsInviteMessages.title)).toBeLessThan(html.indexOf("Ana Lima"));
   });
 
   test("sem o convite ou enquanto carrega, não aparece", () => {
-    expect(renderInvite(ready({ charges: [charge] }), false)).not.toContain(notificationsInviteMessages.title);
-    expect(renderInvite(initialCharges(november), true)).not.toContain(notificationsInviteMessages.title);
+    expect(renderInvite(ready({ charges: [charge] }), null)).not.toContain(notificationsInviteMessages.title);
+    expect(renderInvite(initialCharges(november), "first-charge")).not.toContain(notificationsInviteMessages.title);
     expect(render(ready({ charges: [charge] }))).not.toContain(notificationsInviteMessages.title);
+  });
+
+  test("no iPhone já na tela de início, convida a voltar ao guia para liberar as notificações", () => {
+    const html = renderInvite(ready({ charges: [charge] }), "resume");
+    expect(html).toContain(notificationsInviteMessages.resumeText);
+    expect(html).not.toContain(notificationsInviteMessages.firstChargeText);
+    expect(html).toContain(`href="${notificationsGuidePath}"`);
   });
 });

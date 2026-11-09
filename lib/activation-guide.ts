@@ -13,12 +13,22 @@ export type InstallPromptEvent = Event & { prompt(): Promise<unknown>; userChoic
 
 export type GuideFetch = (input: string, init: RequestInit) => Promise<Pick<Response, "ok" | "json">>;
 
+export type GuideOffer = "none" | "offer" | "resume";
+
+export type ChargesInvite = "first-charge" | "resume";
+
+export const guideMessages = {
+  title: "Ativar as notificações no celular",
+  otherDevice: "Este passo a passo é para celular. Abra o Quitô no Chrome do seu Android ou no Safari do seu iPhone para seguir o guia. Enquanto isso, você pode ver as notificações deste aparelho em Sua conta.",
+  checking: "Conferindo este celular...",
+  done: "Feito",
+  enable: "Ativar as notificações",
+  enabling: "Ativando...",
+};
+
 export const androidGuideMessages = {
   title: "Ativar as notificações no Android",
   intro: "Em três passos, o Quitô fica na tela inicial do seu celular e passa a avisar no dia de cobrar.",
-  otherDevice: "Este passo a passo é para celular Android. Abra o Quitô no Chrome do seu Android para seguir o guia. Enquanto isso, você pode ver as notificações deste aparelho em Sua conta.",
-  checking: "Conferindo este celular...",
-  done: "Feito",
   install: {
     title: "Instale o Quitô",
     installed: "O Quitô está instalado neste celular.",
@@ -67,8 +77,80 @@ export const androidGuideMessages = {
   },
 };
 
+export type GuideTestMessages = typeof androidGuideMessages.test;
+
+export const iphoneGuideMessages = {
+  title: "Ativar as notificações no iPhone",
+  intro: "No iPhone, as notificações só chegam com o Quitô na tela de início. Em cinco passos, você adiciona o Quitô, abre pelo ícone, entra de novo e passa a receber o aviso no dia de cobrar.",
+  addToHome: {
+    title: "Adicione o Quitô à tela de início",
+    installed: "O Quitô está na tela de início deste iPhone.",
+    safariOnly: "Use o Safari. Se este link abriu dentro do WhatsApp, do Instagram ou de outro app, abra o Quitô no Safari antes de seguir.",
+    steps: [
+      "No Safari, toque no botão Compartilhar, o quadrado com a seta para cima. Se ele não aparecer, toque antes nos três pontinhos (···) na barra de baixo.",
+      "Role a lista e toque em Adicionar à Tela de Início.",
+      "Se aparecer a opção Abrir como App da Web, deixe ligada. Toque em Adicionar. O ícone do Quitô aparece na tela de início.",
+    ],
+  },
+  openFromIcon: {
+    title: "Abra o Quitô pelo ícone",
+    installed: "Você está no Quitô aberto pelo ícone.",
+    text: "Saia do Safari e toque no ícone do Quitô na tela de início. As notificações só funcionam no Quitô aberto por ali.",
+  },
+  signInAgain: {
+    title: "Entre de novo no app",
+    installed: "Você está conectado no app.",
+    text: "Na primeira vez, o Quitô aberto pelo ícone pede para entrar de novo, mesmo que você já esteja conectado no Safari. Entre com o mesmo e-mail e digite o código de 6 números que chega por e-mail.",
+    next: "Depois de entrar, toque em Ativar as notificações, no alto das cobranças, para voltar a este guia no passo 4.",
+  },
+  notifications: {
+    title: "Libere as notificações",
+    ask: "Toque no botão abaixo. O iPhone pergunta se o Quitô pode enviar notificações: toque em Permitir.",
+    active: "As notificações estão ativas neste iPhone.",
+    needsInstall: "Este passo só funciona no Quitô aberto pelo ícone da tela de início. Siga os passos 1 a 3 e continue por lá.",
+    unsupported: [
+      "Este iPhone precisa de uma atualização para receber notificações do Quitô.",
+      "Abra os Ajustes, toque em Geral e depois em Atualização de Software. Instale a versão mais nova (a partir do iOS 16.4) e volte a este guia pelo ícone do Quitô.",
+    ],
+    failed: "Não deu para ativar as notificações agora. Confira a internet e tente de novo.",
+    blocked: [
+      "As notificações do Quitô estão bloqueadas neste iPhone. Para liberar:",
+      "Abra os Ajustes do iPhone e toque em Notificações.",
+      "Toque em Quitô e ligue Permitir Notificações.",
+      "Volte ao Quitô pelo ícone e toque em Conferir de novo.",
+    ],
+    recheck: "Conferir de novo",
+  },
+  test: {
+    ...androidGuideMessages.test,
+    notArrived: [
+      "Confira estas coisas e envie de novo:",
+      "O Foco, como o Não Perturbe, está desligado na Central de Controle.",
+      "Em Ajustes, Notificações, Quitô, as notificações estão permitidas.",
+      "A internet do iPhone está funcionando.",
+    ],
+    gone: "A inscrição deste iPhone venceu. Ative as notificações de novo no passo 4 e envie outro teste.",
+  } satisfies GuideTestMessages,
+};
+
+const offeredStatuses: Record<PushDevice, PushStatus[]> = {
+  android: ["off", "blocked", "failed"],
+  iphone: ["needs-install", "unsupported", "off", "blocked", "failed"],
+  computer: [],
+};
+
 export function offersNotificationsGuide(device: PushDevice, status: PushStatus): boolean {
-  return device === "android" && (status === "off" || status === "blocked" || status === "failed");
+  return offeredStatuses[device].includes(status);
+}
+
+export function guideOfferOf(device: PushDevice, standalone: boolean, status: PushStatus): GuideOffer {
+  if (!offersNotificationsGuide(device, status)) return "none";
+  return device === "iphone" && standalone && (status === "off" || status === "failed") ? "resume" : "offer";
+}
+
+export function chargesInviteOf(offer: GuideOffer, firstChargeReady: boolean): ChargesInvite | null {
+  if (offer === "resume") return "resume";
+  return offer === "offer" && firstChargeReady ? "first-charge" : null;
 }
 
 export function installStatusOf(standalone: boolean, prompt: InstallPromptEvent | null): InstallStatus {

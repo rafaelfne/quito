@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { canSendTest, installStatusOf, isFirstChargeReady, loadStartedAt, offersNotificationsGuide, requestPushTest, testStatusFrom, type InstallPromptEvent } from "./activation-guide";
+import { canSendTest, chargesInviteOf, guideOfferOf, installStatusOf, isFirstChargeReady, loadStartedAt, offersNotificationsGuide, requestPushTest, testStatusFrom, type InstallPromptEvent } from "./activation-guide";
 import type { Charge, ChargesState } from "./charges";
 import { pushTestPath } from "./push-test-request";
 
@@ -12,11 +12,34 @@ function panel(overrides: Partial<ChargesState> = {}): Pick<ChargesState, "statu
 const enteredInOctober = "2026-10-15T12:00:00.000Z";
 
 describe("quem recebe a oferta do guia", () => {
-  test("só no Android, quando as notificações ainda não estão ativas", () => {
+  test("no Android, quando as notificações ainda não estão ativas", () => {
     for (const status of ["off", "blocked", "failed"] as const) expect(offersNotificationsGuide("android", status)).toBe(true);
     for (const status of ["active", "checking", "unsupported", "needs-install"] as const) expect(offersNotificationsGuide("android", status)).toBe(false);
-    expect(offersNotificationsGuide("iphone", "off")).toBe(false);
     expect(offersNotificationsGuide("computer", "off")).toBe(false);
+  });
+
+  test("no iPhone, também fora da tela de início ou em versão antiga, quando as notificações ainda não estão ativas", () => {
+    for (const status of ["needs-install", "unsupported", "off", "blocked", "failed"] as const) expect(offersNotificationsGuide("iphone", status)).toBe(true);
+    for (const status of ["active", "checking"] as const) expect(offersNotificationsGuide("iphone", status)).toBe(false);
+  });
+
+  test("no iPhone aberto pelo ícone e ainda sem notificações, a oferta é para voltar ao guia", () => {
+    expect(guideOfferOf("iphone", true, "off")).toBe("resume");
+    expect(guideOfferOf("iphone", true, "failed")).toBe("resume");
+    expect(guideOfferOf("iphone", true, "blocked")).toBe("offer");
+    expect(guideOfferOf("iphone", false, "needs-install")).toBe("offer");
+    expect(guideOfferOf("iphone", true, "active")).toBe("none");
+    expect(guideOfferOf("android", true, "off")).toBe("offer");
+    expect(guideOfferOf("android", false, "active")).toBe("none");
+    expect(guideOfferOf("computer", false, "off")).toBe("none");
+  });
+
+  test("no painel, a volta ao guia aparece sempre e a oferta só com a primeira cobrança pronta", () => {
+    expect(chargesInviteOf("resume", false)).toBe("resume");
+    expect(chargesInviteOf("resume", true)).toBe("resume");
+    expect(chargesInviteOf("offer", true)).toBe("first-charge");
+    expect(chargesInviteOf("offer", false)).toBeNull();
+    expect(chargesInviteOf("none", true)).toBeNull();
   });
 });
 

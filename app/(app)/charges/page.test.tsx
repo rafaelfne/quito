@@ -8,7 +8,7 @@ const pedro: Student = { id: "p", name: "Pedro Lima", gender: "male", called_as:
 
 const stored: unknown[] = [];
 const gettingStarted = { row: null as { started_at: string | null } | null };
-const guideOffer = vi.hoisted(() => ({ offered: false }));
+const guideOffer = vi.hoisted(() => ({ offered: "none" as "none" | "offer" | "resume" }));
 const selectStudents = vi.fn(async (columns: string) => (columns === "id, created_at" ? { data: [], error: null as { message: string } | null } : { data: [pedro] as Student[] | null, error: null as { message: string } | null }));
 const upsert = vi.fn(async (rows: Record<string, unknown>[]) => {
   stored.push(...rows.map((row) => ({ ...row, id: "c1" })));
@@ -90,7 +90,7 @@ beforeEach(() => {
   hooks.reset();
   requestedParams.current = "";
   gettingStarted.row = null;
-  guideOffer.offered = false;
+  guideOffer.offered = "none";
   stored.length = 0;
   upsert.mockClear();
   selectStudents.mockClear();
@@ -248,30 +248,38 @@ describe("página de cobranças", () => {
 
   test("na primeira cobrança pronta, oferece o guia de ativação a quem pode ativar neste aparelho", async () => {
     gettingStarted.row = { started_at: "2026-10-15T12:00:00.000Z" };
-    guideOffer.offered = true;
-    expect(view().notificationsInvite).toBe(false);
+    guideOffer.offered = "offer";
+    expect(view().notificationsInvite).toBeNull();
     await settle();
     expect(view().state.status).toBe("ready");
-    expect(view().notificationsInvite).toBe(true);
+    expect(view().notificationsInvite).toBe("first-charge");
+  });
+
+  test("no iPhone aberto pelo ícone e sem notificações, chama de volta ao guia mesmo fora da primeira cobrança", async () => {
+    gettingStarted.row = { started_at: "2026-08-15T12:00:00.000Z" };
+    guideOffer.offered = "resume";
+    view();
+    await settle();
+    expect(view().notificationsInvite).toBe("resume");
   });
 
   test("não oferece o guia quando o aparelho não pede, ou fora da primeira cobrança", async () => {
     gettingStarted.row = { started_at: "2026-10-15T12:00:00.000Z" };
     view();
     await settle();
-    expect(view().notificationsInvite).toBe(false);
+    expect(view().notificationsInvite).toBeNull();
 
     hooks.reset();
-    guideOffer.offered = true;
+    guideOffer.offered = "offer";
     gettingStarted.row = { started_at: "2026-08-15T12:00:00.000Z" };
     view();
     await settle();
-    expect(view().notificationsInvite).toBe(false);
+    expect(view().notificationsInvite).toBeNull();
 
     hooks.reset();
     gettingStarted.row = null;
     view();
     await settle();
-    expect(view().notificationsInvite).toBe(false);
+    expect(view().notificationsInvite).toBeNull();
   });
 });

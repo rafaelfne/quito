@@ -1,27 +1,15 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { ChromeMenuImage, InstallDialogImage, PermissionDialogImage, SiteSettingsImage, TestNotificationImage } from "@/app/(app)/notifications/guide/guide-illustrations";
+import { ChromeMenuImage, InstallDialogImage, PermissionDialogImage, SiteSettingsImage } from "@/app/(app)/notifications/guide/guide-illustrations";
+import { BlockedHelp, EnableButton, Step, TestStep, type TestActions } from "@/app/(app)/notifications/guide/guide-steps";
+import { IphoneGuideSteps } from "@/app/(app)/notifications/guide/iphone-guide";
 import { Button } from "@/components/ui/button";
 import { accountPath } from "@/lib/account";
-import { androidGuideMessages as messages, canSendTest, type InstallStatus, type TestStatus } from "@/lib/activation-guide";
-import { chargesPath } from "@/lib/charges";
+import { androidGuideMessages as messages, guideMessages, iphoneGuideMessages, type InstallStatus, type TestStatus } from "@/lib/activation-guide";
 import type { PushDevice, PushStatus } from "@/lib/push-subscription";
 
-export type GuideActions = { onInstall: () => void; onEnable: () => void; onRecheck: () => void; onSendTest: () => void; onArrived: () => void; onNotArrived: () => void };
+export type GuideActions = TestActions & { onInstall: () => void; onEnable: () => void; onRecheck: () => void };
 
 export type GuideViewProps = GuideActions & { device: PushDevice | null; install: InstallStatus; push: PushStatus; test: TestStatus; enabling: boolean };
-
-function Step({ number, title, done, children }: { number: number; title: string; done: boolean; children: ReactNode }) {
-  return (
-    <li className="flex flex-col gap-3 rounded-sm border border-border p-4">
-      <h2 className="font-semibold">
-        {number}. {title}
-      </h2>
-      {done ? <p className="text-sm font-medium">{messages.done}</p> : null}
-      {children}
-    </li>
-  );
-}
 
 function InstallStep({ install, onInstall }: { install: InstallStatus; onInstall: () => void }) {
   if (install === "installed") {
@@ -62,26 +50,6 @@ function InstallStep({ install, onInstall }: { install: InstallStatus; onInstall
   );
 }
 
-function BlockedHelp({ onRecheck }: { onRecheck: () => void }) {
-  const [intro, ...steps] = messages.notifications.blocked;
-  return (
-    <>
-      <p className="text-sm" role="alert">
-        {intro}
-      </p>
-      <ol className="flex list-decimal flex-col gap-2 pl-5 text-sm">
-        {steps.map((step) => (
-          <li key={step}>{step}</li>
-        ))}
-      </ol>
-      <SiteSettingsImage />
-      <Button type="button" variant="outline" onClick={onRecheck}>
-        {messages.notifications.recheck}
-      </Button>
-    </>
-  );
-}
-
 function NotificationsStep({ push, enabling, onEnable, onRecheck }: { push: PushStatus; enabling: boolean; onEnable: () => void; onRecheck: () => void }) {
   const title = messages.notifications.title;
   if (push === "active") {
@@ -94,14 +62,14 @@ function NotificationsStep({ push, enabling, onEnable, onRecheck }: { push: Push
   if (push === "checking") {
     return (
       <Step number={2} title={title} done={false}>
-        <p className="text-sm">{messages.checking}</p>
+        <p className="text-sm">{guideMessages.checking}</p>
       </Step>
     );
   }
   if (push === "blocked") {
     return (
       <Step number={2} title={title} done={false}>
-        <BlockedHelp onRecheck={onRecheck} />
+        <BlockedHelp lines={messages.notifications.blocked} recheck={messages.notifications.recheck} image={<SiteSettingsImage />} onRecheck={onRecheck} />
       </Step>
     );
   }
@@ -121,98 +89,29 @@ function NotificationsStep({ push, enabling, onEnable, onRecheck }: { push: Push
       ) : null}
       <p className="text-sm">{messages.notifications.ask}</p>
       <PermissionDialogImage />
-      <Button type="button" disabled={enabling} onClick={onEnable}>
-        {enabling ? "Ativando..." : "Ativar as notificações"}
-      </Button>
+      <EnableButton enabling={enabling} onEnable={onEnable} />
     </Step>
   );
 }
 
-function TestResult({ test, onSendTest, onArrived, onNotArrived }: { test: TestStatus } & Pick<GuideActions, "onSendTest" | "onArrived" | "onNotArrived">) {
-  if (test === "sent") {
-    return (
-      <>
-        <p className="text-sm" role="status">
-          {messages.test.sent}
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          <Button type="button" onClick={onArrived}>
-            {messages.test.arrivedAction}
-          </Button>
-          <Button type="button" variant="outline" onClick={onNotArrived}>
-            {messages.test.notArrivedAction}
-          </Button>
-        </div>
-      </>
-    );
-  }
-  if (test === "not-arrived") {
-    const [intro, ...tips] = messages.test.notArrived;
-    return (
-      <>
-        <p className="text-sm">{intro}</p>
-        <ul className="flex list-disc flex-col gap-1 pl-5 text-sm">
-          {tips.map((tip) => (
-            <li key={tip}>{tip}</li>
-          ))}
-        </ul>
-        <Button type="button" onClick={onSendTest}>
-          {messages.test.again}
-        </Button>
-      </>
-    );
-  }
-  return (
-    <>
-      {test === "failed" ? (
-        <p className="text-sm" role="alert">
-          {messages.test.failed}
-        </p>
-      ) : null}
-      <Button type="button" disabled={test === "sending"} onClick={onSendTest}>
-        {test === "sending" ? messages.test.sending : messages.test.action}
-      </Button>
-    </>
-  );
-}
-
-function TestStep({ push, test, ...actions }: { push: PushStatus; test: TestStatus } & Pick<GuideActions, "onSendTest" | "onArrived" | "onNotArrived">) {
-  if (test === "arrived") {
-    return (
-      <Step number={3} title={messages.test.title} done>
-        <p className="text-sm" role="status">
-          {messages.test.arrived}
-        </p>
-        <Link className="flex min-h-11 items-center justify-center rounded-sm bg-primary px-4 py-2 text-sm font-medium text-primary-foreground" href={chargesPath}>
-          {messages.test.toCharges}
-        </Link>
-      </Step>
-    );
-  }
-  return (
-    <Step number={3} title={messages.test.title} done={false}>
-      <TestNotificationImage />
-      {test === "gone" ? (
-        <p className="text-sm" role="alert">
-          {messages.test.gone}
-        </p>
-      ) : null}
-      {canSendTest(push) ? <TestResult test={test} {...actions} /> : <p className="text-sm">{messages.test.waiting}</p>}
-    </Step>
-  );
+function titleOf(device: PushDevice | null): string {
+  if (device === "android") return messages.title;
+  if (device === "iphone") return iphoneGuideMessages.title;
+  return guideMessages.title;
 }
 
 export function GuideView({ device, install, push, test, enabling, onInstall, onEnable, onRecheck, ...testActions }: GuideViewProps) {
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-4 sm:p-8">
       <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold">{messages.title}</h1>
+        <h1 className="text-2xl font-semibold">{titleOf(device)}</h1>
         {device === "android" ? <p className="text-sm">{messages.intro}</p> : null}
+        {device === "iphone" ? <p className="text-sm">{iphoneGuideMessages.intro}</p> : null}
       </header>
-      {device === null ? <p className="text-sm">{messages.checking}</p> : null}
-      {device !== null && device !== "android" ? (
+      {device === null ? <p className="text-sm">{guideMessages.checking}</p> : null}
+      {device === "computer" ? (
         <div className="flex flex-col gap-2">
-          <p className="text-sm">{messages.otherDevice}</p>
+          <p className="text-sm">{guideMessages.otherDevice}</p>
           <Link className="text-sm underline" href={accountPath}>
             Sua conta
           </Link>
@@ -222,9 +121,10 @@ export function GuideView({ device, install, push, test, enabling, onInstall, on
         <ol className="flex flex-col gap-4">
           <InstallStep install={install} onInstall={onInstall} />
           <NotificationsStep push={push} enabling={enabling} onEnable={onEnable} onRecheck={onRecheck} />
-          <TestStep push={push} test={test} {...testActions} />
+          <TestStep number={3} texts={messages.test} push={push} test={test} {...testActions} />
         </ol>
       ) : null}
+      {device === "iphone" ? <IphoneGuideSteps installed={install === "installed"} push={push} test={test} enabling={enabling} onEnable={onEnable} onRecheck={onRecheck} {...testActions} /> : null}
     </main>
   );
 }

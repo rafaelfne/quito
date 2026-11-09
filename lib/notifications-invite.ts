@@ -6,6 +6,7 @@ export const notificationsInviteMessages = {
   title: "Receba o aviso no dia de cobrar",
   text: "Instale o Quitô no celular e ligue as notificações. No dia do vencimento, ele avisa quem você precisa cobrar.",
   firstChargeText: "Sua primeira cobrança está pronta. Instale o Quitô no celular e ligue as notificações: no dia do vencimento, ele avisa quem você precisa cobrar.",
+  resumeText: "O Quitô já está na tela de início deste iPhone. Falta liberar as notificações para ele avisar no dia de cobrar.",
   action: "Ativar as notificações",
 };
 
