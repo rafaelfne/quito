@@ -67,6 +67,7 @@ beforeEach(() => {
   requestedParams.current = "";
   vi.stubEnv("NEXT_PUBLIC_VAPID_PUBLIC_KEY", "chave-publica");
   vi.stubGlobal("window", {
+    location: { origin: "https://quito.exemplo" },
     addEventListener: vi.fn((name: string, listener: (event: Event) => void) => listeners.set(name, listener)),
     removeEventListener: vi.fn((name: string) => listeners.delete(name)),
   });
@@ -85,6 +86,12 @@ describe("página do guia de ativação", () => {
     await settle();
     expect(view()).toMatchObject({ device: "android", push: "off", install: "manual" });
     expect(push.enablePush).not.toHaveBeenCalled();
+  });
+
+  test("monta o link do guia com o endereço do Quitô aberto, para o código do computador", async () => {
+    expect(view().guideLink).toBe("");
+    await settle();
+    expect(view().guideLink).toBe("https://quito.exemplo/notifications/guide");
   });
 
   test("ao sair da tela, para de ouvir o Chrome", () => {

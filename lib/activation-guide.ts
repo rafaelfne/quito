@@ -21,7 +21,11 @@ export type ChargesInvite = "first-charge" | "resume" | NotificationsLoss;
 
 export const guideMessages = {
   title: "Ativar as notificações no celular",
-  otherDevice: "Este passo a passo é para celular. Abra o Quitô no Chrome do seu Android ou no Safari do seu iPhone para seguir o guia. Enquanto isso, você pode ver as notificações deste aparelho em Sua conta.",
+  otherDevice: "Este passo a passo é para celular. Aponte a câmera do seu Android ou do seu iPhone para o código abaixo e toque no link que aparecer: o guia continua no celular.",
+  qrLabel: "Código QR que abre o guia de ativação no celular",
+  signInOnPhone: "Se o celular pedir, entre com o mesmo e-mail que você usa aqui.",
+  typeLink: "Se a câmera não abrir o link, digite este endereço no navegador do celular:",
+  accountNote: "Para ver as notificações deste computador, vá em",
   checking: "Conferindo este celular...",
   done: "Feito",
   enable: "Ativar as notificações",

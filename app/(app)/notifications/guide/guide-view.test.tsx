@@ -7,7 +7,7 @@ import { GuideView, type GuideViewProps } from "./guide-view";
 const noop = vi.fn();
 
 function render(overrides: Partial<GuideViewProps> = {}) {
-  const props: GuideViewProps = { device: "android" as PushDevice, install: "manual" as InstallStatus, push: "off" as PushStatus, test: "idle" as TestStatus, enabling: false, onInstall: noop, onEnable: noop, onRecheck: noop, onSendTest: noop, onArrived: noop, onNotArrived: noop, ...overrides };
+  const props: GuideViewProps = { device: "android" as PushDevice, guideLink: "https://quito.exemplo/notifications/guide", install: "manual" as InstallStatus, push: "off" as PushStatus, test: "idle" as TestStatus, enabling: false, onInstall: noop, onEnable: noop, onRecheck: noop, onSendTest: noop, onArrived: noop, onNotArrived: noop, ...overrides };
   return renderToStaticMarkup(<GuideView {...props} />);
 }
 
@@ -115,13 +115,29 @@ describe("guia de ativação no Android", () => {
     expect(gone).toContain(">Ativar as notificações<");
   });
 
-  test("no computador, explica que o guia é para celular e leva à conta", () => {
+  test("no computador, mostra o código para continuar no celular, o endereço e a conta", () => {
     const html = render({ device: "computer" });
     expect(html).toContain(guideMessages.title);
     expect(html).toContain(guideMessages.otherDevice);
+    expect(html).toContain(`aria-label="${guideMessages.qrLabel}"`);
+    expect(html).toMatch(/<path class="fill-qr-code" d="M\d/);
+    expect(html).toContain(guideMessages.signInOnPhone);
+    expect(textOf(html)).toContain(`${guideMessages.typeLink} https://quito.exemplo/notifications/guide`);
     expect(html).toContain('href="/account"');
     expect(html).not.toContain(messages.install.title);
     expect(html).not.toContain(iphone.addToHome.title);
+  });
+
+  test("no computador, sem o endereço ainda, não desenha o código", () => {
+    const html = render({ device: "computer", guideLink: "" });
+    expect(html).toContain(guideMessages.otherDevice);
+    expect(html).not.toContain(guideMessages.qrLabel);
+    expect(html).not.toContain(guideMessages.typeLink);
+  });
+
+  test("no celular, não mostra o código do computador", () => {
+    expect(render()).not.toContain(guideMessages.qrLabel);
+    expect(render({ device: "iphone" })).not.toContain(guideMessages.qrLabel);
   });
 
   test("enquanto não sabe o aparelho, mostra que está conferindo", () => {

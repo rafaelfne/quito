@@ -1,15 +1,14 @@
-import Link from "next/link";
+import { ComputerGuide } from "@/app/(app)/notifications/guide/computer-guide";
 import { ChromeMenuImage, InstallDialogImage, PermissionDialogImage, SiteSettingsImage } from "@/app/(app)/notifications/guide/guide-illustrations";
 import { BlockedHelp, EnableButton, Step, TestStep, type TestActions } from "@/app/(app)/notifications/guide/guide-steps";
 import { IphoneGuideSteps } from "@/app/(app)/notifications/guide/iphone-guide";
 import { Button } from "@/components/ui/button";
-import { accountPath } from "@/lib/account";
 import { androidGuideMessages as messages, guideMessages, iphoneGuideMessages, type InstallStatus, type TestStatus } from "@/lib/activation-guide";
 import type { PushDevice, PushStatus } from "@/lib/push-subscription";
 
 export type GuideActions = TestActions & { onInstall: () => void; onEnable: () => void; onRecheck: () => void };
 
-export type GuideViewProps = GuideActions & { device: PushDevice | null; install: InstallStatus; push: PushStatus; test: TestStatus; enabling: boolean };
+export type GuideViewProps = GuideActions & { device: PushDevice | null; guideLink: string; install: InstallStatus; push: PushStatus; test: TestStatus; enabling: boolean };
 
 function InstallStep({ install, onInstall }: { install: InstallStatus; onInstall: () => void }) {
   if (install === "installed") {
@@ -100,7 +99,7 @@ function titleOf(device: PushDevice | null): string {
   return guideMessages.title;
 }
 
-export function GuideView({ device, install, push, test, enabling, onInstall, onEnable, onRecheck, ...testActions }: GuideViewProps) {
+export function GuideView({ device, guideLink, install, push, test, enabling, onInstall, onEnable, onRecheck, ...testActions }: GuideViewProps) {
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-4 sm:p-8">
       <header className="flex flex-col gap-2">
@@ -109,14 +108,7 @@ export function GuideView({ device, install, push, test, enabling, onInstall, on
         {device === "iphone" ? <p className="text-sm">{iphoneGuideMessages.intro}</p> : null}
       </header>
       {device === null ? <p className="text-sm">{guideMessages.checking}</p> : null}
-      {device === "computer" ? (
-        <div className="flex flex-col gap-2">
-          <p className="text-sm">{guideMessages.otherDevice}</p>
-          <Link className="text-sm underline" href={accountPath}>
-            Sua conta
-          </Link>
-        </div>
-      ) : null}
+      {device === "computer" ? <ComputerGuide link={guideLink} /> : null}
       {device === "android" ? (
         <ol className="flex flex-col gap-4">
           <InstallStep install={install} onInstall={onInstall} />

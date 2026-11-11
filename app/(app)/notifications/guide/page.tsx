@@ -4,12 +4,14 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { GuideView } from "@/app/(app)/notifications/guide/guide-view";
 import { installStatusOf, requestPushTest, testStatusFrom, type InstallPromptEvent, type TestStatus } from "@/lib/activation-guide";
+import { guideLinkFrom } from "@/lib/guide-qr";
 import { browserPushEnvironment, checkPush, currentEndpoint, deviceFrom, enablePush, type PushDevice, type PushStatus } from "@/lib/push-subscription";
 import { supabase } from "@/lib/supabase";
 
 export default function NotificationsGuidePage() {
   const arrivedFromTest = testStatusFrom(useSearchParams().get("from"));
   const [device, setDevice] = useState<PushDevice | null>(null);
+  const [guideLink, setGuideLink] = useState("");
   const [standalone, setStandalone] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [push, setPush] = useState<PushStatus>("checking");
@@ -20,6 +22,7 @@ export default function NotificationsGuidePage() {
     const environment = browserPushEnvironment(window);
     void checkPush(environment, supabase).then((status) => {
       setDevice(deviceFrom(environment.userAgent));
+      setGuideLink(guideLinkFrom(window.location.origin));
       setStandalone((installed) => installed || environment.standalone);
       setPush(status);
     });
@@ -69,6 +72,7 @@ export default function NotificationsGuidePage() {
   return (
     <GuideView
       device={device}
+      guideLink={guideLink}
       install={installStatusOf(standalone, installPrompt)}
       push={push}
       test={test}
