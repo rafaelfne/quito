@@ -115,4 +115,33 @@ describe("supabase", () => {
     expect(supabase.from).toBeTypeOf("function");
     expect(connect).toHaveBeenCalledTimes(2);
   });
+  test("a conexão das telas guarda o login do professor entre uma visita e outra", async () => {
+    const { supabase, connect } = await loadFreshConnection();
+
+    void supabase.auth;
+
+    expect(connect.mock.calls[0][2]).toBeUndefined();
+  });
+
+  test("depois de conectar, mudar a configuração não troca a conexão no meio do uso", async () => {
+    const { supabase, connect } = await loadFreshConnection();
+    const firstAuth = supabase.auth;
+
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "http://outro-banco.invalid");
+
+    expect(supabase.auth).toBe(firstAuth);
+    expect(connect).toHaveBeenCalledOnce();
+  });
+
+  test("uma ação pedida pela conexão das telas roda na conexão de verdade", async () => {
+    const { supabase, connect } = await loadFreshConnection();
+    void supabase.auth;
+    const realClient = connect.mock.results[0].value;
+    const from = vi.spyOn(realClient, "from");
+
+    supabase.from("notes");
+
+    expect(from).toHaveBeenCalledWith("notes");
+    expect(from.mock.contexts[0]).toBe(realClient);
+  });
 });
