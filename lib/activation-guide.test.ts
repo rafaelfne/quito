@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { canSendTest, chargesInviteOf, guideOfferOf, installStatusOf, isFirstChargeReady, loadStartedAt, offersNotificationsGuide, requestPushTest, testStatusFrom, type InstallPromptEvent } from "./activation-guide";
+import { canSendTest, chargesInviteOf, guideOfferOf, installStatusOf, isFirstChargeReady, loadStartedAt, notificationsLossOf, offersNotificationsGuide, requestPushTest, testStatusFrom, type InstallPromptEvent } from "./activation-guide";
 import type { Charge, ChargesState } from "./charges";
 import { pushTestPath } from "./push-test-request";
 
@@ -26,7 +26,6 @@ describe("quem recebe a oferta do guia", () => {
   test("no iPhone aberto pelo ícone e ainda sem notificações, a oferta é para voltar ao guia", () => {
     expect(guideOfferOf("iphone", true, "off")).toBe("resume");
     expect(guideOfferOf("iphone", true, "failed")).toBe("resume");
-    expect(guideOfferOf("iphone", true, "blocked")).toBe("offer");
     expect(guideOfferOf("iphone", false, "needs-install")).toBe("offer");
     expect(guideOfferOf("iphone", true, "active")).toBe("none");
     expect(guideOfferOf("android", true, "off")).toBe("offer");
@@ -40,6 +39,37 @@ describe("quem recebe a oferta do guia", () => {
     expect(chargesInviteOf("offer", true)).toBe("first-charge");
     expect(chargesInviteOf("offer", false)).toBeNull();
     expect(chargesInviteOf("none", true)).toBeNull();
+  });
+});
+
+describe("aviso de notificação desligada", () => {
+  test("permissão negada ou inscrição que sumiu com a permissão dada contam como notificação desligada", () => {
+    expect(notificationsLossOf("blocked", "denied")).toBe("blocked");
+    expect(notificationsLossOf("off", "granted")).toBe("lost");
+    expect(notificationsLossOf("off", "default")).toBeNull();
+    expect(notificationsLossOf("failed", "granted")).toBeNull();
+    expect(notificationsLossOf("active", "granted")).toBeNull();
+  });
+
+  test("no celular, a notificação desligada vira alerta no lugar da oferta e da volta ao guia", () => {
+    expect(guideOfferOf("android", true, "off", "granted")).toBe("lost");
+    expect(guideOfferOf("android", false, "blocked", "denied")).toBe("blocked");
+    expect(guideOfferOf("iphone", true, "off", "granted")).toBe("lost");
+    expect(guideOfferOf("iphone", true, "blocked", "denied")).toBe("blocked");
+  });
+
+  test("quem nunca ativou continua só com a oferta do guia", () => {
+    expect(guideOfferOf("android", true, "off", "default")).toBe("offer");
+    expect(guideOfferOf("iphone", true, "off", "default")).toBe("resume");
+    expect(guideOfferOf("iphone", false, "needs-install", "default")).toBe("offer");
+    expect(guideOfferOf("computer", false, "blocked", "denied")).toBe("none");
+  });
+
+  test("no painel, o alerta aparece sempre, com ou sem a primeira cobrança pronta", () => {
+    for (const loss of ["lost", "blocked"] as const) {
+      expect(chargesInviteOf(loss, false)).toBe(loss);
+      expect(chargesInviteOf(loss, true)).toBe(loss);
+    }
   });
 });
 

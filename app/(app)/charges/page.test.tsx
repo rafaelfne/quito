@@ -8,7 +8,7 @@ const pedro: Student = { id: "p", name: "Pedro Lima", gender: "male", called_as:
 
 const stored: unknown[] = [];
 const gettingStarted = { row: null as { started_at: string | null } | null };
-const guideOffer = vi.hoisted(() => ({ offered: "none" as "none" | "offer" | "resume" }));
+const guideOffer = vi.hoisted(() => ({ offered: "none" as "none" | "offer" | "resume" | "lost" | "blocked" }));
 const selectStudents = vi.fn(async (columns: string) => (columns === "id, created_at" ? { data: [], error: null as { message: string } | null } : { data: [pedro] as Student[] | null, error: null as { message: string } | null }));
 const upsert = vi.fn(async (rows: Record<string, unknown>[]) => {
   stored.push(...rows.map((row) => ({ ...row, id: "c1" })));
@@ -261,6 +261,20 @@ describe("página de cobranças", () => {
     view();
     await settle();
     expect(view().notificationsInvite).toBe("resume");
+  });
+
+  test("com a notificação desligada neste celular, alerta mesmo fora da primeira cobrança", async () => {
+    gettingStarted.row = { started_at: "2026-08-15T12:00:00.000Z" };
+    guideOffer.offered = "lost";
+    view();
+    await settle();
+    expect(view().notificationsInvite).toBe("lost");
+
+    hooks.reset();
+    guideOffer.offered = "blocked";
+    view();
+    await settle();
+    expect(view().notificationsInvite).toBe("blocked");
   });
 
   test("não oferece o guia quando o aparelho não pede, ou fora da primeira cobrança", async () => {

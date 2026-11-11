@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isTrainingCharges, type ChargesState } from "@/lib/charges";
 import { isFirstChargeOver } from "@/lib/first-charge";
-import type { PushDevice, PushStatus } from "@/lib/push-subscription";
+import type { PushDevice, PushPermission, PushStatus } from "@/lib/push-subscription";
 import { guideTestOrigin, pushTestPath, type PushTestResult } from "@/lib/push-test-request";
 import { requestTimeoutMs, withTimeout } from "@/lib/sign-in";
 
@@ -13,9 +13,11 @@ export type InstallPromptEvent = Event & { prompt(): Promise<unknown>; userChoic
 
 export type GuideFetch = (input: string, init: RequestInit) => Promise<Pick<Response, "ok" | "json">>;
 
-export type GuideOffer = "none" | "offer" | "resume";
+export type NotificationsLoss = "lost" | "blocked";
 
-export type ChargesInvite = "first-charge" | "resume";
+export type GuideOffer = "none" | "offer" | "resume" | NotificationsLoss;
+
+export type ChargesInvite = "first-charge" | "resume" | NotificationsLoss;
 
 export const guideMessages = {
   title: "Ativar as notificações no celular",
@@ -143,13 +145,20 @@ export function offersNotificationsGuide(device: PushDevice, status: PushStatus)
   return offeredStatuses[device].includes(status);
 }
 
-export function guideOfferOf(device: PushDevice, standalone: boolean, status: PushStatus): GuideOffer {
+export function notificationsLossOf(status: PushStatus, permission: PushPermission): NotificationsLoss | null {
+  if (status === "blocked") return "blocked";
+  return status === "off" && permission === "granted" ? "lost" : null;
+}
+
+export function guideOfferOf(device: PushDevice, standalone: boolean, status: PushStatus, permission: PushPermission = "default"): GuideOffer {
   if (!offersNotificationsGuide(device, status)) return "none";
+  const loss = notificationsLossOf(status, permission);
+  if (loss) return loss;
   return device === "iphone" && standalone && (status === "off" || status === "failed") ? "resume" : "offer";
 }
 
 export function chargesInviteOf(offer: GuideOffer, firstChargeReady: boolean): ChargesInvite | null {
-  if (offer === "resume") return "resume";
+  if (offer === "resume" || offer === "lost" || offer === "blocked") return offer;
   return offer === "offer" && firstChargeReady ? "first-charge" : null;
 }
 

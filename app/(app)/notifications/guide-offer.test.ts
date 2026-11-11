@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+const permission = vi.hoisted(() => ({ value: "default" }));
 const push = vi.hoisted(() => ({ checkPush: vi.fn(), browserPushEnvironment: vi.fn(), deviceFrom: vi.fn() }));
 const state = vi.hoisted(() => ({ setters: [] as ReturnType<typeof vi.fn>[] }));
 
@@ -27,7 +28,8 @@ function settle() {
 beforeEach(() => {
   state.setters.length = 0;
   vi.stubGlobal("window", {});
-  push.browserPushEnvironment.mockReset().mockReturnValue({ userAgent: "Android" });
+  permission.value = "default";
+  push.browserPushEnvironment.mockReset().mockImplementation(() => ({ userAgent: "Android", standalone: false, permission: () => permission.value }));
   push.deviceFrom.mockReset().mockReturnValue("android");
   push.checkPush.mockReset().mockResolvedValue("off");
 });
@@ -48,7 +50,7 @@ describe("oferta do guia de ativação", () => {
 
   test("no iPhone pelo Safari, oferece o guia para adicionar à tela de início", async () => {
     push.deviceFrom.mockReturnValue("iphone");
-    push.browserPushEnvironment.mockReturnValue({ userAgent: "iPhone", standalone: false });
+    push.browserPushEnvironment.mockReturnValue({ userAgent: "iPhone", standalone: false, permission: () => "default" });
     push.checkPush.mockResolvedValue("needs-install");
     useNotificationsGuideOffer();
     await settle();
@@ -57,10 +59,34 @@ describe("oferta do guia de ativação", () => {
 
   test("no iPhone aberto pelo ícone, sem notificações, chama de volta ao guia", async () => {
     push.deviceFrom.mockReturnValue("iphone");
-    push.browserPushEnvironment.mockReturnValue({ userAgent: "iPhone", standalone: true });
+    push.browserPushEnvironment.mockReturnValue({ userAgent: "iPhone", standalone: true, permission: () => permission.value });
     useNotificationsGuideOffer();
     await settle();
     expect(state.setters[0]).toHaveBeenCalledWith("resume");
+  });
+
+  test("no Android, com a permissão dada e a inscrição sumida, avisa que a notificação parou", async () => {
+    permission.value = "granted";
+    useNotificationsGuideOffer();
+    await settle();
+    expect(state.setters[0]).toHaveBeenCalledWith("lost");
+  });
+
+  test("no Android, com a permissão negada, avisa que a notificação está bloqueada", async () => {
+    permission.value = "denied";
+    push.checkPush.mockResolvedValue("blocked");
+    useNotificationsGuideOffer();
+    await settle();
+    expect(state.setters[0]).toHaveBeenCalledWith("blocked");
+  });
+
+  test("no iPhone aberto pelo ícone, com a inscrição sumida, avisa em vez de só chamar de volta ao guia", async () => {
+    permission.value = "granted";
+    push.deviceFrom.mockReturnValue("iphone");
+    push.browserPushEnvironment.mockReturnValue({ userAgent: "iPhone", standalone: true, permission: () => permission.value });
+    useNotificationsGuideOffer();
+    await settle();
+    expect(state.setters[0]).toHaveBeenCalledWith("lost");
   });
 
   test("no computador, nem confere as notificações", async () => {

@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import type { ChargesInvite } from "@/lib/activation-guide";
 import { chargeMessages, initialCharges, type Charge, type ChargesState, type WaitingGuardian } from "@/lib/charges";
-import { notificationsGuidePath, notificationsInviteMessages } from "@/lib/notifications-invite";
+import { notificationsAlertMessages, notificationsGuidePath, notificationsInviteMessages } from "@/lib/notifications-invite";
 import { ChargesView } from "./charges-view";
 
 function collect(node: unknown, found: { type: unknown; props: Record<string, unknown> }[] = []) {
@@ -487,5 +487,21 @@ describe("convite para o guia de ativação na primeira cobrança", () => {
     expect(html).toContain(notificationsInviteMessages.resumeText);
     expect(html).not.toContain(notificationsInviteMessages.firstChargeText);
     expect(html).toContain(`href="${notificationsGuidePath}"`);
+  });
+
+  test("com a notificação desligada, mostra o alerta antes das cobranças, que continuam no painel", () => {
+    const html = renderInvite(ready({ charges: [charge] }), "lost");
+    expect(html).toContain(notificationsAlertMessages.title);
+    expect(html).toContain(notificationsAlertMessages.lostText);
+    expect(html).toContain(notificationsAlertMessages.fallbackText);
+    expect(html).not.toContain(notificationsInviteMessages.title);
+    expect(html).toContain(`href="${notificationsGuidePath}"`);
+    expect(html.indexOf(notificationsAlertMessages.title)).toBeLessThan(html.indexOf("Ana Lima"));
+  });
+
+  test("com a permissão negada, o alerta explica o bloqueio", () => {
+    const html = renderInvite(ready({ charges: [charge] }), "blocked");
+    expect(html).toContain(notificationsAlertMessages.blockedText);
+    expect(html).not.toContain(notificationsAlertMessages.lostText);
   });
 });

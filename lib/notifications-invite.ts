@@ -10,6 +10,14 @@ export const notificationsInviteMessages = {
   action: "Ativar as notificações",
 };
 
+export const notificationsAlertMessages = {
+  title: "O aviso do dia de cobrar parou neste celular",
+  lostText: "As notificações do Quitô se desligaram neste celular. O guia ajuda a ativar de novo.",
+  blockedText: "As notificações do Quitô estão bloqueadas neste celular. O guia mostra como liberar de novo.",
+  fallbackText: "Enquanto isso, abra o Quitô no dia de cobrar: as cobranças do dia aparecem aqui no painel.",
+  action: "Ativar de novo",
+};
+
 export function showsNotificationsInvite(state: GettingStartedState, offered: boolean): boolean {
   return offered && state.status === "ready" && state.steps.length > 0 && remainingSteps(state.steps) === 0;
 }

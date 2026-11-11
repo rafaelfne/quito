@@ -12,7 +12,7 @@ export function useNotificationsGuideOffer(): GuideOffer {
     const environment = browserPushEnvironment(window);
     const device = deviceFrom(environment.userAgent);
     if (device === "computer") return;
-    void checkPush(environment, supabase).then((status) => setOffer(guideOfferOf(device, environment.standalone, status)));
+    void checkPush(environment, supabase).then((status) => setOffer(guideOfferOf(device, environment.standalone, status, environment.permission())));
   }, []);
 
   return offer;

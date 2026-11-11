@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { NotificationsInvite } from "@/app/(app)/notifications/notifications-invite";
+import { NotificationsAlert, NotificationsInvite } from "@/app/(app)/notifications/notifications-invite";
 import { accountPath } from "@/lib/account";
 import type { ChargesInvite } from "@/lib/activation-guide";
 import { notificationsInviteMessages } from "@/lib/notifications-invite";
@@ -20,10 +20,10 @@ const secondaryButtonClass = "min-h-11 rounded-sm border px-3 py-2 disabled:opac
 
 const shortcutClass = "inline-flex min-h-11 items-center rounded-sm border px-3 py-2 text-sm";
 
-const chargesInviteText: Record<ChargesInvite, string> = {
-  "first-charge": notificationsInviteMessages.firstChargeText,
-  resume: notificationsInviteMessages.resumeText,
-};
+function ChargesNotificationsInvite({ invite }: { invite: ChargesInvite }) {
+  if (invite === "lost" || invite === "blocked") return <NotificationsAlert loss={invite} />;
+  return <NotificationsInvite text={invite === "resume" ? notificationsInviteMessages.resumeText : notificationsInviteMessages.firstChargeText} />;
+}
 
 type ChargesViewProps = {
   state: ChargesState;
@@ -441,7 +441,7 @@ export function ChargesView({ state, onRetry, notificationsInvite = null, ...act
           </button>
         </div>
       ) : null}
-      {state.status === "ready" && notificationsInvite ? <NotificationsInvite text={chargesInviteText[notificationsInvite]} /> : null}
+      {state.status === "ready" && notificationsInvite ? <ChargesNotificationsInvite invite={notificationsInvite} /> : null}
       {state.status === "ready" ? <ChargesContent state={state} {...actions} /> : null}
     </main>
   );
