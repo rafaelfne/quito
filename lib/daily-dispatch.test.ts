@@ -8,7 +8,7 @@ type Row = Record<string, unknown>;
 
 type Tables = Record<string, Row[]>;
 
-const keys: Record<string, string[]> = { notification_dispatches: ["owner_id", "day"], first_charge_eves: ["owner_id"] };
+const keys: Record<string, string[]> = { notification_dispatches: ["owner_id", "day"], first_charge_eves: ["owner_id"], notification_events: ["owner_id", "kind", "device", "day"] };
 
 function fakeDatabase(tables: Tables, failing: string[] = []) {
   const writes: { table: string; kind: string; row?: Row }[] = [];
@@ -426,6 +426,21 @@ describe("disparo diário", () => {
     const send = vi.fn<PushSender>(async ({ endpoint }) => (endpoint === "a" ? "gone" : "sent"));
     expect(await runDailyDispatch(client, send, nineInSaoPaulo)).toEqual({ notified: 1, quiet: 0, failed: 0 });
     expect(tables.push_subscriptions.map((row) => row.endpoint)).toEqual(["b"]);
+  });
+
+  test("aparelho que saiu da inscrição fica registrado como inativo no dia do professor", async () => {
+    const devices = subscribed(teacher, ["a", "b"]);
+    devices.push_subscriptions[0].device = "iphone";
+    const { client, tables } = fakeDatabase(merged(teacherData(teacher, 5), devices, { notification_dispatches: [] }));
+    await runDailyDispatch(client, async ({ endpoint }) => (endpoint === "a" ? "gone" : "sent"), nineInSaoPaulo);
+    expect(tables.notification_events).toEqual([expect.objectContaining({ owner_id: teacher, kind: "inactive", device: "iphone", day: localClock(nineInSaoPaulo, saoPaulo).date })]);
+  });
+
+  test("sem saber o tipo de celular, apaga a inscrição sem registrar", async () => {
+    const { client, tables } = fakeDatabase(merged(teacherData(teacher, 5), subscribed(teacher, ["a"]), { notification_dispatches: [] }));
+    await runDailyDispatch(client, async () => "gone", nineInSaoPaulo);
+    expect(tables.push_subscriptions).toEqual([]);
+    expect(tables.notification_events).toBeUndefined();
   });
 
   test("se nenhum aparelho recebeu, conta como falha", async () => {

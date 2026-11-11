@@ -15,6 +15,7 @@ const upsert = vi.fn(async (rows: Record<string, unknown>[]) => {
   return { error: null };
 });
 const previewUpsert = vi.fn(async () => ({ error: null as { message: string } | null }));
+const eventUpsert = vi.fn(async () => ({ error: null }));
 const sentEq = vi.fn(async () => ({ error: null as { message: string } | null }));
 const update = vi.fn(() => ({ eq: sentEq }));
 const marksChain = { order: () => marksChain, range: async () => ({ data: [], error: null }) };
@@ -24,6 +25,7 @@ const from = vi.fn((table: string) => {
   if (table === "teacher_rules" || table === "message_settings") return { select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) };
   if (table === "payment_settings") return { select: () => ({ maybeSingle: async () => ({ data: { pix_key: "joao@email.com", display_name: "João Silva", due_day: 5 }, error: null }) }) };
   if (table === "message_previews") return { upsert: previewUpsert, select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) };
+  if (table === "notification_events") return { upsert: eventUpsert };
   if (table === "guardian_due_days") return { select: async () => ({ data: [], error: null }) };
   if (table === "charges") return { upsert, update, select: () => ({ lt: () => marksChain, eq: async () => ({ data: [...stored], error: null }) }) };
   return { select: () => ({ lte: () => marksChain }) };
@@ -95,6 +97,7 @@ beforeEach(() => {
   upsert.mockClear();
   selectStudents.mockClear();
   previewUpsert.mockClear();
+  eventUpsert.mockClear();
   update.mockClear();
   sentEq.mockClear();
   vi.useFakeTimers({ toFake: ["Date"], now: new Date(2026, 11, 1, 12) });
@@ -239,11 +242,22 @@ describe("página de cobranças", () => {
     expect(view().state.focusedChargeId).toBeNull();
   });
 
+  test("aberta pela notificação, registra o toque no dia, uma vez só", async () => {
+    vi.setSystemTime(new Date(2026, 11, 5, 12));
+    requestedParams.current = "from=notification";
+    view();
+    await settle();
+    view();
+    expect(eventUpsert).toHaveBeenCalledTimes(1);
+    expect(eventUpsert).toHaveBeenCalledWith(expect.objectContaining({ kind: "tap", day: "2026-12-05" }), { onConflict: "owner_id,kind,device,day" });
+  });
+
   test("aberta direto, mostra o painel inteiro", async () => {
     vi.setSystemTime(new Date(2026, 11, 5, 12));
     view();
     await settle();
     expect(view().state).toMatchObject({ status: "ready", focusedChargeId: null, focusOnSingle: false });
+    expect(eventUpsert).not.toHaveBeenCalled();
   });
 
   test("na primeira cobrança pronta, oferece o guia de ativação a quem pode ativar neste aparelho", async () => {

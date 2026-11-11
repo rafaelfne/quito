@@ -8,6 +8,7 @@ import {
   keyBytes,
   offersPushAction,
   pushStatusMessages,
+  recordNotificationTap,
   saveSubscription,
   serviceWorkerPath,
   subscriptionRow,
@@ -15,6 +16,7 @@ import {
   type PushManagerHandle,
   type PushSubscriptionHandle,
 } from "./push-subscription";
+import { dateKeyOf } from "@/lib/lessons";
 
 const androidAgent = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36";
 const iphoneAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1";
@@ -138,7 +140,7 @@ describe("conferir as notificações ao abrir", () => {
 
   test("com a permissão dada mas sem inscrição, fica desligada", async () => {
     expect(await checkPush(environment({ pushManager: vi.fn().mockResolvedValue(manager(null)) }), client, now)).toBe("off");
-    expect(upsert).not.toHaveBeenCalled();
+    expect(upsert).not.toHaveBeenCalledWith(expect.objectContaining({ endpoint: expect.any(String) }), expect.anything());
   });
 
   test("com inscrição, confirma no banco e mostra ativa", async () => {
@@ -182,7 +184,7 @@ describe("ativar as notificações", () => {
   test("quem nega fica bloqueado e quem fecha a pergunta fica desligado", async () => {
     expect(await enablePush(environment({ requestPermission: vi.fn().mockResolvedValue("denied") }), client, publicKey, now)).toBe("blocked");
     expect(await enablePush(environment({ requestPermission: vi.fn().mockResolvedValue("default") }), client, publicKey, now)).toBe("off");
-    expect(upsert).not.toHaveBeenCalled();
+    expect(upsert).not.toHaveBeenCalledWith(expect.objectContaining({ endpoint: expect.any(String) }), expect.anything());
   });
 
   test("com a permissão, inscreve o aparelho com a chave do Quitô e guarda", async () => {
@@ -209,6 +211,47 @@ describe("ativar as notificações", () => {
 
   test("usa a hora de agora quando não recebe outra", async () => {
     expect(await enablePush(environment(), client, publicKey)).toBe("active");
+  });
+});
+
+describe("registro para medir", () => {
+  const events = () => upsert.mock.calls.filter(([, options]) => options.onConflict === "owner_id,kind,device,day").map(([row]) => row);
+
+  test("inscrição ativa fica registrada no dia, com o tipo de celular", async () => {
+    await checkPush(environment({ userAgent: iphoneAgent }), client, now);
+    expect(client.from).toHaveBeenCalledWith("notification_events");
+    expect(events()).toEqual([{ kind: "active", device: "iphone", day: dateKeyOf(now), occurred_at: now.toISOString() }]);
+  });
+
+  test("notificação desligada ou bloqueada fica registrada como inativa", async () => {
+    await checkPush(environment({ permission: () => "default" }), client, now);
+    await checkPush(environment({ permission: () => "denied" }), client, now);
+    await enablePush(environment({ requestPermission: vi.fn().mockResolvedValue("denied") }), client, publicKey, now);
+    expect(events().map(({ kind, device }) => `${kind}:${device}`)).toEqual(["inactive:android", "inactive:android", "inactive:android"]);
+  });
+
+  test("ativar pelo botão registra a inscrição ativa", async () => {
+    await enablePush(environment({ userAgent: computerAgent }), client, publicKey, now);
+    expect(events()).toEqual([expect.objectContaining({ kind: "active", device: "computer" })]);
+  });
+
+  test("sem saber se está ativa, não registra nada", async () => {
+    await checkPush(environment({ userAgent: iphoneAgent, standalone: false, supported: false }), client, now);
+    await checkPush(environment({ supported: false }), client, now);
+    await checkPush(environment({ pushManager: vi.fn().mockRejectedValue(new Error("sem worker")) }), client, now);
+    expect(events()).toEqual([]);
+  });
+
+  test("o toque na notificação fica registrado com o tipo de celular", async () => {
+    expect(await recordNotificationTap(client, androidAgent, now)).toBe(true);
+    expect(events()).toEqual([{ kind: "tap", device: "android", day: dateKeyOf(now), occurred_at: now.toISOString() }]);
+    expect(await recordNotificationTap(client, iphoneAgent)).toBe(true);
+    expect(events()[1]).toMatchObject({ kind: "tap", device: "iphone" });
+  });
+
+  test("falha ao registrar não muda o que o professor vê", async () => {
+    upsert.mockImplementation(async (_row, options) => (options.onConflict === "owner_id,endpoint" ? { error: null } : { error: { message: "recusado" } }));
+    expect(await checkPush(environment(), client, now)).toBe("active");
   });
 });
 

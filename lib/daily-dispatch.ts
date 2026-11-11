@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { chargesPath, notificationTapPath } from "@/lib/charges";
 import { describeDayWork, loadDayWork, localClock, ownerScoped, type DayWork } from "@/lib/day-work";
 import { claimFirstChargeEve, describeFirstChargeEve, loadFirstChargeEve, recordFirstChargeEveReach, type FirstChargeEve } from "@/lib/first-charge-eve";
+import { notificationEventRow, recordNotificationEvent } from "@/lib/notification-events";
 import { defaultNotificationHour, fallbackTimeZone, isNotificationHour } from "@/lib/notification-time";
 
 export type DispatchClient = Pick<SupabaseClient, "from">;
@@ -77,8 +78,19 @@ export async function claimDispatch(client: DispatchClient, ownerId: string, day
   return !error && (data ?? []).length > 0;
 }
 
-export async function forgetDevice(client: DispatchClient, ownerId: string, endpoint: string): Promise<void> {
+type DeviceRow = { device: string };
+
+const knownDevices = ["android", "iphone", "computer"] as const;
+
+function knownDevice(device: string | undefined) {
+  return knownDevices.find((known) => known === device) ?? null;
+}
+
+export async function forgetDevice(client: DispatchClient, ownerId: string, endpoint: string, today: string, now: Date = new Date()): Promise<void> {
+  const { data } = await client.from("push_subscriptions").select("device").eq("owner_id", ownerId).eq("endpoint", endpoint).maybeSingle();
   await client.from("push_subscriptions").delete().eq("owner_id", ownerId).eq("endpoint", endpoint);
+  const device = knownDevice((data as DeviceRow | null)?.device);
+  if (device) await recordNotificationEvent(client, { owner_id: ownerId, ...notificationEventRow("inactive", device, now, today) });
 }
 
 export function isDispatchDue(target: TeacherTarget, now: Date): boolean {
@@ -91,9 +103,9 @@ function dayBefore(now: Date): string {
 
 type DeviceReach = { reached: number; live: PushTarget[] };
 
-async function notifyDevices(client: DispatchClient, send: PushSender, ownerId: string, devices: PushTarget[], message: PushMessage): Promise<DeviceReach> {
+async function notifyDevices(client: DispatchClient, send: PushSender, ownerId: string, today: string, devices: PushTarget[], message: PushMessage): Promise<DeviceReach> {
   const results = await Promise.all(devices.map((device) => send(device, message)));
-  await Promise.all(devices.filter((_, index) => results[index] === "gone").map((device) => forgetDevice(client, ownerId, device.endpoint)));
+  await Promise.all(devices.filter((_, index) => results[index] === "gone").map((device) => forgetDevice(client, ownerId, device.endpoint, today)));
   return { reached: results.filter((result) => result === "sent").length, live: devices.filter((_, index) => results[index] !== "gone") };
 }
 
@@ -113,13 +125,13 @@ async function dispatchTo(client: DispatchClient, send: PushSender, target: Teac
   let devices = target.devices;
   let reached = 0;
   if (eve !== null) {
-    const reach = await notifyDevices(client, send, target.ownerId, devices, { title: dispatchTitle, body: describeFirstChargeEve(eve), path: chargesPath });
+    const reach = await notifyDevices(client, send, target.ownerId, today, devices, { title: dispatchTitle, body: describeFirstChargeEve(eve), path: chargesPath });
     await recordFirstChargeEveReach(client, target.ownerId, reach.reached);
     devices = reach.live;
     reached += reach.reached;
   }
   if (body !== null) {
-    const reach = await notifyDevices(client, send, target.ownerId, devices, { title: dispatchTitle, body, path: notificationTapPath });
+    const reach = await notifyDevices(client, send, target.ownerId, today, devices, { title: dispatchTitle, body, path: notificationTapPath });
     reached += reach.reached;
   }
   return reached > 0 ? "notified" : "failed";

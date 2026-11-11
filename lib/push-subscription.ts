@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { notificationEventRow, recordNotificationEvent, type NotificationEventKind } from "@/lib/notification-events";
 import { requestTimeoutMs, withTimeout } from "@/lib/sign-in";
 
 export type PushSubscriptionClient = Pick<SupabaseClient, "from">;
@@ -95,7 +96,23 @@ async function keep(client: PushSubscriptionClient, environment: PushEnvironment
   return (await saveSubscription(client, row)) ? "active" : "failed";
 }
 
+const recordedKinds: Partial<Record<PushStatus, NotificationEventKind>> = { active: "active", off: "inactive", blocked: "inactive" };
+
+export function recordPushStatus(client: PushSubscriptionClient, environment: PushEnvironment, status: PushStatus, now: Date): PushStatus {
+  const kind = recordedKinds[status];
+  if (kind) void recordNotificationEvent(client, notificationEventRow(kind, deviceFrom(environment.userAgent), now));
+  return status;
+}
+
+export function recordNotificationTap(client: PushSubscriptionClient, userAgent: string, now: Date = new Date()): Promise<boolean> {
+  return recordNotificationEvent(client, notificationEventRow("tap", deviceFrom(userAgent), now));
+}
+
 export async function checkPush(environment: PushEnvironment, client: PushSubscriptionClient, now: Date = new Date()): Promise<PushStatus> {
+  return recordPushStatus(client, environment, await readPush(environment, client, now), now);
+}
+
+async function readPush(environment: PushEnvironment, client: PushSubscriptionClient, now: Date): Promise<PushStatus> {
   const blocked = blockedStatus(environment);
   if (blocked) return blocked;
   const permission = environment.permission();
@@ -111,6 +128,10 @@ export async function checkPush(environment: PushEnvironment, client: PushSubscr
 }
 
 export async function enablePush(environment: PushEnvironment, client: PushSubscriptionClient, publicKey: string, now: Date = new Date()): Promise<PushStatus> {
+  return recordPushStatus(client, environment, await askPush(environment, client, publicKey, now), now);
+}
+
+async function askPush(environment: PushEnvironment, client: PushSubscriptionClient, publicKey: string, now: Date): Promise<PushStatus> {
   const blocked = blockedStatus(environment);
   if (blocked) return blocked;
   if (!publicKey) return "failed";

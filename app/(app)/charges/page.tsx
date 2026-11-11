@@ -9,6 +9,7 @@ import { applyChargesLoad, applyPaidSaved, applyPreviewConfirmation, applyRemind
 import { saveChargePaidAt, saveChargeRemindersSentAt, saveChargeSentAt } from "@/lib/charge-sending";
 import { confirmMessagePreview } from "@/lib/message-preview";
 import { dateKeyOf } from "@/lib/lessons";
+import { recordNotificationTap } from "@/lib/push-subscription";
 import { supabase } from "@/lib/supabase";
 
 export default function ChargesPage() {
@@ -21,6 +22,10 @@ export default function ChargesPage() {
   useEffect(() => {
     void loadStartedAt(supabase).then(setStartedAt);
   }, []);
+
+  useEffect(() => {
+    if (fromNotification) void recordNotificationTap(supabase, navigator.userAgent);
+  }, [fromNotification]);
 
   const load = useCallback(() => {
     void syncChargesWithMessages(supabase, month, dateKeyOf(new Date())).then((result) => setState((current) => applyChargesLoad(current, result)));
