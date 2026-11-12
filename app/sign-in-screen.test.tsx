@@ -138,6 +138,7 @@ describe("tela de entrada", () => {
     const html = renderToStaticMarkup(<SignInScreen />);
     expect(html).toContain("Entrar no Quitô");
     expect(html).toContain("Receber código");
+    expect(html).toContain("Como funciona");
     expect(html).not.toContain("Senha");
   });
 
@@ -146,6 +147,15 @@ describe("tela de entrada", () => {
     const hero = html.indexOf("Cobre sem constrangimento");
     expect(hero).toBeGreaterThan(-1);
     expect(hero).toBeLessThan(html.indexOf("<form"));
+  });
+
+  test("mostra os passos abaixo do formulário e antes do rodapé", () => {
+    const html = renderToStaticMarkup(<SignInScreen />);
+    const form = html.indexOf("<form");
+    const steps = html.indexOf("Como funciona");
+    expect(form).toBeGreaterThan(-1);
+    expect(steps).toBeGreaterThan(form);
+    expect(steps).toBeLessThan(html.indexOf("<footer"));
   });
 
   test("mostra o rodapé com privacidade e contato depois do formulário", () => {

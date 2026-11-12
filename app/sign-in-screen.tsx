@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SignInFooter } from "@/app/sign-in-footer";
 import { SignInForm } from "@/app/sign-in-form";
+import { SignInSteps } from "@/app/sign-in-steps";
 import { SignInHero } from "@/app/sign-in-hero";
 import { googleReturnUrl, realBrowser, startGoogleSignIn } from "@/lib/google-sign-in";
 import { cleanCode, editEmail, initialSignIn, normalizeEmail, resendCode, submitCode, submitEmail, type SignInAuth, type SignInState } from "@/lib/sign-in";
@@ -74,6 +75,7 @@ export function SignInScreen() {
           onEditEmail={changeEmail}
           onGoogle={() => void signInWithGoogle()}
         />
+        <SignInSteps />
       </main>
       <SignInFooter />
     </>
