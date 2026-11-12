@@ -148,6 +148,13 @@ describe("tela de entrada", () => {
     expect(hero).toBeLessThan(html.indexOf("<form"));
   });
 
+  test("mostra o rodapé com privacidade e contato depois do formulário", () => {
+    const html = renderToStaticMarkup(<SignInScreen />);
+    expect(html).toContain("Os dados dos seus alunos são só seus.");
+    expect(html).toContain('href="mailto:oi@quito.app"');
+    expect(html.indexOf("Entrar no Quitô")).toBeLessThan(html.indexOf("<footer"));
+  });
+
   test("liga cada botão ao passo certo, usando o login do Supabase", async () => {
     const { props } = renderCapturing();
     props!.onSubmitEmail();

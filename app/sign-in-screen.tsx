@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { SignInFooter } from "@/app/sign-in-footer";
 import { SignInForm } from "@/app/sign-in-form";
 import { SignInHero } from "@/app/sign-in-hero";
 import { googleReturnUrl, realBrowser, startGoogleSignIn } from "@/lib/google-sign-in";
@@ -57,21 +58,24 @@ export function SignInScreen() {
   }
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-8 p-8">
-      <SignInHero />
-      <SignInForm
-        state={state}
-        busy={busy}
-        testInboxUrl={inboxUrl}
-        testCode={testCode}
-        onEmailChange={(email) => setState((current) => ({ ...current, email }))}
-        onCodeChange={(code) => setState((current) => ({ ...current, code: cleanCode(code) }))}
-        onSubmitEmail={() => void sendCode(submitEmail)}
-        onSubmitCode={() => void run(submitCode)}
-        onResend={() => void sendCode(resendCode)}
-        onEditEmail={changeEmail}
-        onGoogle={() => void signInWithGoogle()}
-      />
-    </main>
+    <>
+      <main className="flex flex-1 flex-col items-center justify-center gap-8 p-8">
+        <SignInHero />
+        <SignInForm
+          state={state}
+          busy={busy}
+          testInboxUrl={inboxUrl}
+          testCode={testCode}
+          onEmailChange={(email) => setState((current) => ({ ...current, email }))}
+          onCodeChange={(code) => setState((current) => ({ ...current, code: cleanCode(code) }))}
+          onSubmitEmail={() => void sendCode(submitEmail)}
+          onSubmitCode={() => void run(submitCode)}
+          onResend={() => void sendCode(resendCode)}
+          onEditEmail={changeEmail}
+          onGoogle={() => void signInWithGoogle()}
+        />
+      </main>
+      <SignInFooter />
+    </>
   );
 }
