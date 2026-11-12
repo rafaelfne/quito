@@ -1,5 +1,5 @@
 # App no celular e notificações
-<!-- virgilio:feature stage=open -->
+<!-- virgilio:feature id=app-no-celular stage=building epic=124 -->
 
 ## O que é
 
