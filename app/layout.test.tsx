@@ -13,7 +13,7 @@ vi.mock("next/font/google", () => {
   return { Poppins: font, Domine: font, IBM_Plex_Mono: font };
 });
 
-const { default: RootLayout, metadata } = await import("./layout");
+const { default: RootLayout, metadata, viewport } = await import("./layout");
 
 function renderLayout() {
   return renderToStaticMarkup(
@@ -107,6 +107,21 @@ describe("moldura de todas as telas", () => {
   });
 
   test("dá ao app o nome e a descrição que aparecem na aba do navegador", () => {
-    expect(metadata).toEqual({ title: "quito", description: "Criado com o Virgílio" });
+    expect(metadata.title).toBe("Quitô");
+    expect(metadata.description).toBe("Você dá a aula. O Quitô cuida da cobrança.");
+  });
+});
+
+describe("app instalado na tela inicial", () => {
+  test("no iPhone, o app aberto pelo ícone ocupa a tela toda com o nome Quitô", () => {
+    expect(metadata.applicationName).toBe("Quitô");
+    expect(metadata.appleWebApp).toEqual({ capable: true, title: "Quitô", statusBarStyle: "default" });
+  });
+
+  test("a barra do celular acompanha o fundo do app no tema claro e no escuro", () => {
+    expect(viewport.themeColor).toEqual([
+      { media: "(prefers-color-scheme: light)", color: "#fdfdfd" },
+      { media: "(prefers-color-scheme: dark)", color: "#1a1b1e" },
+    ]);
   });
 });

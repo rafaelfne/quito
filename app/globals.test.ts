@@ -63,6 +63,14 @@ describe("variáveis do tema", () => {
     expect(variablesOf(blockAfter(".dark {"))[variable]).toBeTruthy();
   });
 
+  test.skipIf(!hasDarkBlock)("o código QR fica escuro sobre claro nos dois temas, como a câmera lê", () => {
+    const dark = variablesOf(blockAfter(".dark {"));
+    expect(light["--qr-code"]).toBe("oklch(0 0 0)");
+    expect(light["--qr-code-background"]).toBe("oklch(1.0000 0 0)");
+    expect(dark["--qr-code"]).toBe(light["--qr-code"]);
+    expect(dark["--qr-code-background"]).toBe(light["--qr-code-background"]);
+  });
+
   test("o tema não depende da preferência do aparelho direto no estilo", () => {
     expect(css).not.toContain("prefers-color-scheme");
   });
@@ -85,6 +93,8 @@ describe("variáveis do tema", () => {
     ["bg-accent", "background-color: var(--accent)"],
     ["border-border", "border-color: var(--border)"],
     ["rounded-sm", "border-radius: var(--radius)"],
+    ["fill-qr-code", "fill: var(--qr-code)"],
+    ["fill-qr-code-background", "fill: var(--qr-code-background)"],
   ])("%s lê a variável", async (candidate, declaration) => {
     expect(await compiledRule(candidate)).toContain(declaration);
   });

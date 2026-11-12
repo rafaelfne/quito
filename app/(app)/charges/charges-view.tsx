@@ -1,8 +1,11 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { NotificationsAlert, NotificationsInvite } from "@/app/(app)/notifications/notifications-invite";
 import { accountPath } from "@/lib/account";
+import type { ChargesInvite } from "@/lib/activation-guide";
+import { notificationsInviteMessages } from "@/lib/notifications-invite";
 import { formatCurrency } from "@/lib/billing";
-import { canSendCharge, chargeMessages, describeMarkLessons, describeOpenFor, describeReadyFor, groupCharges, isChargePaid, isChargeSent, isDueToSend, isReminderDue, isTrainingCharges, needsFirstPreview, describeWaitingStudent, monthChargesTotal, reminderMessageOf, reminderProgressOf, remindersSentOf, waitsForBilling, waitsForMarks, type Charge, type ChargesState, type ChargeStudent, type WaitingGuardian } from "@/lib/charges";
+import { canSendCharge, chargeMessages, describeMarkLessons, describeOpenFor, describeReadyFor, focusedChargeOf, groupCharges, isChargePaid, isChargeSent, isDueToSend, isReminderDue, isTrainingCharges, needsFirstPreview, describeWaitingStudent, monthChargesTotal, reminderMessageOf, reminderProgressOf, remindersSentOf, waitsForBilling, waitsForMarks, type Charge, type ChargesState, type ChargeStudent, type WaitingGuardian } from "@/lib/charges";
 import { closingMessages, closingPath, describeSignedAmount } from "@/lib/closing";
 import { describeMonth, lessonsPath, lessonsPathFor } from "@/lib/lessons";
 import { whatsAppLinkFor } from "@/lib/charge-sending";
@@ -17,9 +20,16 @@ const secondaryButtonClass = "min-h-11 rounded-sm border px-3 py-2 disabled:opac
 
 const shortcutClass = "inline-flex min-h-11 items-center rounded-sm border px-3 py-2 text-sm";
 
+function ChargesNotificationsInvite({ invite }: { invite: ChargesInvite }) {
+  if (invite === "lost" || invite === "blocked") return <NotificationsAlert loss={invite} />;
+  return <NotificationsInvite text={invite === "resume" ? notificationsInviteMessages.resumeText : notificationsInviteMessages.firstChargeText} />;
+}
+
 type ChargesViewProps = {
   state: ChargesState;
+  notificationsInvite?: ChargesInvite | null;
   onRetry: () => void;
+  onShowFullPanel: () => void;
   onConfirmPreview: () => void;
   onSend: (chargeId: string) => void;
   onUndoSend: (chargeId: string) => void;
@@ -282,7 +292,7 @@ function WaitingCharges({ waiting, month }: { waiting: WaitingGuardian[]; month:
   );
 }
 
-type ChargesContentProps = Omit<ChargesViewProps, "onRetry">;
+type ChargesContentProps = Omit<ChargesViewProps, "onRetry" | "notificationsInvite">;
 
 type SendTargets = { readyFor: string | null; link: string | null };
 
@@ -313,7 +323,7 @@ function ChargeGroup({ title, total, children }: { title: string; total: number 
   );
 }
 
-function ChargesContent({ state, onConfirmPreview, onSend, onUndoSend, onMarkPaid, onUndoPaid, onSendReminder, onUndoReminder }: ChargesContentProps) {
+function ChargesContent({ state, onShowFullPanel, onConfirmPreview, onSend, onUndoSend, onMarkPaid, onUndoPaid, onSendReminder, onUndoReminder }: ChargesContentProps) {
   const { month, charges, waiting, nothingToCharge, messages } = state;
   const firstPreview = needsFirstPreview(state) ? { confirming: state.confirmingPreview, onConfirm: onConfirmPreview } : null;
   if (isTrainingCharges(state) && state.trainingMonth) return <p className="text-sm">{describeTrainingCharges(state.trainingMonth)}</p>;
@@ -331,15 +341,31 @@ function ChargesContent({ state, onConfirmPreview, onSend, onUndoSend, onMarkPai
       payment={{ saving: state.savingPayments.includes(charge.id), onMarkPaid: () => onMarkPaid(charge.id), onUndo: () => onUndoPaid(charge.id) }}
     />
   );
+  const alerts = [state.previewMessage, state.sendMessage, state.paymentMessage, state.reminderNotice].map((alert) =>
+    alert ? (
+      <p key={alert} className="text-sm" role="alert">
+        {alert}
+      </p>
+    ) : null,
+  );
+  const focused = focusedChargeOf(state);
+  if (focused) {
+    return (
+      <>
+        {alerts}
+        <ChargeGroup title={chargeMessages.todayTitle} total={null}>
+          {firstPreview ? <p className="rounded-sm border p-3 text-sm">{chargeMessages.previewFirst}</p> : null}
+          {card(focused)}
+        </ChargeGroup>
+        <button className={secondaryButtonClass} type="button" onClick={onShowFullPanel}>
+          {chargeMessages.showFullPanel}
+        </button>
+      </>
+    );
+  }
   return (
     <>
-      {[state.previewMessage, state.sendMessage, state.paymentMessage, state.reminderNotice].map((alert) =>
-        alert ? (
-          <p key={alert} className="text-sm" role="alert">
-            {alert}
-          </p>
-        ) : null,
-      )}
+      {alerts}
       {charges.length > 0 ? (
         <ChargeGroup title={chargeMessages.todayTitle} total={null}>
           {firstPreview && groups.today.length > 0 ? <p className="rounded-sm border p-3 text-sm">{chargeMessages.previewFirst}</p> : null}
@@ -377,7 +403,7 @@ function ChargesContent({ state, onConfirmPreview, onSend, onUndoSend, onMarkPai
   );
 }
 
-export function ChargesView({ state, onRetry, ...actions }: ChargesViewProps) {
+export function ChargesView({ state, onRetry, notificationsInvite = null, ...actions }: ChargesViewProps) {
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-4 sm:p-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -415,6 +441,7 @@ export function ChargesView({ state, onRetry, ...actions }: ChargesViewProps) {
           </button>
         </div>
       ) : null}
+      {state.status === "ready" && notificationsInvite ? <ChargesNotificationsInvite invite={notificationsInvite} /> : null}
       {state.status === "ready" ? <ChargesContent state={state} {...actions} /> : null}
     </main>
   );

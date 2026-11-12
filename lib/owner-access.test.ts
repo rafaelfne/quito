@@ -10,7 +10,7 @@ const migrations = readdirSync(migrationsDir)
   .map((file) => readFileSync(join(migrationsDir, file), "utf8"))
   .join("\n");
 
-const tables = [...migrations.matchAll(/create table public\."?(\w+)"?/gi)].map((match) => match[1]);
+const tables = [...migrations.matchAll(/create table (?:if not exists )?public\."?(\w+)"?/gi)].map((match) => match[1]);
 
 describe("cada professor só vê os próprios dados", () => {
   test("as migrações criam tabelas", () => {
@@ -22,6 +22,7 @@ describe("cada professor só vê os próprios dados", () => {
     expect(tables).toContain("payment_settings");
     expect(tables).toContain("charges");
     expect(tables).toContain("message_settings");
+    expect(tables).toContain("notification_settings");
   });
 
   test.each(tables)("a tabela %s nasce com a regra de acesso ligada e só para o dono", (table) => {
@@ -33,7 +34,7 @@ describe("cada professor só vê os próprios dados", () => {
   });
 
   test.each(tables)("a tabela %s é apagada junto com a conta do professor", (table) => {
-    const definition = migrations.match(new RegExp(`create table public\\."?${table}"?\\s*\\([\\s\\S]*?\\n\\);`, "i"))?.[0];
+    const definition = migrations.match(new RegExp(`create table (?:if not exists )?public\\."?${table}"?\\s*\\([\\s\\S]*?\\n\\);`, "i"))?.[0];
     expect(definition).toMatch(/"owner_id"[^,]*references auth\.users \(id\) on delete cascade/i);
   });
 

@@ -1,17 +1,16 @@
 import { describe, expect, test } from "vitest";
 import type { GettingStartedStep } from "./getting-started";
-import { notificationsGuideLaunched, notificationsGuidePath, notificationsInviteMessages, showsNotificationsInvite } from "./notifications-invite";
+import { notificationsGuidePath, notificationsInviteMessages, showsNotificationsInvite } from "./notifications-invite";
 
 const done: GettingStartedStep = { id: "a", title: "Passo", hint: "Dica", path: "/students", done: true };
 const pending: GettingStartedStep = { ...done, id: "b", done: false };
 
 describe("convite para as notificações", () => {
-  test("fica desligado enquanto o guia de ativação não é lançado", () => {
-    expect(notificationsGuideLaunched).toBe(false);
-    expect(showsNotificationsInvite({ status: "ready", steps: [done] })).toBe(false);
+  test("fica desligado quando o guia não é oferecido neste aparelho", () => {
+    expect(showsNotificationsInvite({ status: "ready", steps: [done] }, false)).toBe(false);
   });
 
-  test("com o guia lançado, aparece só no fim da sequência", () => {
+  test("com o guia oferecido, aparece só no fim da sequência", () => {
     expect(showsNotificationsInvite({ status: "ready", steps: [done, done] }, true)).toBe(true);
     expect(showsNotificationsInvite({ status: "ready", steps: [done, pending] }, true)).toBe(false);
   });

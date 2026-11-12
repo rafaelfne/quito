@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
+import type { ChargesInvite } from "@/lib/activation-guide";
 import { chargeMessages, initialCharges, type Charge, type ChargesState, type WaitingGuardian } from "@/lib/charges";
+import { notificationsAlertMessages, notificationsGuidePath, notificationsInviteMessages } from "@/lib/notifications-invite";
 import { ChargesView } from "./charges-view";
 
 function collect(node: unknown, found: { type: unknown; props: Record<string, unknown> }[] = []) {
@@ -49,8 +51,8 @@ function ready(overrides: Partial<ChargesState> = {}): ChargesState {
   return { ...initialCharges(november), status: "ready", ...overrides };
 }
 
-function render(state: ChargesState) {
-  return renderToStaticMarkup(<ChargesView state={state} onRetry={vi.fn()} onConfirmPreview={vi.fn()} onSend={vi.fn()} onUndoSend={vi.fn()} onMarkPaid={vi.fn()} onUndoPaid={vi.fn()} onSendReminder={vi.fn()} onUndoReminder={vi.fn()} />);
+function render(state: ChargesState, onShowFullPanel = vi.fn()) {
+  return renderToStaticMarkup(<ChargesView state={state} onRetry={vi.fn()} onShowFullPanel={onShowFullPanel} onConfirmPreview={vi.fn()} onSend={vi.fn()} onUndoSend={vi.fn()} onMarkPaid={vi.fn()} onUndoPaid={vi.fn()} onSendReminder={vi.fn()} onUndoReminder={vi.fn()} />);
 }
 
 describe("tela de cobranças", () => {
@@ -225,7 +227,7 @@ describe("envio pelo WhatsApp", () => {
   test("tocar em enviar e em desfazer avisam a página com a cobrança certa", () => {
     const onSend = vi.fn();
     const onUndoSend = vi.fn();
-    const props = { onRetry: vi.fn(), onConfirmPreview: vi.fn(), onSend, onUndoSend, onMarkPaid: vi.fn(), onUndoPaid: vi.fn(), onSendReminder: vi.fn(), onUndoReminder: vi.fn() };
+    const props = { onRetry: vi.fn(), onShowFullPanel: vi.fn(), onConfirmPreview: vi.fn(), onSend, onUndoSend, onMarkPaid: vi.fn(), onUndoPaid: vi.fn(), onSendReminder: vi.fn(), onUndoReminder: vi.fn() };
     const link = collect(ChargesView({ state: ready(confirmed), ...props })).find((element) => element.type === "a" && String(element.props.href).startsWith("https://wa.me/"));
     (link?.props.onClick as () => void)();
     expect(onSend).toHaveBeenCalledWith("c1");
@@ -299,7 +301,7 @@ describe("marcar como pago", () => {
   test("tocar em marcar como pago e em desfazer avisam a página com a cobrança certa", () => {
     const onMarkPaid = vi.fn();
     const onUndoPaid = vi.fn();
-    const props = { onRetry: vi.fn(), onConfirmPreview: vi.fn(), onSend: vi.fn(), onUndoSend: vi.fn(), onMarkPaid, onUndoPaid, onSendReminder: vi.fn(), onUndoReminder: vi.fn() };
+    const props = { onRetry: vi.fn(), onShowFullPanel: vi.fn(), onConfirmPreview: vi.fn(), onSend: vi.fn(), onUndoSend: vi.fn(), onMarkPaid, onUndoPaid, onSendReminder: vi.fn(), onUndoReminder: vi.fn() };
     const mark = collect(ChargesView({ state: ready(confirmed), ...props })).find((element) => element.type === "button" && element.props.children === chargeMessages.markPaid);
     (mark?.props.onClick as () => void)();
     expect(onMarkPaid).toHaveBeenCalledWith("c1");
@@ -421,7 +423,7 @@ describe("lembretes", () => {
   test("tocar no lembrete e em desfazer avisam a página com a cobrança certa", () => {
     const onSendReminder = vi.fn();
     const onUndoReminder = vi.fn();
-    const props = { onRetry: vi.fn(), onConfirmPreview: vi.fn(), onSend: vi.fn(), onUndoSend: vi.fn(), onMarkPaid: vi.fn(), onUndoPaid: vi.fn(), onSendReminder, onUndoReminder };
+    const props = { onRetry: vi.fn(), onShowFullPanel: vi.fn(), onConfirmPreview: vi.fn(), onSend: vi.fn(), onUndoSend: vi.fn(), onMarkPaid: vi.fn(), onUndoPaid: vi.fn(), onSendReminder, onUndoReminder };
     const link = collect(ChargesView({ state: ready({ ...base, today: "2026-12-08" }), ...props })).find((element) => element.type === "a" && element.props.children === chargeMessages.sendReminder);
     (link?.props.onClick as () => void)();
     expect(onSendReminder).toHaveBeenCalledWith("c1");
@@ -429,5 +431,77 @@ describe("lembretes", () => {
     const undo = collect(ChargesView({ state: sentOnce, ...props })).find((element) => element.type === "button" && element.props.children === chargeMessages.undoReminder);
     (undo?.props.onClick as () => void)();
     expect(onUndoReminder).toHaveBeenCalledWith("c1");
+  });
+
+  test("vindo da notificação com uma só cobrança, mostra só a prévia dela com o botão de enviar", () => {
+    const other: Charge = { ...charge, id: "c2", guardian_name: "Caio Melo", guardian_phone: "11911112222" };
+    const state = ready({ charges: [charge, other], messages: { c1: "Oi, Ana!", c2: "Oi, Caio!" }, dueDates: { c1: "2026-12-05", c2: "2026-12-10" }, today: "2026-12-05", previewConfirmed: true, waiting: [waitingBilling], focusedChargeId: "c1" });
+    const html = render(state);
+    expect(html).toContain(chargeMessages.todayTitle);
+    expect(html).toContain("Oi, Ana!");
+    expect(html).toContain(chargeMessages.sendOnWhatsApp);
+    expect(html).toContain("https://wa.me/");
+    expect(html).toContain(chargeMessages.showFullPanel);
+    expect(html).not.toContain("Oi, Caio!");
+    expect(html).not.toContain(chargeMessages.monthTotal);
+    expect(html).not.toContain(chargeMessages.waitingTitle);
+    expect(render({ ...state, focusedChargeId: null })).toContain("Oi, Caio!");
+  });
+
+  test("na prévia vinda da notificação, a primeira vez ainda pede para ler a mensagem", () => {
+    const html = render(ready({ charges: [charge], messages: { c1: "Oi, Ana!" }, dueDates: { c1: "2026-12-05" }, today: "2026-12-05", focusedChargeId: "c1", sendMessage: chargeMessages.sendFailed }));
+    expect(html).toContain("Antes do primeiro envio, leia a mensagem");
+    expect(html).toContain(chargeMessages.confirmPreview);
+    expect(html).toContain(chargeMessages.sendFailed);
+  });
+
+  test("o botão ver o painel do dia mostra todas as cobranças", () => {
+    const onShowFullPanel = vi.fn();
+    const state = ready({ charges: [charge], messages: { c1: "Oi, Ana!" }, dueDates: { c1: "2026-12-05" }, today: "2026-12-05", focusedChargeId: "c1" });
+    const button = collect(<ChargesView state={state} onRetry={vi.fn()} onShowFullPanel={onShowFullPanel} onConfirmPreview={vi.fn()} onSend={vi.fn()} onUndoSend={vi.fn()} onMarkPaid={vi.fn()} onUndoPaid={vi.fn()} onSendReminder={vi.fn()} onUndoReminder={vi.fn()} />).find((element) => element.type === "button" && element.props.children === chargeMessages.showFullPanel);
+    (button!.props.onClick as () => void)();
+    expect(onShowFullPanel).toHaveBeenCalled();
+  });
+});
+
+describe("convite para o guia de ativação na primeira cobrança", () => {
+  function renderInvite(state: ChargesState, notificationsInvite: ChargesInvite | null) {
+    return renderToStaticMarkup(<ChargesView state={state} notificationsInvite={notificationsInvite} onRetry={vi.fn()} onShowFullPanel={vi.fn()} onConfirmPreview={vi.fn()} onSend={vi.fn()} onUndoSend={vi.fn()} onMarkPaid={vi.fn()} onUndoPaid={vi.fn()} onSendReminder={vi.fn()} onUndoReminder={vi.fn()} />);
+  }
+
+  test("com a primeira cobrança pronta, convida antes das cobranças", () => {
+    const html = renderInvite(ready({ charges: [charge] }), "first-charge");
+    expect(html).toContain(notificationsInviteMessages.firstChargeText);
+    expect(html).toContain(`href="${notificationsGuidePath}"`);
+    expect(html.indexOf(notificationsInviteMessages.title)).toBeLessThan(html.indexOf("Ana Lima"));
+  });
+
+  test("sem o convite ou enquanto carrega, não aparece", () => {
+    expect(renderInvite(ready({ charges: [charge] }), null)).not.toContain(notificationsInviteMessages.title);
+    expect(renderInvite(initialCharges(november), "first-charge")).not.toContain(notificationsInviteMessages.title);
+    expect(render(ready({ charges: [charge] }))).not.toContain(notificationsInviteMessages.title);
+  });
+
+  test("no iPhone já na tela de início, convida a voltar ao guia para liberar as notificações", () => {
+    const html = renderInvite(ready({ charges: [charge] }), "resume");
+    expect(html).toContain(notificationsInviteMessages.resumeText);
+    expect(html).not.toContain(notificationsInviteMessages.firstChargeText);
+    expect(html).toContain(`href="${notificationsGuidePath}"`);
+  });
+
+  test("com a notificação desligada, mostra o alerta antes das cobranças, que continuam no painel", () => {
+    const html = renderInvite(ready({ charges: [charge] }), "lost");
+    expect(html).toContain(notificationsAlertMessages.title);
+    expect(html).toContain(notificationsAlertMessages.lostText);
+    expect(html).toContain(notificationsAlertMessages.fallbackText);
+    expect(html).not.toContain(notificationsInviteMessages.title);
+    expect(html).toContain(`href="${notificationsGuidePath}"`);
+    expect(html.indexOf(notificationsAlertMessages.title)).toBeLessThan(html.indexOf("Ana Lima"));
+  });
+
+  test("com a permissão negada, o alerta explica o bloqueio", () => {
+    const html = renderInvite(ready({ charges: [charge] }), "blocked");
+    expect(html).toContain(notificationsAlertMessages.blockedText);
+    expect(html).not.toContain(notificationsAlertMessages.lostText);
   });
 });

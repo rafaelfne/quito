@@ -1,16 +1,31 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { ChargesView } from "@/app/(app)/charges/charges-view";
-import { applyChargesLoad, applyPaidSaved, applyPreviewConfirmation, applyRemindersSaved, applySendSaved, endedMonthOf, initialCharges, startConfirmingPreview, startReloadingCharges, startSavingPayment, startSavingReminder, startSavingSend, syncChargesWithMessages, withoutLastReminder, withReminderSent } from "@/lib/charges";
+import { useNotificationsGuideOffer } from "@/app/(app)/notifications/guide-offer";
+import { chargesInviteOf, isFirstChargeReady, loadStartedAt } from "@/lib/activation-guide";
+import { applyChargesLoad, applyPaidSaved, applyPreviewConfirmation, applyRemindersSaved, applySendSaved, endedMonthOf, initialCharges, isFromNotification, showFullPanel, startConfirmingPreview, startReloadingCharges, startSavingPayment, startSavingReminder, startSavingSend, syncChargesWithMessages, withoutLastReminder, withReminderSent } from "@/lib/charges";
 import { saveChargePaidAt, saveChargeRemindersSentAt, saveChargeSentAt } from "@/lib/charge-sending";
 import { confirmMessagePreview } from "@/lib/message-preview";
 import { dateKeyOf } from "@/lib/lessons";
+import { recordNotificationTap } from "@/lib/push-subscription";
 import { supabase } from "@/lib/supabase";
 
 export default function ChargesPage() {
-  const [state, setState] = useState(initialCharges(endedMonthOf(new Date())));
+  const fromNotification = isFromNotification(useSearchParams().get("from"));
+  const [state, setState] = useState(initialCharges(endedMonthOf(new Date()), fromNotification));
   const { month } = state;
+  const [startedAt, setStartedAt] = useState<string | null>(null);
+  const notificationsGuideOffer = useNotificationsGuideOffer();
+
+  useEffect(() => {
+    void loadStartedAt(supabase).then(setStartedAt);
+  }, []);
+
+  useEffect(() => {
+    if (fromNotification) void recordNotificationTap(supabase, navigator.userAgent);
+  }, [fromNotification]);
 
   const load = useCallback(() => {
     void syncChargesWithMessages(supabase, month, dateKeyOf(new Date())).then((result) => setState((current) => applyChargesLoad(current, result)));
@@ -49,7 +64,9 @@ export default function ChargesPage() {
   return (
     <ChargesView
       state={state}
+      notificationsInvite={chargesInviteOf(notificationsGuideOffer, isFirstChargeReady(state, startedAt))}
       onRetry={retry}
+      onShowFullPanel={() => setState(showFullPanel)}
       onConfirmPreview={confirmPreview}
       onSend={(chargeId) => saveSent(chargeId, new Date().toISOString())}
       onUndoSend={(chargeId) => saveSent(chargeId, null)}

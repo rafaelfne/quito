@@ -28,9 +28,17 @@ export type ChargesPlan = { newCharges: NewCharge[]; waiting: WaitingGuardian[];
 
 export type ChargesLoad = { ok: true; month: CalendarMonth; trainingMonth?: CalendarMonth | null; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages?: Record<string, string>; dueDates?: Record<string, string>; today?: string; previewConfirmed?: boolean; reminderDays?: number[]; reminderMessages?: Record<string, string[]> } | { ok: false; month: CalendarMonth };
 
-export type ChargesState = { month: CalendarMonth; trainingMonth: CalendarMonth | null; status: "loading" | "ready" | "failed"; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages: Record<string, string>; dueDates: Record<string, string>; today: string; previewConfirmed: boolean; confirmingPreview: boolean; previewMessage: string | null; savingSends: string[]; sendMessage: string | null; savingPayments: string[]; paymentMessage: string | null; reminderDays: number[]; reminderMessages: Record<string, string[]>; savingReminders: string[]; reminderNotice: string | null };
+export type ChargesState = { month: CalendarMonth; trainingMonth: CalendarMonth | null; status: "loading" | "ready" | "failed"; charges: Charge[]; waiting: WaitingGuardian[]; nothingToCharge: string[]; messages: Record<string, string>; dueDates: Record<string, string>; today: string; previewConfirmed: boolean; confirmingPreview: boolean; previewMessage: string | null; savingSends: string[]; sendMessage: string | null; savingPayments: string[]; paymentMessage: string | null; reminderDays: number[]; reminderMessages: Record<string, string[]>; savingReminders: string[]; reminderNotice: string | null; focusOnSingle: boolean; focusedChargeId: string | null };
 
 export const chargesPath = "/charges";
+
+export const notificationOrigin = "notification";
+
+export const notificationTapPath = `${chargesPath}?from=${notificationOrigin}`;
+
+export function isFromNotification(from: string | null): boolean {
+  return from === notificationOrigin;
+}
 
 export const chargeMessages = {
   loadFailed: "Não deu para abrir as cobranças agora. Confira a internet e tente de novo.",
@@ -78,6 +86,7 @@ export const chargeMessages = {
   paidTitle: "Pagas",
   coveredTitle: "Cobertas pelo acerto",
   dueToday: "Vence hoje",
+  showFullPanel: "Ver o painel do dia",
 };
 
 export type ChargeGroups = { today: Charge[]; open: Charge[]; paid: Charge[]; covered: Charge[] };
@@ -205,12 +214,21 @@ function byGuardianName(charges: Charge[]): Charge[] {
   return [...charges].sort((a, b) => a.guardian_name.localeCompare(b.guardian_name, "pt-BR", { sensitivity: "base" }));
 }
 
-export async function syncMonthCharges(client: LessonsClient, month: CalendarMonth, today: string): Promise<ChargesLoad> {
+export type MonthPlanLoad = { ok: true; trainingMonth: CalendarMonth | null; existing: Charge[]; plan: ChargesPlan } | { ok: false };
+
+export async function loadMonthPlan(client: LessonsClient, month: CalendarMonth, today: string): Promise<MonthPlanLoad> {
   const [closing, existing, earlier, training] = await Promise.all([loadClosingMonth(client, month), loadMonthCharges(client, month), loadEarlierCharges(client, month), loadTrainingMonth(client)]);
-  if (!closing.ok || existing === null || earlier === null || !training.ok) return { ok: false, month };
+  if (!closing.ok || existing === null || earlier === null || !training.ok) return { ok: false };
   const { trainingMonth } = training;
-  if (isTrainingMonth(month, trainingMonth)) return { ok: true, month, trainingMonth, charges: byGuardianName(existing), waiting: [], nothingToCharge: [] };
-  const { newCharges, waiting, nothingToCharge } = planMonthCharges(buildMonthClosing(closing, month, today), month, existing, pendingAdjustments(earlier, closing.marks));
+  if (isTrainingMonth(month, trainingMonth)) return { ok: true, trainingMonth, existing, plan: { newCharges: [], waiting: [], nothingToCharge: [] } };
+  return { ok: true, trainingMonth, existing, plan: planMonthCharges(buildMonthClosing(closing, month, today), month, existing, pendingAdjustments(earlier, closing.marks)) };
+}
+
+export async function syncMonthCharges(client: LessonsClient, month: CalendarMonth, today: string): Promise<ChargesLoad> {
+  const planned = await loadMonthPlan(client, month, today);
+  if (!planned.ok) return { ok: false, month };
+  const { trainingMonth, existing, plan } = planned;
+  const { newCharges, waiting, nothingToCharge } = plan;
   if (newCharges.length === 0) return { ok: true, month, trainingMonth, charges: byGuardianName(existing), waiting, nothingToCharge };
   if (!(await insertNewCharges(client, newCharges))) return { ok: false, month };
   const charges = await loadMonthCharges(client, month);
@@ -232,8 +250,8 @@ export async function syncChargesWithMessages(client: LessonsClient, month: Cale
   };
 }
 
-export function initialCharges(month: CalendarMonth): ChargesState {
-  return { month, trainingMonth: null, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null, savingPayments: [], paymentMessage: null, reminderDays: [], reminderMessages: {}, savingReminders: [], reminderNotice: null };
+export function initialCharges(month: CalendarMonth, focusOnSingle = false): ChargesState {
+  return { month, trainingMonth: null, status: "loading", charges: [], waiting: [], nothingToCharge: [], messages: {}, dueDates: {}, today: "", previewConfirmed: false, confirmingPreview: false, previewMessage: null, savingSends: [], sendMessage: null, savingPayments: [], paymentMessage: null, reminderDays: [], reminderMessages: {}, savingReminders: [], reminderNotice: null, focusOnSingle, focusedChargeId: null };
 }
 
 export function startReloadingCharges(state: ChargesState): ChargesState {
@@ -243,7 +261,22 @@ export function startReloadingCharges(state: ChargesState): ChargesState {
 export function applyChargesLoad(state: ChargesState, result: ChargesLoad): ChargesState {
   if (!result.ok) return { ...state, status: "failed" };
   const { trainingMonth = null, charges, waiting, nothingToCharge, messages = {}, dueDates = {}, today = "", previewConfirmed = false, reminderDays = [], reminderMessages = {} } = result;
-  return { ...state, status: "ready", trainingMonth, charges, waiting, nothingToCharge, messages, dueDates, today, previewConfirmed, reminderDays, reminderMessages };
+  const loaded: ChargesState = { ...state, status: "ready", trainingMonth, charges, waiting, nothingToCharge, messages, dueDates, today, previewConfirmed, reminderDays, reminderMessages };
+  if (!state.focusOnSingle) return loaded;
+  return { ...loaded, focusOnSingle: false, focusedChargeId: singleChargeToSend(loaded)?.id ?? null };
+}
+
+export function singleChargeToSend(state: ChargesState): Charge | null {
+  const { today } = groupCharges(state);
+  return today.length === 1 && !waitsForMarks(state.waiting) ? today[0] : null;
+}
+
+export function focusedChargeOf(state: ChargesState): Charge | null {
+  return state.charges.find((charge) => charge.id === state.focusedChargeId) ?? null;
+}
+
+export function showFullPanel(state: ChargesState): ChargesState {
+  return { ...state, focusOnSingle: false, focusedChargeId: null };
 }
 
 export function isTrainingCharges(state: Pick<ChargesState, "month" | "trainingMonth" | "charges">): boolean {

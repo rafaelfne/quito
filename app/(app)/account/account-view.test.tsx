@@ -3,6 +3,7 @@ import { describe, expect, test, vi } from "vitest";
 import type { AccountResult } from "@/lib/account";
 
 vi.mock("@/lib/supabase", () => ({ supabase: { auth: {} } }));
+vi.mock("./notification-time-section", () => ({ NotificationTimeSection: () => <p>Horário do aviso</p> }));
 
 const { AccountView } = await import("./account-view");
 
@@ -50,6 +51,10 @@ describe("tela de conta", () => {
     expect(render({ ok: true, email: "ana@escola.com", method: "google" })).toContain("Apagar conta");
     expect(render(null)).not.toContain("Apagar conta");
     expect(render({ ok: false, message: "Falhou aqui." })).not.toContain("Apagar conta");
+  });
+
+  test("mostra o horário do aviso", () => {
+    expect(render({ ok: true, email: "ana@escola.com", method: null })).toContain("Horário do aviso");
   });
 
   test("tem caminho de volta para o painel do mês", () => {

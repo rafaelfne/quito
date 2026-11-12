@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { DeleteAccount } from "@/app/(app)/account/delete-account";
+import { NotificationTimeSection } from "@/app/(app)/account/notification-time-section";
+import { NotificationsSection } from "@/app/(app)/account/notifications-section";
 import { SignOutButton } from "@/app/(app)/sign-out-button";
 import { Button } from "@/components/ui/button";
 import { signInMethodLabels, type AccountResult } from "@/lib/account";
@@ -55,6 +57,8 @@ export function AccountView({
         </Link>
       </header>
       <AccountDetailsView account={account} onRetry={onRetry} />
+      <NotificationsSection />
+      <NotificationTimeSection />
       <SignOutButton onError={onSignOutError} />
       {signOutMessage ? (
         <p className="text-sm" role="alert">
