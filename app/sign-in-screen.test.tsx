@@ -141,6 +141,13 @@ describe("tela de entrada", () => {
     expect(html).not.toContain("Senha");
   });
 
+  test("mostra a chamada do Quitô acima do formulário", () => {
+    const html = renderToStaticMarkup(<SignInScreen />);
+    const hero = html.indexOf("Cobre sem constrangimento");
+    expect(hero).toBeGreaterThan(-1);
+    expect(hero).toBeLessThan(html.indexOf("<form"));
+  });
+
   test("liga cada botão ao passo certo, usando o login do Supabase", async () => {
     const { props } = renderCapturing();
     props!.onSubmitEmail();

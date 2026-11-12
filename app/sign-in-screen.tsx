@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SignInForm } from "@/app/sign-in-form";
+import { SignInHero } from "@/app/sign-in-hero";
 import { googleReturnUrl, realBrowser, startGoogleSignIn } from "@/lib/google-sign-in";
 import { cleanCode, editEmail, initialSignIn, normalizeEmail, resendCode, submitCode, submitEmail, type SignInAuth, type SignInState } from "@/lib/sign-in";
 import { destinationFrom } from "@/lib/session";
@@ -56,7 +57,8 @@ export function SignInScreen() {
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center p-8">
+    <main className="flex flex-1 flex-col items-center justify-center gap-8 p-8">
+      <SignInHero />
       <SignInForm
         state={state}
         busy={busy}
